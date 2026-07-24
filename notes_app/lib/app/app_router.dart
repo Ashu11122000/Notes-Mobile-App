@@ -53,7 +53,11 @@ final class AppRouter {
 
       GoRoute(
         path: '/register',
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) {
+          return const Scaffold(
+            body: Center(child: Text('Register Screen')),
+          );
+        },
       ),
 
       GoRoute(
