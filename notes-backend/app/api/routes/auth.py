@@ -1,81 +1,157 @@
-from fastapi import APIRouter, Depends, HTTPException, status  # type: ignore[import]
-from sqlalchemy.orm import Session # type: ignore
+"""
+===============================================================================
+File: auth.py
+===============================================================================
 
+Authentication Routes
+
+Responsibilities
+----------------------------------------------------------------------------
+- Register new users.
+- Authenticate existing users.
+- Generate JWT access tokens.
+- Return authenticated user information.
+- Delegate business logic to the service layer.
+
+Architecture
+----------------------------------------------------------------------------
+Client
+   │
+   ▼
+Authentication Routes
+   │
+   ▼
+User Service
+   │
+   ▼
+Database
+
+Notes
+----------------------------------------------------------------------------
+- Compatible with FastAPI.
+- JWT Authentication.
+- Swagger/OpenAPI documented.
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user
+from app.core.security import create_access_token, verify_password
 from app.db.session import get_db
+from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, UserResponse
 from app.services.user_service import create_user, get_user_by_email
-from app.core.security import verify_password, create_access_token
-from app.api.deps import get_current_user
 
 router = APIRouter(
     prefix="/auth",
-    tags=["Auth"]
+    tags=["Authentication"],
 )
 
 
+# =============================================================================
 # Register
-@router.post("/register", status_code=status.HTTP_201_CREATED)
+# =============================================================================
+
+
+@router.post(
+    "/register",
+    status_code=status.HTTP_201_CREATED,
+    summary="Register User",
+    description="Create a new user account.",
+)
 def register(
     user: UserCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    if existing_user := get_user_by_email(db, user.email):
-        return {
-            "message": "User already exists",
-            "user_id": existing_user.id
-        }
+    """
+    Register a new user.
+    """
+
+    existing_user = get_user_by_email(
+        db=db,
+        email=user.email,
+    )
+
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A user with this email already exists.",
+        )
 
     new_user = create_user(
         db=db,
         email=user.email,
-        password=user.password
+        password=user.password,
     )
 
     return {
-        "message": "User registered successfully",
-        "user_id": new_user.id
+        "message": "User registered successfully.",
+        "user_id": new_user.id,
     }
 
 
+# =============================================================================
 # Login
-@router.post("/login")
+# =============================================================================
+
+
+@router.post(
+    "/login",
+    summary="Login User",
+    description="Authenticate a user and return a JWT access token.",
+)
 def login(
     user: UserLogin,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    db_user = get_user_by_email(db, user.email)
+    """
+    Authenticate a user.
+    """
 
-    if not db_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid email or password"
-        )
+    db_user = get_user_by_email(
+        db=db,
+        email=user.email,
+    )
 
-    if not verify_password(
+    if db_user is None or not verify_password(
         user.password,
-        db_user.hashed_password
+        db_user.hashed_password,
     ):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid email or password"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password.",
         )
 
     access_token = create_access_token(
         {
             "sub": db_user.email,
-            "role": db_user.role
+            "role": db_user.role,
         }
     )
 
     return {
         "access_token": access_token,
-        "token_type": "bearer"
+        "token_type": "bearer",
     }
 
 
+# =============================================================================
 # Current User
-@router.get("/me", response_model=UserResponse)
+# =============================================================================
+
+
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="Get Current User",
+    description="Return the currently authenticated user.",
+)
 def get_me(
-    current_user=Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
+    """
+    Retrieve the authenticated user's profile.
+    """
+
     return current_user

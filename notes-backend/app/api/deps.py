@@ -1,33 +1,78 @@
-from typing import List
+"""
+===============================================================================
+File: deps.py
+===============================================================================
 
-from fastapi import Depends, HTTPException, status # type: ignore
-from fastapi.security import OAuth2PasswordBearer # type: ignore
-from sqlalchemy.orm import Session # type: ignore
+Authentication & Authorization Dependencies
 
-from app.db.session import get_db
-from app.services.user_service import get_user_by_email
+Responsibilities
+----------------------------------------------------------------------------
+- Validate JWT access tokens.
+- Retrieve the authenticated user.
+- Enforce account status.
+- Provide Role-Based Access Control (RBAC) dependencies.
+- Keep route handlers clean and reusable.
+
+Architecture
+----------------------------------------------------------------------------
+Request
+   │
+Bearer Token
+   │
+JWT Validation
+   │
+Current User
+   │
+Role Validation
+   │
+Protected Endpoint
+
+Notes
+----------------------------------------------------------------------------
+- Compatible with FastAPI.
+- JWT Authentication.
+- Supports Single Role Authorization.
+- Supports Multiple Role Authorization.
+"""
+
+from collections.abc import Callable
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
+
 from app.core.security import decode_access_token
+from app.db.session import get_db
 from app.models.user import User
+from app.services.user_service import get_user_by_email
 
+# =============================================================================
+# OAuth2 Authentication Scheme
+# =============================================================================
 
-# OAuth2 Bearer Token
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/auth/login"
+    tokenUrl="/auth/login",
 )
 
+# =============================================================================
+# Current Authenticated User
+# =============================================================================
 
-# Get Current User
+
 def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> User:
+    """
+    Validate JWT token and return the authenticated user.
+    """
 
     payload = decode_access_token(token)
 
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token"
+            detail="Invalid or expired access token.",
         )
 
     email = payload.get("sub")
@@ -35,37 +80,48 @@ def get_current_user(
     if not email:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload"
+            detail="Invalid token payload.",
         )
 
-    user = get_user_by_email(db, email)
+    user = get_user_by_email(
+        db=db,
+        email=email,
+    )
 
-    if not user:
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            detail="User not found.",
         )
 
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive"
+            detail="User account is inactive.",
         )
 
     return user
 
 
+# =============================================================================
 # Single Role Authorization
-def require_role(required_role: str):
+# =============================================================================
+
+
+def require_role(
+    required_role: str,
+) -> Callable:
+    """
+    Require exactly one role.
+    """
 
     def role_checker(
-        current_user: User = Depends(get_current_user)
+        current_user: User = Depends(get_current_user),
     ) -> User:
-
         if current_user.role != required_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions"
+                detail="Insufficient permissions.",
             )
 
         return current_user
@@ -73,17 +129,25 @@ def require_role(required_role: str):
     return role_checker
 
 
+# =============================================================================
 # Multiple Role Authorization
-def require_roles(allowed_roles: List[str]):
+# =============================================================================
+
+
+def require_roles(
+    allowed_roles: list[str],
+) -> Callable:
+    """
+    Require one of multiple allowed roles.
+    """
 
     def role_checker(
-        current_user: User = Depends(get_current_user)
+        current_user: User = Depends(get_current_user),
     ) -> User:
-
         if current_user.role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied"
+                detail="Access denied.",
             )
 
         return current_user
