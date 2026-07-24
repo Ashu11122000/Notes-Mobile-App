@@ -3,17 +3,26 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/constants/app_routes.dart';
+import '../features/auth/presentation/screens/login_screen.dart';
+import '../features/auth/presentation/screens/register_screen.dart';
+import '../features/auth/presentation/screens/splash_screen.dart';
 
+/// ============================================================================
+/// File: app_router.dart
+/// ============================================================================
+///
 /// Centralized application router.
 ///
-/// Responsibilities:
-/// - Define application routes
-/// - Configure global navigation
-/// - Handle unknown routes
-/// - Prepare for authentication redirects
+/// Responsibilities
+/// ----------------------------------------------------------------------------
+/// - Defines all application routes.
+/// - Provides a single navigation entry point.
+/// - Handles unknown routes.
+/// - Prepares for authentication redirects.
 ///
-/// Authentication redirects will be added after the
-/// authentication module is implemented.
+/// Authentication redirects will be added after the authentication
+/// screens are fully implemented.
+/// ============================================================================
 final class AppRouter {
   const AppRouter._();
 
@@ -29,20 +38,30 @@ final class AppRouter {
 
     debugLogDiagnostics: kDebugMode,
 
-    // Authentication redirects will be added later.
+    // Authentication redirect will be implemented later.
     // redirect: (context, state) {},
     routes: <RouteBase>[
       GoRoute(
         path: AppRoutes.splash,
-        builder: (_, __) => const SizedBox.shrink(),
+        builder: (context, state) => const SplashScreen(),
       ),
+
       GoRoute(
         path: AppRoutes.login,
-        builder: (_, __) => const SizedBox.shrink(),
+        builder: (context, state) => const LoginScreen(),
       ),
+
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
+
       GoRoute(
         path: AppRoutes.notes,
-        builder: (_, __) => const SizedBox.shrink(),
+        builder: (context, state) {
+          // Placeholder until the Notes feature is implemented.
+          return const Scaffold(body: Center(child: Text('Notes Screen')));
+        },
       ),
     ],
 
