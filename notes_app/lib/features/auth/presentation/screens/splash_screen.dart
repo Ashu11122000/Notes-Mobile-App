@@ -1,34 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_routes.dart';
+import '../../../../shared/widgets/app_logo.dart';
+import '../../../../shared/widgets/loading_indicator.dart';
 import '../providers/auth_provider.dart';
 
 /// ============================================================================
-/// File: splash_screen.dart
-/// ============================================================================
-///
 /// Splash Screen
+/// ============================================================================
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Displays the application splash UI.
-/// - Attempts automatic login using the stored JWT.
-/// - Redirects the user to the appropriate screen.
-/// - Contains no business logic.
-///
-/// Architecture
-/// ----------------------------------------------------------------------------
-///
-/// SplashScreen
-///        ↓
-/// AuthProvider
-///        ↓
-/// AuthRepository
-///        ↓
-/// AuthRemoteDataSource
-///        ↓
-/// FastAPI
+/// - Displays the application splash screen.
+/// - Attempts automatic login.
+/// - Redirects to Login or Notes.
+/// - Contains no authentication business logic.
 /// ============================================================================
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -48,41 +36,38 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initialize() async {
-    final AuthProvider authProvider = context.read<AuthProvider>();
+    final authProvider = context.read<AuthProvider>();
 
-    final bool isLoggedIn = await authProvider.autoLogin();
+    final isLoggedIn = await authProvider.autoLogin();
 
     if (!mounted) {
       return;
     }
 
     if (isLoggedIn) {
-      Navigator.pushReplacementNamed(context, AppRoutes.notes);
+      context.go(AppRoutes.notes);
     } else {
-      Navigator.pushReplacementNamed(context, AppRoutes.login);
+      context.go(AppRoutes.login);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
-    return Scaffold(
+    return const Scaffold(
       body: SafeArea(
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Icon(
-                Icons.sticky_note_2_rounded,
-                size: 80,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(height: 24),
-              Text('Notes App', style: theme.textTheme.headlineMedium),
-              const SizedBox(height: 32),
-              const CircularProgressIndicator(),
-            ],
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AppLogo(),
+
+                SizedBox(height: 48),
+
+                LoadingIndicator(message: 'Loading...'),
+              ],
+            ),
           ),
         ),
       ),

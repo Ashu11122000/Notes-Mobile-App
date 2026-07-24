@@ -1,16 +1,27 @@
 /// Centralized application route names.
 ///
-/// All routes used by GoRouter should be defined here to avoid
-/// hardcoded strings throughout the application.
+/// All application routes used by GoRouter should be defined here.
+/// This avoids hardcoded route strings throughout the application.
 final class AppRoutes {
   const AppRoutes._();
 
-  /// Splash Screen
+  // ===========================================================================
+  // Authentication
+  // ===========================================================================
+
+  /// Splash screen.
   static const String splash = '/';
 
-  /// Authentication
+  /// Login screen.
   static const String login = '/login';
 
-  /// Notes (Home)
+  /// Register screen.
+  static const String register = '/register';
+
+  // ===========================================================================
+  // Notes
+  // ===========================================================================
+
+  /// Notes home screen.
   static const String notes = '/notes';
 }

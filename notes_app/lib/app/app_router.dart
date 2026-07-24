@@ -20,8 +20,8 @@ import '../features/auth/presentation/screens/splash_screen.dart';
 /// - Handles unknown routes.
 /// - Prepares for authentication redirects.
 ///
-/// Authentication redirects will be added after the authentication
-/// screens are fully implemented.
+/// Authentication redirects will be implemented after the authentication
+/// flow is fully completed and tested.
 /// ============================================================================
 final class AppRouter {
   const AppRouter._();
@@ -33,9 +33,7 @@ final class AppRouter {
   /// Application router.
   static final GoRouter router = GoRouter(
     navigatorKey: navigatorKey,
-
     initialLocation: AppRoutes.splash,
-
     debugLogDiagnostics: kDebugMode,
 
     // Authentication redirect will be implemented later.
@@ -53,11 +51,7 @@ final class AppRouter {
 
       GoRoute(
         path: '/register',
-        builder: (context, state) {
-          return const Scaffold(
-            body: Center(child: Text('Register Screen')),
-          );
-        },
+        builder: (context, state) => const RegisterScreen(),
       ),
 
       GoRoute(
