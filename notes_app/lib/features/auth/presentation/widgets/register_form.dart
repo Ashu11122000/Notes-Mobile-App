@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../shared/widgets/custom_text_field.dart';
 import '../../../../shared/widgets/primary_button.dart';
@@ -55,6 +56,9 @@ class _RegisterFormState extends State<RegisterForm> {
       return;
     }
 
+    // Notify the platform that the autofill session has completed.
+    TextInput.finishAutofillContext();
+
     await widget.onSubmit(
       _emailController.text.trim(),
       _passwordController.text,
@@ -101,9 +105,9 @@ class _RegisterFormState extends State<RegisterForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Form(
-      key: _formKey,
-      child: AutofillGroup(
+    return AutofillGroup(
+      child: Form(
+        key: _formKey,
         child: Column(
           children: [
             CustomTextField(
@@ -116,7 +120,9 @@ class _RegisterFormState extends State<RegisterForm> {
               autofillHints: const [AutofillHints.email],
               validator: _validateEmail,
             ),
+
             const SizedBox(height: 16),
+
             CustomTextField(
               controller: _passwordController,
               labelText: 'Password',
@@ -127,7 +133,9 @@ class _RegisterFormState extends State<RegisterForm> {
               autofillHints: const [AutofillHints.newPassword],
               validator: _validatePassword,
             ),
+
             const SizedBox(height: 16),
+
             CustomTextField(
               controller: _confirmPasswordController,
               labelText: 'Confirm Password',
@@ -139,7 +147,9 @@ class _RegisterFormState extends State<RegisterForm> {
               validator: _validateConfirmPassword,
               onFieldSubmitted: (_) => _submit(),
             ),
+
             const SizedBox(height: 24),
+
             PrimaryButton(
               text: 'Create Account',
               isLoading: widget.isLoading,

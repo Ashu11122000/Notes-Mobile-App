@@ -50,7 +50,7 @@ final class AppRouter {
       ),
 
       GoRoute(
-        path: '/register',
+        path: AppRoutes.register,
         builder: (context, state) => const RegisterScreen(),
       ),
 

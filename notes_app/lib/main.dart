@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import 'package:notes_app/app/app.dart';
-import 'package:notes_app/app/app_initializer.dart';
+import 'app/app.dart';
+import 'app/app_initializer.dart';
+import 'core/services/logger_service.dart';
 
 /// Application entry point.
 ///
@@ -10,7 +13,18 @@ import 'package:notes_app/app/app_initializer.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await AppInitializer.initialize();
+  await runZonedGuarded(
+    () async {
+      await AppInitializer.initialize();
 
-  runApp(const NotesApp());
+      runApp(const NotesApp());
+    },
+    (Object error, StackTrace stackTrace) {
+      LoggerService.error(
+        'Unhandled application error.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    },
+  );
 }

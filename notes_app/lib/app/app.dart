@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:notes_app/app/app_theme.dart';
 
 import 'app_providers.dart';
 import 'app_router.dart';
+import 'app_theme.dart';
 
 /// Root widget of the Notes application.
 ///
@@ -14,6 +14,7 @@ import 'app_router.dart';
 ///
 /// Business logic should never be placed here.
 class NotesApp extends StatelessWidget {
+  /// Creates the root application widget.
   const NotesApp({super.key});
 
   @override
@@ -45,7 +46,11 @@ class NotesApp extends StatelessWidget {
         // Global Builder
         // ---------------------------------------------------------------------
         builder: (context, child) {
-          return child ?? const SizedBox.shrink();
+          return GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: child ?? const SizedBox.shrink(),
+          );
         },
       ),
     );

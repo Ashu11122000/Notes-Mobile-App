@@ -12,15 +12,15 @@ final class AppTheme {
   /// Primary seed color.
   static const Color _seedColor = Color(0xFF2563EB);
 
-  /// Light Theme
+  /// Light Theme.
   static ThemeData get lightTheme => _buildTheme(Brightness.light);
 
-  /// Dark Theme
+  /// Dark Theme.
   static ThemeData get darkTheme => _buildTheme(Brightness.dark);
 
   /// Builds the application theme.
   static ThemeData _buildTheme(Brightness brightness) {
-    final colorScheme = ColorScheme.fromSeed(
+    final ColorScheme colorScheme = ColorScheme.fromSeed(
       seedColor: _seedColor,
       brightness: brightness,
     );
@@ -31,6 +31,9 @@ final class AppTheme {
       colorScheme: colorScheme,
 
       scaffoldBackgroundColor: colorScheme.surface,
+      cardColor: colorScheme.surface,
+
+      visualDensity: VisualDensity.adaptivePlatformDensity,
 
       textTheme: GoogleFonts.interTextTheme(
         brightness == Brightness.dark
@@ -40,9 +43,9 @@ final class AppTheme {
 
       appBarTheme: _appBarTheme(colorScheme),
 
-      cardTheme: _cardTheme(),
+      cardTheme: _cardTheme(colorScheme),
 
-      inputDecorationTheme: _inputDecorationTheme(),
+      inputDecorationTheme: _inputDecorationTheme(colorScheme),
 
       elevatedButtonTheme: _elevatedButtonTheme(),
 
@@ -52,7 +55,10 @@ final class AppTheme {
 
       snackBarTheme: _snackBarTheme(),
 
-      dividerTheme: const DividerThemeData(thickness: 1),
+      dividerTheme: DividerThemeData(
+        color: colorScheme.outlineVariant,
+        thickness: 1,
+      ),
 
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: colorScheme.primary,
@@ -63,15 +69,45 @@ final class AppTheme {
       ),
 
       radioTheme: RadioThemeData(
-        fillColor: WidgetStateProperty.resolveWith(
-          (states) => colorScheme.primary,
-        ),
+        fillColor: WidgetStatePropertyAll(colorScheme.primary),
       ),
 
       switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith(
-          (states) => colorScheme.primary,
+        thumbColor: WidgetStatePropertyAll(colorScheme.primary),
+      ),
+
+      iconTheme: IconThemeData(color: colorScheme.onSurfaceVariant, size: 24),
+
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(foregroundColor: colorScheme.primary),
+      ),
+
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+      ),
+
+      chipTheme: ChipThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        side: BorderSide.none,
+      ),
+
+      listTileTheme: ListTileThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        iconColor: colorScheme.primary,
+      ),
+
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: colorScheme.surface,
+        indicatorColor: colorScheme.primaryContainer,
+      ),
+
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: colorScheme.inverseSurface,
+          borderRadius: BorderRadius.circular(8),
         ),
+        textStyle: TextStyle(color: colorScheme.onInverseSurface),
       ),
 
       textSelectionTheme: TextSelectionThemeData(
@@ -81,10 +117,19 @@ final class AppTheme {
       ),
 
       dialogTheme: DialogThemeData(
+        backgroundColor: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
 
-      bottomSheetTheme: const BottomSheetThemeData(showDragHandle: true),
+      bottomSheetTheme: BottomSheetThemeData(
+        showDragHandle: true,
+        backgroundColor: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+      ),
 
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
@@ -92,8 +137,6 @@ final class AppTheme {
           TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
         },
       ),
-
-      visualDensity: VisualDensity.adaptivePlatformDensity,
     );
   }
 
@@ -104,25 +147,47 @@ final class AppTheme {
       scrolledUnderElevation: 0,
       backgroundColor: colorScheme.surface,
       foregroundColor: colorScheme.onSurface,
+      surfaceTintColor: Colors.transparent,
     );
   }
 
-  static CardThemeData _cardTheme() {
+  static CardThemeData _cardTheme(ColorScheme colorScheme) {
     return CardThemeData(
       elevation: 0,
       margin: EdgeInsets.zero,
+      color: colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     );
   }
 
-  static InputDecorationTheme _inputDecorationTheme() {
+  static InputDecorationTheme _inputDecorationTheme(ColorScheme colorScheme) {
     return InputDecorationTheme(
+      filled: true,
+      fillColor: colorScheme.surfaceContainerHighest,
+
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.outlineVariant),
       ),
+
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.primary, width: 2),
+      ),
+
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.error),
+      ),
+
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.error, width: 2),
       ),
     );
   }

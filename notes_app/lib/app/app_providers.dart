@@ -1,14 +1,10 @@
-// ignore_for_file: duplicate_import
-
 import 'package:flutter/material.dart';
-import 'package:notes_app/features/auth/data/datasources/auth_remote_data_source.dart';
-import 'package:notes_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
-import '../features/auth/data/datasources/auth_remote_data_source.dart';
-import '../features/auth/data/repositories/auth_repository.dart';
-import '../features/auth/presentation/providers/auth_provider.dart';
+import 'package:notes_app/features/auth/data/datasources/auth_remote_data_source.dart';
+import 'package:notes_app/features/auth/data/repositories/auth_repository.dart';
+import 'package:notes_app/features/auth/presentation/providers/auth_provider.dart';
 
 /// Registers all global providers used by the application.
 ///
@@ -29,12 +25,16 @@ import '../features/auth/presentation/providers/auth_provider.dart';
 /// Future
 /// ---------------------------------------------------------------------------
 ///
+/// Additional providers can be registered here as the application grows:
+///
 /// - NotesProvider
 /// - NotificationProvider
 /// - SettingsProvider
 class AppProviders extends StatelessWidget {
-  const AppProviders({required this.child, super.key});
+  /// Creates the root provider container.
+  const AppProviders({super.key, required this.child});
 
+  /// The widget subtree that receives all registered providers.
   final Widget child;
 
   @override
@@ -52,7 +52,7 @@ class AppProviders extends StatelessWidget {
         // Repositories
         // ---------------------------------------------------------------------
         Provider<AuthRepository>(
-          create: (BuildContext context) => AuthRepositoryImpl(
+          create: (context) => AuthRepositoryImpl(
             remoteDataSource: context.read<AuthRemoteDataSource>(),
           ),
         ),
@@ -61,7 +61,7 @@ class AppProviders extends StatelessWidget {
         // Providers
         // ---------------------------------------------------------------------
         ChangeNotifierProvider<AuthProvider>(
-          create: (BuildContext context) =>
+          create: (context) =>
               AuthProvider(repository: context.read<AuthRepository>()),
         ),
       ],

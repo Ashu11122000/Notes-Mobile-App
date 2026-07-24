@@ -33,11 +33,10 @@ class AuthHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const AppLogo(size: 88, showTitle: false),
-
           const SizedBox(height: 24),
-
           Text(
             title,
             textAlign: TextAlign.center,
@@ -45,9 +44,7 @@ class AuthHeader extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-
           const SizedBox(height: 8),
-
           Text(
             subtitle,
             textAlign: TextAlign.center,
