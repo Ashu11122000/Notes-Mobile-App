@@ -1,45 +1,102 @@
-import pytest # type: ignore
+"""
+===============================================================================
+File: conftest.py
+===============================================================================
 
-from fastapi.testclient import TestClient # type: ignore
-from sqlalchemy import create_engine # type: ignore
-from sqlalchemy.orm import sessionmaker # type: ignore
+Pytest Configuration
 
-from app.main import app
+Responsibilities
+----------------------------------------------------------------------------
+- Configure the SQLite test database.
+- Override the application's database dependency.
+- Provide reusable TestClient fixtures.
+- Ensure database isolation between tests.
+
+Architecture
+----------------------------------------------------------------------------
+Pytest
+   │
+   ▼
+SQLite Test Database
+   │
+   ▼
+Dependency Override
+   │
+   ▼
+FastAPI TestClient
+
+Notes
+----------------------------------------------------------------------------
+- Uses SQLite for fast and isolated testing.
+- Creates a fresh database for every test.
+- Automatically overrides the production database dependency.
+"""
+
+from collections.abc import Generator
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
 from app.db.base import Base
 from app.db.session import get_db
+from app.main import app
 
-
+# =============================================================================
 # SQLite Test Database
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+# =============================================================================
+
+TEST_DATABASE_URL = "sqlite:///./test.db"
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False}
+    TEST_DATABASE_URL,
+    connect_args={
+        "check_same_thread": False,
+    },
 )
 
 TestingSessionLocal = sessionmaker(
-    autocommit=False,
+    bind=engine,
     autoflush=False,
-    bind=engine
+    autocommit=False,
+    expire_on_commit=False,
 )
 
+# =============================================================================
+# Dependency Override
+# =============================================================================
 
-# Override Database Dependency
-def override_get_db():
+
+def override_get_db() -> Generator[Session, None, None]:
+    """
+    Override the production database dependency.
+    """
+
     db = TestingSessionLocal()
 
     try:
         yield db
+
     finally:
         db.close()
 
 
 app.dependency_overrides[get_db] = override_get_db
 
+# =============================================================================
+# Test Client Fixture
+# =============================================================================
+
 
 @pytest.fixture(scope="function")
-def test_client():
-    # Fresh database for every test
+def test_client() -> Generator[TestClient, None, None]:
+    """
+    Create a fresh database and TestClient for each test.
+
+    This guarantees test isolation.
+    """
+
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 

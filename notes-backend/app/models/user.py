@@ -1,45 +1,99 @@
-from sqlalchemy import Boolean, Column, Integer, String # type: ignore
-from sqlalchemy.orm import relationship # type: ignore
+from __future__ import annotations
+
+"""
+===============================================================================
+File: user.py
+===============================================================================
+
+User Model
+
+Responsibilities
+----------------------------------------------------------------------------
+- Represent application users.
+- Store authentication credentials.
+- Manage user roles and account status.
+- Define relationships with Notes.
+
+Relationships
+----------------------------------------------------------------------------
+User (1) ──────────────── (*) Notes
+
+Each user can own multiple notes.
+Each note belongs to exactly one user.
+
+Notes
+----------------------------------------------------------------------------
+- Compatible with SQLAlchemy 2.x Typed ORM.
+- Passwords are stored as secure bcrypt hashes.
+- Supports Role-Based Access Control (RBAC).
+"""
+
+from typing import TYPE_CHECKING
+
+from sqlalchemy import Boolean, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
+if TYPE_CHECKING:
+    from app.models.note import Note
+
 
 class User(Base):
+    """
+    SQLAlchemy model representing an authenticated user.
+    """
+
     __tablename__ = "users"
 
-    id = Column(
+    # =========================================================================
+    # Primary Key
+    # =========================================================================
+
+    id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
-        index=True
+        index=True,
     )
 
-    email = Column(
+    # =========================================================================
+    # Authentication
+    # =========================================================================
+
+    email: Mapped[str] = mapped_column(
         String(255),
         unique=True,
         index=True,
-        nullable=False
+        nullable=False,
     )
 
-    hashed_password = Column(
+    hashed_password: Mapped[str] = mapped_column(
         String,
-        nullable=False
+        nullable=False,
     )
 
-    is_active = Column(
-        Boolean,
-        default=True,
-        nullable=False
-    )
+    # =========================================================================
+    # Authorization
+    # =========================================================================
 
-    role = Column(
+    role: Mapped[str] = mapped_column(
         String(50),
         default="user",
-        nullable=False
+        nullable=False,
     )
 
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+
+    # =========================================================================
     # Relationships
-    notes = relationship(
-        "Note",
+    # =========================================================================
+
+    notes: Mapped[list["Note"]] = relationship(
         back_populates="owner",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
