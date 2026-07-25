@@ -5,16 +5,15 @@ import 'note_card.dart';
 import 'pagination_loader.dart';
 
 /// ============================================================================
-/// File: note_list.dart
+/// File: note_grid.dart
 /// ============================================================================
 ///
-/// Reusable Notes List.
+/// Reusable Notes Grid.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Displays a scrollable list of notes.
-/// - Supports infinite scrolling.
-/// - Displays a pagination loader.
+/// - Displays notes in a responsive grid layout.
+/// - Supports pagination.
 /// - Delegates user interactions through callbacks.
 /// - Contains no business logic.
 ///
@@ -22,18 +21,23 @@ import 'pagination_loader.dart';
 /// ----------------------------------------------------------------------------
 /// NotesListScreen
 ///        ↓
-///     NoteList
+///     NoteGrid
 ///        ↓
 ///     NoteCard
 ///
 /// ============================================================================
 
-class NoteList extends StatelessWidget {
-  const NoteList({
+class NoteGrid extends StatelessWidget {
+  const NoteGrid({
     super.key,
     required this.notes,
     this.controller,
     this.isLoadingMore = false,
+    this.crossAxisCount = 2,
+    this.childAspectRatio = 0.9,
+    this.crossAxisSpacing = 16,
+    this.mainAxisSpacing = 16,
+    this.padding = const EdgeInsets.all(16),
     this.onNoteTap,
     this.onEdit,
     this.onDelete,
@@ -45,8 +49,23 @@ class NoteList extends StatelessWidget {
   /// Optional scroll controller.
   final ScrollController? controller;
 
-  /// Indicates whether the next page is currently loading.
+  /// Indicates whether another page is loading.
   final bool isLoadingMore;
+
+  /// Grid columns.
+  final int crossAxisCount;
+
+  /// Aspect ratio of each card.
+  final double childAspectRatio;
+
+  /// Horizontal spacing.
+  final double crossAxisSpacing;
+
+  /// Vertical spacing.
+  final double mainAxisSpacing;
+
+  /// Outer padding.
+  final EdgeInsetsGeometry padding;
 
   /// Called when a note is tapped.
   final ValueChanged<Note>? onNoteTap;
@@ -59,15 +78,20 @@ class NoteList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
+    return GridView.builder(
       controller: controller,
-      padding: const EdgeInsets.all(16),
+      padding: padding,
       physics: const AlwaysScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: childAspectRatio,
+        crossAxisSpacing: crossAxisSpacing,
+        mainAxisSpacing: mainAxisSpacing,
+      ),
       itemCount: notes.length + (isLoadingMore ? 1 : 0),
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         if (index >= notes.length) {
-          return const PaginationLoader();
+          return const PaginationLoader(message: '', padding: EdgeInsets.zero);
         }
 
         final note = notes[index];

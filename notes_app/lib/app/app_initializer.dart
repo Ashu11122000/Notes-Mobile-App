@@ -2,41 +2,66 @@ import '../core/services/logger_service.dart';
 import '../core/services/notification_service.dart';
 import '../core/storage/shared_preferences_service.dart';
 
+/// ============================================================================
+/// File: app_initializer.dart
+/// ============================================================================
+///
 /// Performs one-time application initialization before the UI is launched.
 ///
-/// This class is responsible for initializing all global services required by
-/// the application before the widget tree is built.
-///
-/// Responsibilities:
+/// Responsibilities
+/// ----------------------------------------------------------------------------
 /// - Initialize Logger
 /// - Initialize SharedPreferences
 /// - Initialize Local Notifications
 /// - Initialize future application-wide services
 ///
-/// Keep this class lightweight by delegating initialization logic
-/// to the respective service classes.
+/// Keep this class lightweight by delegating initialization logic to the
+/// respective service classes.
+///
+/// ============================================================================
+
 final class AppInitializer {
   const AppInitializer._();
 
   /// Initializes all application dependencies.
   static Future<void> initialize() async {
-    // -------------------------------------------------------------------------
-    // Logger
-    // -------------------------------------------------------------------------
-    LoggerService.initialize();
+    try {
+      // -----------------------------------------------------------------------
+      // Logger
+      // -----------------------------------------------------------------------
 
-    // -------------------------------------------------------------------------
-    // Shared Preferences
-    // -------------------------------------------------------------------------
-    await SharedPreferencesService.initialize();
+      LoggerService.initialize();
+      LoggerService.info('Application initialization started.');
 
-    // -------------------------------------------------------------------------
-    // Local Notifications
-    // -------------------------------------------------------------------------
-    await NotificationService.instance.initialize();
+      // -----------------------------------------------------------------------
+      // Shared Preferences
+      // -----------------------------------------------------------------------
 
-    // -------------------------------------------------------------------------
-    // Additional global initialization can be added here.
-    // -------------------------------------------------------------------------
+      await SharedPreferencesService.initialize();
+
+      LoggerService.info('SharedPreferences initialized.');
+
+      // -----------------------------------------------------------------------
+      // Local Notifications
+      // -----------------------------------------------------------------------
+
+      await NotificationService.instance.initialize();
+
+      LoggerService.info('NotificationService initialized.');
+
+      // -----------------------------------------------------------------------
+      // Additional global initialization
+      // -----------------------------------------------------------------------
+
+      LoggerService.info('Application initialization completed.');
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Application initialization failed.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
+      rethrow;
+    }
   }
 }
