@@ -12,11 +12,13 @@ import '../../domain/entities/note.dart';
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// - Displays a single note.
-/// - Handles user interactions through callbacks.
-/// - Contains no business logic.
-/// - Supports Material 3.
+/// - Handles note interactions.
+/// - Supports edit and delete actions.
+/// - Displays last updated date.
+/// - Uses a layout safe for ListView.
 ///
-/// ============================================================================
+//// ============================================================================
+
 class NoteCard extends StatelessWidget {
   const NoteCard({
     super.key,
@@ -32,27 +34,28 @@ class NoteCard extends StatelessWidget {
   /// Called when the card is tapped.
   final VoidCallback? onTap;
 
-  /// Called when edit is selected.
+  /// Called when Edit is selected.
   final VoidCallback? onEdit;
 
-  /// Called when delete is selected.
+  /// Called when Delete is selected.
   final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final date = DateFormat.yMMMd().add_jm().format(note.updatedAt);
+    final String date = DateFormat.yMMMd().add_jm().format(note.updatedAt);
 
     return Card(
-      elevation: 0,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      elevation: 1,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               //----------------------------------------------------------------
@@ -66,12 +69,11 @@ class NoteCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                   PopupMenuButton<_NoteCardAction>(
-                    tooltip: 'More',
                     onSelected: (action) {
                       switch (action) {
                         case _NoteCardAction.edit:
@@ -86,18 +88,22 @@ class NoteCard extends StatelessWidget {
                     itemBuilder: (_) => const [
                       PopupMenuItem(
                         value: _NoteCardAction.edit,
-                        child: ListTile(
-                          leading: Icon(Icons.edit_outlined),
-                          title: Text('Edit'),
-                          contentPadding: EdgeInsets.zero,
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined),
+                            SizedBox(width: 12),
+                            Text('Edit'),
+                          ],
                         ),
                       ),
                       PopupMenuItem(
                         value: _NoteCardAction.delete,
-                        child: ListTile(
-                          leading: Icon(Icons.delete_outline),
-                          title: Text('Delete'),
-                          contentPadding: EdgeInsets.zero,
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline),
+                            SizedBox(width: 12),
+                            Text('Delete'),
+                          ],
                         ),
                       ),
                     ],
@@ -111,30 +117,36 @@ class NoteCard extends StatelessWidget {
               // Content
               //----------------------------------------------------------------
               Text(
-                note.content?.trim().isNotEmpty == true
+                (note.content?.trim().isNotEmpty ?? false)
                     ? note.content!
                     : 'No content',
-                maxLines: 5,
+                maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium,
               ),
 
-              const Spacer(),
+              const SizedBox(height: 16),
+
+              const Divider(height: 1),
+
+              const SizedBox(height: 12),
 
               //----------------------------------------------------------------
               // Footer
               //----------------------------------------------------------------
-              const Divider(),
-
               Row(
                 children: [
-                  const Icon(Icons.schedule_outlined, size: 16),
+                  Icon(
+                    Icons.schedule_outlined,
+                    size: 16,
+                    color: theme.colorScheme.primary,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       date,
-                      style: theme.textTheme.bodySmall,
                       overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall,
                     ),
                   ),
                 ],

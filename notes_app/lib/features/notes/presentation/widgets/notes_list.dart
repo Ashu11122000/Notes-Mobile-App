@@ -5,7 +5,7 @@ import 'note_card.dart';
 import 'pagination_loader.dart';
 
 /// ============================================================================
-/// File: note_list.dart
+/// File: notes_list.dart
 /// ============================================================================
 ///
 /// Reusable Notes List.
@@ -20,7 +20,7 @@ import 'pagination_loader.dart';
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
-/// NotesListScreen
+/// NotesScreen
 ///        ↓
 ///     NoteList
 ///        ↓
@@ -45,7 +45,7 @@ class NoteList extends StatelessWidget {
   /// Optional scroll controller.
   final ScrollController? controller;
 
-  /// Indicates whether the next page is currently loading.
+  /// Indicates whether the next page is loading.
   final bool isLoadingMore;
 
   /// Called when a note is tapped.
@@ -70,7 +70,7 @@ class NoteList extends StatelessWidget {
           return const PaginationLoader();
         }
 
-        final note = notes[index];
+        final Note note = notes[index];
 
         return NoteCard(
           note: note,
