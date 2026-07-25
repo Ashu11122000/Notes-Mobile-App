@@ -2,11 +2,25 @@ import 'package:dio/dio.dart';
 
 import '../config/app_config.dart';
 import '../constants/api_constants.dart';
+import '../storage/session_manager.dart';
+import 'dio_interceptor.dart';
 
-/// Singleton wrapper around Dio.
+/// ============================================================================
+/// File: dio_client.dart
+/// ============================================================================
 ///
-/// This class is the application's single entry point for all HTTP
-/// communication with the FastAPI backend.
+/// Singleton Dio Client
+///
+/// Responsibilities
+/// ----------------------------------------------------------------------------
+/// - Provides a single Dio instance.
+/// - Configures base URL.
+/// - Configures timeouts.
+/// - Configures default headers.
+/// - Registers global interceptors.
+///
+/// ============================================================================
+
 final class DioClient {
   DioClient._internal() {
     _dio = Dio(
@@ -15,19 +29,36 @@ final class DioClient {
         connectTimeout: ApiConstants.connectTimeout,
         receiveTimeout: ApiConstants.receiveTimeout,
         sendTimeout: ApiConstants.sendTimeout,
-        headers: <String, String>{
+        responseType: ResponseType.json,
+        headers: const <String, String>{
           ApiConstants.acceptHeader: ApiConstants.applicationJson,
           ApiConstants.contentTypeHeader: ApiConstants.applicationJson,
         },
-        responseType: ResponseType.json,
       ),
     );
+
+    // Register interceptor
+    _dio.interceptors.add(
+      DioInterceptor(tokenProvider: () async => SessionManager.getAccessToken()),
+    );
+
+    // Uncomment only while debugging.
+    //
+    // _dio.interceptors.add(
+    //   LogInterceptor(
+    //     request: true,
+    //     requestBody: true,
+    //     requestHeader: true,
+    //     responseBody: true,
+    //     responseHeader: false,
+    //     error: true,
+    //   ),
+    // );
   }
 
   static final DioClient _instance = DioClient._internal();
 
   late final Dio _dio;
 
-  /// Returns the shared Dio instance.
   static Dio get instance => _instance._dio;
 }

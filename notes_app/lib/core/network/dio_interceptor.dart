@@ -1,74 +1,144 @@
 import 'package:dio/dio.dart';
-import 'package:logger/logger.dart';
 
 import '../constants/api_constants.dart';
+import '../services/logger_service.dart';
 
-/// Centralized Dio interceptor.
+/// ============================================================================
+/// File: dio_interceptor.dart
+/// ============================================================================
 ///
-/// Responsibilities:
-/// - Attach common headers
-/// - Attach JWT token (when available)
-/// - Log requests
-/// - Log responses
-/// - Log errors
+/// Centralized Dio Interceptor
 ///
-/// It must NOT contain:
-/// - Navigation
-/// - Business logic
-/// - Logout logic
-/// - UI logic
+/// Responsibilities
+/// ----------------------------------------------------------------------------
+/// - Adds common HTTP headers.
+/// - Attaches JWT access token when available.
+/// - Logs all HTTP requests.
+/// - Logs all HTTP responses.
+/// - Logs all HTTP errors.
+/// - Does NOT contain business logic.
+/// - Does NOT perform navigation.
+/// - Does NOT perform logout.
+/// - Does NOT retry requests.
+///
+/// Architecture
+/// ----------------------------------------------------------------------------
+/// DioClient
+///      ↓
+/// DioInterceptor
+///      ↓
+/// FastAPI
+///
+/// ============================================================================
+
 class DioInterceptor extends Interceptor {
-  DioInterceptor({Logger? logger, Future<String?> Function()? tokenProvider})
-    : _logger = logger ?? Logger(),
-      _tokenProvider = tokenProvider;
+  const DioInterceptor({Future<String?> Function()? tokenProvider})
+    : _tokenProvider = tokenProvider;
 
-  final Logger _logger;
   final Future<String?> Function()? _tokenProvider;
+
+  // ===========================================================================
+  // Request
+  // ===========================================================================
 
   @override
   Future<void> onRequest(
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    options.headers.putIfAbsent(
-      ApiConstants.acceptHeader,
-      () => ApiConstants.applicationJson,
-    );
+    try {
+      // Default headers
+      options.headers.putIfAbsent(
+        ApiConstants.acceptHeader,
+        () => ApiConstants.applicationJson,
+      );
 
-    options.headers.putIfAbsent(
-      ApiConstants.contentTypeHeader,
-      () => ApiConstants.applicationJson,
-    );
+      options.headers.putIfAbsent(
+        ApiConstants.contentTypeHeader,
+        () => ApiConstants.applicationJson,
+      );
 
-    if (_tokenProvider != null) {
-      final token = await _tokenProvider();
+      // JWT Token
+      if (_tokenProvider != null) {
+        final String? token = await _tokenProvider();
 
-      if (token != null && token.isNotEmpty) {
-        options.headers[ApiConstants.authorizationHeader] =
-            '${ApiConstants.bearerPrefix} $token';
+        if (token != null && token.isNotEmpty) {
+          options.headers[ApiConstants.authorizationHeader] =
+              '${ApiConstants.bearerPrefix} $token';
+        }
       }
+
+      LoggerService.info('''
+==================== HTTP REQUEST ====================
+
+Method : ${options.method}
+URL    : ${options.uri}
+
+Headers:
+${options.headers}
+
+Body:
+${options.data}
+
+======================================================
+''');
+
+      handler.next(options);
+    } catch (error, stackTrace) {
+      LoggerService.error(
+        'Request interceptor failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+      handler.next(options);
     }
-
-    _logger.i('[REQUEST] ${options.method} ${options.uri}');
-
-    handler.next(options);
   }
+
+  // ===========================================================================
+  // Response
+  // ===========================================================================
 
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
-    _logger.i(
-      '[RESPONSE] ${response.statusCode} ${response.requestOptions.uri}',
-    );
+    LoggerService.info('''
+==================== HTTP RESPONSE ====================
+
+Status : ${response.statusCode}
+URL    : ${response.requestOptions.uri}
+
+Response:
+${response.data}
+
+=======================================================
+''');
 
     handler.next(response);
   }
 
+  // ===========================================================================
+  // Error
+  // ===========================================================================
+
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    _logger.e(
-      '[ERROR] ${err.response?.statusCode ?? 'NO_STATUS'} '
-      '${err.requestOptions.uri}',
-      error: err.message,
+    LoggerService.error(
+      '''
+===================== HTTP ERROR ======================
+
+Type    : ${err.type}
+Status  : ${err.response?.statusCode}
+URL     : ${err.requestOptions.uri}
+
+Message :
+${err.message}
+
+Response :
+${err.response?.data}
+
+=======================================================
+''',
+      error: err,
       stackTrace: err.stackTrace,
     );
 

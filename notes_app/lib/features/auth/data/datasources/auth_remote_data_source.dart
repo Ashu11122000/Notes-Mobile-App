@@ -26,17 +26,6 @@ import '../models/user_model.dart';
 /// - Uses the centralized DioClient.
 /// - Uses the centralized LoggerService.
 ///
-/// Architecture
-/// -----------------------------------------------------------------------------
-///
-/// Provider
-///      ↓
-/// Repository
-///      ↓
-/// AuthRemoteDataSource
-///      ↓
-/// FastAPI
-///
 /// =============================================================================
 
 abstract interface class AuthRemoteDataSource {
@@ -52,20 +41,33 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   final Dio _dio;
 
+  // ===========================================================================
+  // Register
+  // ===========================================================================
+
   @override
   Future<RegisterResponseModel> register(RegisterRequestModel request) async {
     try {
-      LoggerService.info('Register API request started.');
+      LoggerService.info('================ REGISTER REQUEST ================');
+      LoggerService.info('Base URL : ${_dio.options.baseUrl}');
+      LoggerService.info('Endpoint : ${ApiConstants.register}');
+      LoggerService.info(
+        'Full URL : ${_dio.options.baseUrl}${ApiConstants.register}',
+      );
+      LoggerService.info('Request Body : ${request.toJson()}');
 
       final Response<dynamic> response = await _dio.post<dynamic>(
         ApiConstants.register,
         data: request.toJson(),
       );
 
-      LoggerService.info('Register API request completed.');
+      LoggerService.info('================ REGISTER RESPONSE ================');
+      LoggerService.info('Status Code : ${response.statusCode}');
+      LoggerService.info('Response Data : ${response.data}');
+      LoggerService.info('Response Type : ${response.data.runtimeType}');
 
       return RegisterResponseModel.fromJson(
-        response.data as Map<String, dynamic>,
+        Map<String, dynamic>.from(response.data as Map),
       );
     } on DioException catch (exception, stackTrace) {
       LoggerService.error(
@@ -73,6 +75,12 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         error: exception,
         stackTrace: stackTrace,
       );
+
+      if (exception.response != null) {
+        LoggerService.error('Status Code : ${exception.response?.statusCode}');
+
+        LoggerService.error('Response Body : ${exception.response?.data}');
+      }
 
       rethrow;
     } catch (exception, stackTrace) {
@@ -86,25 +94,42 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     }
   }
 
+  // ===========================================================================
+  // Login
+  // ===========================================================================
+
   @override
   Future<LoginResponseModel> login(LoginRequestModel request) async {
     try {
-      LoggerService.info('Login API request started.');
+      LoggerService.info('================ LOGIN REQUEST ================');
+      LoggerService.info('Base URL : ${_dio.options.baseUrl}');
+      LoggerService.info('Endpoint : ${ApiConstants.login}');
+      LoggerService.info('Request Body : ${request.toJson()}');
 
       final Response<dynamic> response = await _dio.post<dynamic>(
         ApiConstants.login,
         data: request.toJson(),
       );
 
-      LoggerService.info('Login API request completed.');
+      LoggerService.info('================ LOGIN RESPONSE ================');
+      LoggerService.info('Status Code : ${response.statusCode}');
+      LoggerService.info('Response Data : ${response.data}');
 
-      return LoginResponseModel.fromJson(response.data as Map<String, dynamic>);
+      return LoginResponseModel.fromJson(
+        Map<String, dynamic>.from(response.data as Map),
+      );
     } on DioException catch (exception, stackTrace) {
       LoggerService.error(
         'Login API failed.',
         error: exception,
         stackTrace: stackTrace,
       );
+
+      if (exception.response != null) {
+        LoggerService.error('Status Code : ${exception.response?.statusCode}');
+
+        LoggerService.error('Response Body : ${exception.response?.data}');
+      }
 
       rethrow;
     } catch (exception, stackTrace) {
@@ -118,24 +143,44 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     }
   }
 
+  // ===========================================================================
+  // Current User
+  // ===========================================================================
+
   @override
   Future<UserModel> getCurrentUser() async {
     try {
-      LoggerService.info('Current user API request started.');
+      LoggerService.info(
+        '================ CURRENT USER REQUEST ================',
+      );
+      LoggerService.info('Base URL : ${_dio.options.baseUrl}');
+      LoggerService.info('Endpoint : ${ApiConstants.currentUser}');
 
       final Response<dynamic> response = await _dio.get<dynamic>(
         ApiConstants.currentUser,
       );
 
-      LoggerService.info('Current user API request completed.');
+      LoggerService.info(
+        '================ CURRENT USER RESPONSE ================',
+      );
+      LoggerService.info('Status Code : ${response.statusCode}');
+      LoggerService.info('Response Data : ${response.data}');
 
-      return UserModel.fromJson(response.data as Map<String, dynamic>);
+      return UserModel.fromJson(
+        Map<String, dynamic>.from(response.data as Map),
+      );
     } on DioException catch (exception, stackTrace) {
       LoggerService.error(
         'Current user API failed.',
         error: exception,
         stackTrace: stackTrace,
       );
+
+      if (exception.response != null) {
+        LoggerService.error('Status Code : ${exception.response?.statusCode}');
+
+        LoggerService.error('Response Body : ${exception.response?.data}');
+      }
 
       rethrow;
     } catch (exception, stackTrace) {

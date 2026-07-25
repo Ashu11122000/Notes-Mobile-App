@@ -57,7 +57,6 @@ final class LoggerService {
   static void error(dynamic message, {Object? error, StackTrace? stackTrace}) {
     _logger.e(message, error: error, stackTrace: stackTrace);
   }
-
   /// Fatal log.
   static void fatal(dynamic message, {Object? error, StackTrace? stackTrace}) {
     _logger.f(message, error: error, stackTrace: stackTrace);
