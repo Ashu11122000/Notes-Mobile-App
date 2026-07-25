@@ -1,13 +1,27 @@
+/// ============================================================================
+/// File: api_constants.dart
+/// ============================================================================
+///
 /// Centralized API constants.
 ///
-/// This class contains API-related constants that are shared across
-/// the application. Environment-specific values (such as the base URL)
-/// should be managed separately through configuration.
+/// Responsibilities
+/// ----------------------------------------------------------------------------
+/// - Defines API endpoints.
+/// - Defines HTTP headers.
+/// - Defines timeout values.
+/// - Provides helper methods for dynamic endpoints.
+/// - Keeps API-related constants in a single location.
+///
+/// Environment-specific values (such as the base URL) should be managed
+/// separately through configuration.
+///
+/// ============================================================================
+
 final class ApiConstants {
   const ApiConstants._();
 
   // ===========================================================================
-  // API Version
+  // API
   // ===========================================================================
 
   static const String apiVersion = '/api/v1';
@@ -36,8 +50,10 @@ final class ApiConstants {
 
   static const String bearerPrefix = 'Bearer';
 
+  static const String bearerTokenPrefix = '$bearerPrefix ';
+
   // ===========================================================================
-  // Authentication
+  // Authentication Endpoints
   // ===========================================================================
 
   static const String register = '$apiVersion/auth/register';
@@ -47,10 +63,14 @@ final class ApiConstants {
   static const String currentUser = '$apiVersion/auth/me';
 
   // ===========================================================================
-  // Notes
+  // Notes Endpoints
   // ===========================================================================
 
+  /// Collection endpoint.
   static const String notes = '$apiVersion/notes';
+
+  /// Returns the endpoint for a specific note.
+  static String noteById(int noteId) => '$notes/$noteId';
 
   // ===========================================================================
   // Health

@@ -31,7 +31,7 @@ import '../services/logger_service.dart';
 ///
 /// ============================================================================
 
-class DioInterceptor extends Interceptor {
+final class DioInterceptor extends Interceptor {
   const DioInterceptor({Future<String?> Function()? tokenProvider})
     : _tokenProvider = tokenProvider;
 
@@ -47,7 +47,10 @@ class DioInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     try {
-      // Default headers
+      // -----------------------------------------------------------------------
+      // Default Headers
+      // -----------------------------------------------------------------------
+
       options.headers.putIfAbsent(
         ApiConstants.acceptHeader,
         () => ApiConstants.applicationJson,
@@ -58,17 +61,64 @@ class DioInterceptor extends Interceptor {
         () => ApiConstants.applicationJson,
       );
 
-      // JWT Token
+      // -----------------------------------------------------------------------
+      // Authorization Header
+      // -----------------------------------------------------------------------
+
       if (_tokenProvider != null) {
         final String? token = await _tokenProvider();
 
         if (token != null && token.isNotEmpty) {
           options.headers[ApiConstants.authorizationHeader] =
-              '${ApiConstants.bearerPrefix} $token';
+              '${ApiConstants.bearerTokenPrefix}$token';
         }
       }
 
-      LoggerService.info('''
+      _logRequest(options);
+
+      handler.next(options);
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed during request interception.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
+      handler.next(options);
+    }
+  }
+
+  // ===========================================================================
+  // Response
+  // ===========================================================================
+
+  @override
+  void onResponse(
+    Response<dynamic> response,
+    ResponseInterceptorHandler handler,
+  ) {
+    _logResponse(response);
+
+    handler.next(response);
+  }
+
+  // ===========================================================================
+  // Error
+  // ===========================================================================
+
+  @override
+  void onError(DioException exception, ErrorInterceptorHandler handler) {
+    _logError(exception);
+
+    handler.next(exception);
+  }
+
+  // ===========================================================================
+  // Private Logging Helpers
+  // ===========================================================================
+
+  void _logRequest(RequestOptions options) {
+    LoggerService.info('''
 ==================== HTTP REQUEST ====================
 
 Method : ${options.method}
@@ -82,25 +132,9 @@ ${options.data}
 
 ======================================================
 ''');
-
-      handler.next(options);
-    } catch (error, stackTrace) {
-      LoggerService.error(
-        'Request interceptor failed.',
-        error: error,
-        stackTrace: stackTrace,
-      );
-
-      handler.next(options);
-    }
   }
 
-  // ===========================================================================
-  // Response
-  // ===========================================================================
-
-  @override
-  void onResponse(Response response, ResponseInterceptorHandler handler) {
+  void _logResponse(Response<dynamic> response) {
     LoggerService.info('''
 ==================== HTTP RESPONSE ====================
 
@@ -112,36 +146,27 @@ ${response.data}
 
 =======================================================
 ''');
-
-    handler.next(response);
   }
 
-  // ===========================================================================
-  // Error
-  // ===========================================================================
-
-  @override
-  void onError(DioException err, ErrorInterceptorHandler handler) {
+  void _logError(DioException exception) {
     LoggerService.error(
       '''
 ===================== HTTP ERROR ======================
 
-Type    : ${err.type}
-Status  : ${err.response?.statusCode}
-URL     : ${err.requestOptions.uri}
+Type    : ${exception.type}
+Status  : ${exception.response?.statusCode}
+URL     : ${exception.requestOptions.uri}
 
 Message :
-${err.message}
+${exception.message}
 
 Response :
-${err.response?.data}
+${exception.response?.data}
 
 =======================================================
 ''',
-      error: err,
-      stackTrace: err.stackTrace,
+      error: exception,
+      stackTrace: exception.stackTrace,
     );
-
-    handler.next(err);
   }
 }

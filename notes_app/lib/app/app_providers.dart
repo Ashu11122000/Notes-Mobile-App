@@ -6,63 +6,103 @@ import 'package:notes_app/features/auth/data/datasources/auth_remote_data_source
 import 'package:notes_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:notes_app/features/auth/presentation/providers/auth_provider.dart';
 
-/// Registers all global providers used by the application.
+import 'package:notes_app/features/notes/data/datasources/notes_remote_data_source.dart';
+import 'package:notes_app/features/notes/data/repositories/notes_repository_impl.dart';
+import 'package:notes_app/features/notes/domain/repositories/notes_repository.dart';
+import 'package:notes_app/features/notes/presentation/providers/notes_provider.dart';
+
+/// ============================================================================
+/// File: app_providers.dart
+/// ============================================================================
 ///
-/// This widget serves as the root dependency injection container
-/// for the application.
+/// Registers all application-wide dependencies.
+///
+/// Responsibilities
+/// ----------------------------------------------------------------------------
+/// - Register remote data sources.
+/// - Register repositories.
+/// - Register ChangeNotifier providers.
+/// - Serve as the application's dependency injection container.
 ///
 /// Dependency Graph
-/// ---------------------------------------------------------------------------
+/// ----------------------------------------------------------------------------
+///
+/// Authentication
 ///
 /// AuthProvider
-///        │
-///        ▼
+///        ↓
 /// AuthRepositoryImpl
-///        │
-///        ▼
+///        ↓
 /// AuthRemoteDataSourceImpl
 ///
-/// Future
-/// ---------------------------------------------------------------------------
 ///
-/// Additional providers can be registered here as the application grows:
+/// Notes
 ///
-/// - NotesProvider
-/// - NotificationProvider
-/// - SettingsProvider
-class AppProviders extends StatelessWidget {
-  /// Creates the root provider container.
+/// NotesProvider
+///        ↓
+/// NotesRepositoryImpl
+///        ↓
+/// NotesRemoteDataSourceImpl
+///
+/// ============================================================================
+
+final class AppProviders extends StatelessWidget {
   const AppProviders({super.key, required this.child});
 
-  /// The widget subtree that receives all registered providers.
+  /// Widget subtree that receives all registered providers.
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: <SingleChildWidget>[
-        // ---------------------------------------------------------------------
-        // Data Sources
-        // ---------------------------------------------------------------------
+        // =====================================================================
+        // Remote Data Sources
+        // =====================================================================
         Provider<AuthRemoteDataSource>(
-          create: (_) => AuthRemoteDataSourceImpl(),
+          create: (_) {
+            return AuthRemoteDataSourceImpl();
+          },
         ),
 
-        // ---------------------------------------------------------------------
+        Provider<NotesRemoteDataSource>(
+          create: (_) {
+            return NotesRemoteDataSourceImpl();
+          },
+        ),
+
+        // =====================================================================
         // Repositories
-        // ---------------------------------------------------------------------
+        // =====================================================================
         Provider<AuthRepository>(
-          create: (context) => AuthRepositoryImpl(
-            remoteDataSource: context.read<AuthRemoteDataSource>(),
-          ),
+          create: (context) {
+            return AuthRepositoryImpl(
+              remoteDataSource: context.read<AuthRemoteDataSource>(),
+            );
+          },
         ),
 
-        // ---------------------------------------------------------------------
-        // Providers
-        // ---------------------------------------------------------------------
+        Provider<NotesRepository>(
+          create: (context) {
+            return NotesRepositoryImpl(
+              remoteDataSource: context.read<NotesRemoteDataSource>(),
+            );
+          },
+        ),
+
+        // =====================================================================
+        // State Management
+        // =====================================================================
         ChangeNotifierProvider<AuthProvider>(
-          create: (context) =>
-              AuthProvider(repository: context.read<AuthRepository>()),
+          create: (context) {
+            return AuthProvider(repository: context.read<AuthRepository>());
+          },
+        ),
+
+        ChangeNotifierProvider<NotesProvider>(
+          create: (context) {
+            return NotesProvider(repository: context.read<NotesRepository>());
+          },
         ),
       ],
       child: child,

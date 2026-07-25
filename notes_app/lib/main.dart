@@ -15,9 +15,10 @@ import 'core/services/logger_service.dart';
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// - Initializes Flutter bindings.
-/// - Initializes all application services.
+/// - Initializes global application services.
 /// - Launches the root widget.
-/// - Catches any uncaught asynchronous errors.
+/// - Captures uncaught asynchronous errors.
+/// - Logs startup failures.
 ///
 /// Initialization Order
 /// ----------------------------------------------------------------------------
@@ -27,22 +28,43 @@ import 'core/services/logger_service.dart';
 /// 4. Local Notifications
 /// 5. Run Application
 ///
-/// All initialization occurs inside the same Zone to avoid
-/// Flutter "Zone mismatch" warnings.
+/// All initialization occurs inside the same Zone to avoid Flutter
+/// "Zone mismatch" warnings.
 ///
 /// ============================================================================
 
 Future<void> main() async {
-  await runZonedGuarded(
+  runZonedGuarded(
     () async {
-      // Initialize Flutter bindings inside the guarded zone.
-      WidgetsFlutterBinding.ensureInitialized();
+      try {
+        // ---------------------------------------------------------------------
+        // Flutter Binding
+        // ---------------------------------------------------------------------
 
-      // Initialize global application services.
-      await AppInitializer.initialize();
+        WidgetsFlutterBinding.ensureInitialized();
 
-      // Launch the application.
-      runApp(const NotesApp());
+        // ---------------------------------------------------------------------
+        // Initialize global services
+        // ---------------------------------------------------------------------
+
+        await AppInitializer.initialize();
+
+        LoggerService.info('Application initialized successfully.');
+
+        // ---------------------------------------------------------------------
+        // Launch Application
+        // ---------------------------------------------------------------------
+
+        runApp(const NotesApp());
+      } catch (exception, stackTrace) {
+        LoggerService.error(
+          'Application startup failed.',
+          error: exception,
+          stackTrace: stackTrace,
+        );
+
+        rethrow;
+      }
     },
     (Object error, StackTrace stackTrace) {
       LoggerService.error(
