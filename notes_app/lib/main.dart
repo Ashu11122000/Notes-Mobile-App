@@ -6,17 +6,42 @@ import 'app/app.dart';
 import 'app/app_initializer.dart';
 import 'core/services/logger_service.dart';
 
-/// Application entry point.
+/// ============================================================================
+/// File: main.dart
+/// ============================================================================
 ///
-/// Initializes all required application services before
-/// launching the root widget.
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+/// Application Entry Point
+///
+/// Responsibilities
+/// ----------------------------------------------------------------------------
+/// - Initializes Flutter bindings.
+/// - Initializes all application services.
+/// - Launches the root widget.
+/// - Catches any uncaught asynchronous errors.
+///
+/// Initialization Order
+/// ----------------------------------------------------------------------------
+/// 1. Flutter Binding
+/// 2. Logger
+/// 3. Shared Preferences
+/// 4. Local Notifications
+/// 5. Run Application
+///
+/// All initialization occurs inside the same Zone to avoid
+/// Flutter "Zone mismatch" warnings.
+///
+/// ============================================================================
 
+Future<void> main() async {
   await runZonedGuarded(
     () async {
+      // Initialize Flutter bindings inside the guarded zone.
+      WidgetsFlutterBinding.ensureInitialized();
+
+      // Initialize global application services.
       await AppInitializer.initialize();
 
+      // Launch the application.
       runApp(const NotesApp());
     },
     (Object error, StackTrace stackTrace) {

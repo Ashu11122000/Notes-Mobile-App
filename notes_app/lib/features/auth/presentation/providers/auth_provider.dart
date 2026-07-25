@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:notes_app/features/auth/data/repositories/auth_repository.dart';
 
@@ -88,6 +89,53 @@ class AuthProvider extends ChangeNotifier {
     _setError(null);
   }
 
+  String _extractErrorMessage(DioException exception) {
+    final dynamic data = exception.response?.data;
+
+    if (data is Map<String, dynamic>) {
+      final dynamic detail = data['detail'];
+
+      if (detail is String && detail.isNotEmpty) {
+        return detail;
+      }
+
+      final dynamic message = data['message'];
+
+      if (message is String && message.isNotEmpty) {
+        return message;
+      }
+    }
+
+    switch (exception.type) {
+      case DioExceptionType.connectionTimeout:
+        return 'Connection timed out. Please try again.';
+
+      case DioExceptionType.sendTimeout:
+        return 'Request timed out while sending data.';
+
+      case DioExceptionType.receiveTimeout:
+        return 'Server took too long to respond.';
+
+      case DioExceptionType.connectionError:
+        return 'Unable to connect to the server.';
+
+      case DioExceptionType.cancel:
+        return 'Request was cancelled.';
+
+      case DioExceptionType.badCertificate:
+        return 'Invalid SSL certificate.';
+
+      case DioExceptionType.badResponse:
+        return 'Request failed.';
+
+      case DioExceptionType.transformTimeout:
+        return 'Request transformation timed out.';
+
+      case DioExceptionType.unknown:
+        return exception.message ?? 'Something went wrong.';
+    }
+  }
+
   // ===========================================================================
   // Register
   // ===========================================================================
@@ -97,13 +145,25 @@ class AuthProvider extends ChangeNotifier {
     _setError(null);
 
     try {
-      final response = await _repository.register(request);
+      final RegisterResponseModel response = await _repository.register(
+        request,
+      );
 
       LoggerService.info(
         'User registered successfully. User ID: ${response.userId}',
       );
 
       return response;
+    } on DioException catch (error, stackTrace) {
+      LoggerService.error(
+        'Registration failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+      _setError(_extractErrorMessage(error));
+
+      rethrow;
     } catch (error, stackTrace) {
       LoggerService.error(
         'Registration failed.',
@@ -111,7 +171,8 @@ class AuthProvider extends ChangeNotifier {
         stackTrace: stackTrace,
       );
 
-      _setError(error.toString());
+      _setError('Registration failed. Please try again.');
+
       rethrow;
     } finally {
       _setLoading(false);
@@ -127,7 +188,7 @@ class AuthProvider extends ChangeNotifier {
     _setError(null);
 
     try {
-      final response = await _repository.login(request);
+      final LoginResponseModel response = await _repository.login(request);
 
       await SessionManager.saveAccessToken(response.accessToken);
 
@@ -138,6 +199,16 @@ class AuthProvider extends ChangeNotifier {
       LoggerService.info('Login successful.');
 
       return response;
+    } on DioException catch (error, stackTrace) {
+      LoggerService.error(
+        'Login failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+      _setError(_extractErrorMessage(error));
+
+      rethrow;
     } catch (error, stackTrace) {
       LoggerService.error(
         'Login failed.',
@@ -145,7 +216,7 @@ class AuthProvider extends ChangeNotifier {
         stackTrace: stackTrace,
       );
 
-      _setError(error.toString());
+      _setError('Login failed. Please try again.');
 
       rethrow;
     } finally {
@@ -164,6 +235,14 @@ class AuthProvider extends ChangeNotifier {
       _isAuthenticated = true;
 
       notifyListeners();
+    } on DioException catch (error, stackTrace) {
+      LoggerService.error(
+        'Failed to load current user.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+      await logout();
     } catch (error, stackTrace) {
       LoggerService.error(
         'Failed to load current user.',
@@ -186,7 +265,6 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await loadCurrentUser();
-
       return true;
     } catch (_) {
       return false;
