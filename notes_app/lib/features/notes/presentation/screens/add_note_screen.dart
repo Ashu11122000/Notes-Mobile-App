@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../notifications/models/reminder_model.dart';
 import '../providers/notes_provider.dart';
 import '../widgets/note_form.dart';
 
@@ -13,12 +14,13 @@ import '../widgets/note_form.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Displays the form for creating a new note.
-/// - Delegates note creation to NotesProvider.
-/// - Shows loading state.
-/// - Displays success and error feedback.
-/// - Clears temporary image selection.
-/// - Navigates back after successful creation.
+/// • Displays the form for creating a new note.
+/// • Delegates note creation to NotesProvider.
+/// • Passes reminder information.
+/// • Shows loading state.
+/// • Displays success and error feedback.
+/// • Clears temporary image selection.
+/// • Navigates back after successful creation.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -29,6 +31,16 @@ import '../widgets/note_form.dart';
 /// NotesRepository
 ///     ↓
 /// FastAPI
+///
+/// Reminder Flow
+/// ----------------------------------------------------------------------------
+/// UI
+///     ↓
+/// NotesProvider
+///     ↓
+/// ReminderManager
+///     ↓
+/// NotificationService
 ///
 /// ============================================================================
 
@@ -51,9 +63,20 @@ final class AddNoteScreen extends StatelessWidget {
                 child: NoteForm(
                   submitLabel: 'Create Note',
                   isLoading: provider.isLoading,
-                  onSubmit: (title, content) async {
-                    await _createNote(context, provider, title, content);
-                  },
+                  onSubmit:
+                      (
+                        String title,
+                        String? content,
+                        ReminderModel? reminder,
+                      ) async {
+                        await _createNote(
+                          context,
+                          provider,
+                          title,
+                          content,
+                          reminder,
+                        );
+                      },
                 ),
               ),
             ),
@@ -72,10 +95,15 @@ final class AddNoteScreen extends StatelessWidget {
     NotesProvider provider,
     String title,
     String? content,
+    ReminderModel? reminder,
   ) async {
     provider.clearError();
 
-    await provider.createNote(title: title, content: content);
+    await provider.createNote(
+      title: title,
+      content: content,
+      reminder: reminder,
+    );
 
     if (!context.mounted) {
       return;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../notifications/models/reminder_model.dart';
 import '../../domain/entities/note.dart';
 import '../providers/notes_provider.dart';
 import '../widgets/note_form.dart';
@@ -14,12 +15,13 @@ import '../widgets/note_form.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Displays a pre-filled form for editing a note.
-/// - Delegates update operations to NotesProvider.
-/// - Shows loading state while updating.
-/// - Displays success and error feedback.
-/// - Clears temporary image selection.
-/// - Navigates back after a successful update.
+/// • Displays a pre-filled form for editing a note.
+/// • Delegates note updates to NotesProvider.
+/// • Passes reminder information.
+/// • Shows loading state.
+/// • Displays success and error feedback.
+/// • Clears temporary image selection.
+/// • Navigates back after a successful update.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -30,6 +32,16 @@ import '../widgets/note_form.dart';
 /// NotesRepository
 ///     ↓
 /// FastAPI
+///
+/// Reminder Flow
+/// ----------------------------------------------------------------------------
+/// UI
+///     ↓
+/// NotesProvider
+///     ↓
+/// ReminderManager
+///     ↓
+/// NotificationService
 ///
 /// ============================================================================
 
@@ -57,9 +69,20 @@ final class EditNoteScreen extends StatelessWidget {
                   initialContent: note.content ?? '',
                   submitLabel: 'Update Note',
                   isLoading: provider.isLoading,
-                  onSubmit: (title, content) async {
-                    await _updateNote(context, provider, title, content);
-                  },
+                  onSubmit:
+                      (
+                        String title,
+                        String? content,
+                        ReminderModel? reminder,
+                      ) async {
+                        await _updateNote(
+                          context,
+                          provider,
+                          title,
+                          content,
+                          reminder,
+                        );
+                      },
                 ),
               ),
             ),
@@ -78,10 +101,16 @@ final class EditNoteScreen extends StatelessWidget {
     NotesProvider provider,
     String title,
     String? content,
+    ReminderModel? reminder,
   ) async {
     provider.clearError();
 
-    await provider.updateNote(noteId: note.id, title: title, content: content);
+    await provider.updateNote(
+      noteId: note.id,
+      title: title,
+      content: content,
+      reminder: reminder,
+    );
 
     if (!context.mounted) {
       return;

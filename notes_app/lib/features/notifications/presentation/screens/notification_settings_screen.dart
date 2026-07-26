@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../widgets/reminder_title.dart';
 import '../providers/notification_provider.dart';
 import '../widgets/notification_toggle.dart';
 import '../widgets/reminder_time_picker.dart';
+import '../widgets/reminder_title.dart';
 
 /// ============================================================================
 /// File: notification_settings_screen.dart
@@ -14,20 +14,18 @@ import '../widgets/reminder_time_picker.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Displays notification settings.
-/// - Enables/disables notifications.
-/// - Allows selecting a reminder time.
-/// - Sends a test notification.
-/// - Cancels all notifications.
-/// - Contains no notification business logic.
+/// • Displays notification preferences.
+/// • Enables/disables notifications.
+/// • Configures daily reminder preference.
+/// • Selects default reminder time.
+/// • Sends test notifications.
+/// • Cancels notifications.
 ///
-/// Architecture
+/// Notes
 /// ----------------------------------------------------------------------------
-/// UI
-///     ↓
-/// NotificationProvider
-///     ↓
-/// NotificationService
+/// This screen manages only notification preferences.
+///
+/// Notification scheduling is handled by ReminderManager.
 ///
 /// ============================================================================
 
@@ -65,19 +63,40 @@ final class _NotificationSettingsScreenState
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                //----------------------------------------------------------------
+                // =============================================================
                 // Enable Notifications
-                //----------------------------------------------------------------
+                // =============================================================
                 const NotificationToggle(),
 
                 const SizedBox(height: 16),
 
-                //----------------------------------------------------------------
+                // =============================================================
+                // Daily Reminder Preference
+                // =============================================================
+                Card(
+                  child: SwitchListTile(
+                    secondary: const Icon(Icons.repeat),
+                    title: const Text('Enable Daily Reminder'),
+                    subtitle: const Text(
+                      'Repeat reminder every day at the selected time.',
+                    ),
+                    value: provider.dailyReminderEnabled,
+                    onChanged: provider.notificationsEnabled
+                        ? (value) async {
+                            await provider.setDailyReminderEnabled(value);
+                          }
+                        : null,
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // =============================================================
                 // Reminder Time
-                //----------------------------------------------------------------
+                // =============================================================
                 ReminderTimePicker(
                   selectedTime: _selectedTime,
-                  enabled: provider.enabled,
+                  enabled: provider.notificationsEnabled,
                   onTimeSelected: (time) {
                     setState(() {
                       _selectedTime = time;
@@ -85,25 +104,25 @@ final class _NotificationSettingsScreenState
                   },
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
-                //----------------------------------------------------------------
+                // =============================================================
                 // Reminder Preview
-                //----------------------------------------------------------------
+                // =============================================================
                 ReminderTile(
                   title: 'Daily Notes Reminder',
                   time: _selectedTime,
-                  enabled: provider.enabled,
+                  enabled: provider.notificationsEnabled,
                   onEdit: () {},
                 ),
 
                 const SizedBox(height: 32),
 
-                //----------------------------------------------------------------
-                // Test Notification
-                //----------------------------------------------------------------
+                // =============================================================
+                // Send Test Notification
+                // =============================================================
                 FilledButton.icon(
-                  onPressed: provider.enabled
+                  onPressed: provider.notificationsEnabled
                       ? () async {
                           await provider.sendTestNotification();
 
@@ -113,7 +132,9 @@ final class _NotificationSettingsScreenState
 
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Test notification sent.'),
+                              content: Text(
+                                'Test notification sent successfully.',
+                              ),
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
@@ -125,11 +146,11 @@ final class _NotificationSettingsScreenState
 
                 const SizedBox(height: 12),
 
-                //----------------------------------------------------------------
+                // =============================================================
                 // Cancel All Notifications
-                //----------------------------------------------------------------
+                // =============================================================
                 OutlinedButton.icon(
-                  onPressed: provider.enabled
+                  onPressed: provider.notificationsEnabled
                       ? () async {
                           await provider.cancelAllNotifications();
 
@@ -147,6 +168,30 @@ final class _NotificationSettingsScreenState
                       : null,
                   icon: const Icon(Icons.notifications_off_outlined),
                   label: const Text('Cancel All Notifications'),
+                ),
+
+                const SizedBox(height: 12),
+
+                // =============================================================
+                // Reset Preferences
+                // =============================================================
+                TextButton.icon(
+                  onPressed: () async {
+                    await provider.resetPreferences();
+
+                    if (!context.mounted) {
+                      return;
+                    }
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Notification preferences reset.'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.restart_alt),
+                  label: const Text('Reset Preferences'),
                 ),
               ],
             ),
