@@ -16,11 +16,12 @@ import '../widgets/delete_note_dialog.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Displays complete information about a note.
-/// - Allows editing.
-/// - Allows deleting.
-/// - Delegates CRUD operations to NotesProvider.
-/// - Contains no business logic.
+/// • Displays complete information about a note.
+/// • Allows editing.
+/// • Allows deleting.
+/// • Delegates all CRUD operations to NotesProvider.
+/// • Reminder cleanup is handled automatically by NotesProvider.
+/// • Contains no business logic.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -31,6 +32,16 @@ import '../widgets/delete_note_dialog.dart';
 /// NotesRepository
 ///     ↓
 /// FastAPI
+///
+/// Reminder Flow
+/// ----------------------------------------------------------------------------
+/// Delete Note
+///      ↓
+/// NotesProvider
+///      ↓
+/// ReminderManager
+///      ↓
+/// NotificationService
 ///
 /// ============================================================================
 
@@ -75,9 +86,9 @@ final class NoteDetailScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      //----------------------------------------------------------------
+                      // =========================================================
                       // Title
-                      //----------------------------------------------------------------
+                      // =========================================================
                       Text(
                         note.title,
                         style: Theme.of(context).textTheme.headlineMedium,
@@ -85,9 +96,9 @@ final class NoteDetailScreen extends StatelessWidget {
 
                       const SizedBox(height: 24),
 
-                      //----------------------------------------------------------------
+                      // =========================================================
                       // Content
-                      //----------------------------------------------------------------
+                      // =========================================================
                       SelectableText(
                         note.content?.trim().isNotEmpty == true
                             ? note.content!
@@ -101,9 +112,9 @@ final class NoteDetailScreen extends StatelessWidget {
 
                       const SizedBox(height: 16),
 
-                      //----------------------------------------------------------------
+                      // =========================================================
                       // Metadata
-                      //----------------------------------------------------------------
+                      // =========================================================
                       _InfoTile(
                         icon: Icons.calendar_today_outlined,
                         title: 'Created',
@@ -144,7 +155,11 @@ final class NoteDetailScreen extends StatelessWidget {
       noteTitle: note.title,
     );
 
-    if (confirmed != true || !context.mounted) {
+    if (confirmed != true) {
+      return;
+    }
+
+    if (!context.mounted) {
       return;
     }
 
@@ -214,7 +229,7 @@ final class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final ThemeData theme = Theme.of(context);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,5 +1,6 @@
 import '../core/services/logger_service.dart';
 import '../core/services/notification_service.dart';
+import '../core/services/timezone_service.dart';
 import '../core/storage/shared_preferences_service.dart';
 
 /// ============================================================================
@@ -12,11 +13,19 @@ import '../core/storage/shared_preferences_service.dart';
 /// ----------------------------------------------------------------------------
 /// - Initialize Logger
 /// - Initialize SharedPreferences
+/// - Initialize Timezone
 /// - Initialize Local Notifications
 /// - Initialize future application-wide services
 ///
 /// Keep this class lightweight by delegating initialization logic to the
 /// respective service classes.
+///
+/// Initialization Order
+/// ----------------------------------------------------------------------------
+/// 1. Logger
+/// 2. SharedPreferences
+/// 3. Timezone
+/// 4. NotificationService
 ///
 /// ============================================================================
 
@@ -31,6 +40,7 @@ final class AppInitializer {
       // -----------------------------------------------------------------------
 
       LoggerService.initialize();
+
       LoggerService.info('Application initialization started.');
 
       // -----------------------------------------------------------------------
@@ -42,6 +52,14 @@ final class AppInitializer {
       LoggerService.info('SharedPreferences initialized.');
 
       // -----------------------------------------------------------------------
+      // Timezone
+      // -----------------------------------------------------------------------
+
+      await TimezoneService.instance.initialize();
+
+      LoggerService.info('TimezoneService initialized.');
+
+      // -----------------------------------------------------------------------
       // Local Notifications
       // -----------------------------------------------------------------------
 
@@ -50,7 +68,7 @@ final class AppInitializer {
       LoggerService.info('NotificationService initialized.');
 
       // -----------------------------------------------------------------------
-      // Additional global initialization
+      // Future global services
       // -----------------------------------------------------------------------
 
       LoggerService.info('Application initialization completed.');

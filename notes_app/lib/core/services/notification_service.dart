@@ -1,6 +1,8 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import 'logger_service.dart';
+import 'timezone_service.dart';
 
 /// ============================================================================
 /// File: notification_service.dart
@@ -10,15 +12,25 @@ import 'logger_service.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Initializes flutter_local_notifications.
-/// - Requests notification permissions.
-/// - Creates Android notification channel.
-/// - Shows instant notifications.
-/// - Cancels notifications.
-/// - Cancels all notifications.
-/// - Handles notification taps.
-/// - Logs notification operations.
-/// - Contains no UI/business logic.
+/// • Initializes flutter_local_notifications.
+/// • Requests notification permissions.
+/// • Creates Android notification channel.
+/// • Shows instant notifications.
+/// • Schedules one-time notifications.
+/// • Schedules recurring notifications.
+/// • Cancels notifications.
+/// • Returns pending notifications.
+/// • Contains no UI/business logic.
+///
+/// Architecture
+/// ----------------------------------------------------------------------------
+/// UI
+///      ↓
+/// ReminderManager
+///      ↓
+/// NotificationService
+///      ↓
+/// flutter_local_notifications
 ///
 /// ============================================================================
 
@@ -39,6 +51,8 @@ final class NotificationService {
 
   bool _initialized = false;
 
+  bool get isInitialized => _initialized;
+
   // ===========================================================================
   // Initialize
   // ===========================================================================
@@ -54,11 +68,12 @@ final class NotificationService {
       const AndroidInitializationSettings androidSettings =
           AndroidInitializationSettings('@mipmap/ic_launcher');
 
-      const InitializationSettings initializationSettings =
-          InitializationSettings(android: androidSettings);
+      const InitializationSettings settings = InitializationSettings(
+        android: androidSettings,
+      );
 
       await _plugin.initialize(
-        settings: initializationSettings,
+        settings: settings,
         onDidReceiveNotificationResponse: onNotificationTap,
       );
 
@@ -100,7 +115,7 @@ final class NotificationService {
   }
 
   // ===========================================================================
-  // Show Notification
+  // Show Notification Immediately
   // ===========================================================================
 
   Future<void> show({
@@ -118,13 +133,104 @@ final class NotificationService {
         payload: payload,
       );
 
-      LoggerService.info('Notification shown: $title');
+      LoggerService.info('Notification shown successfully. (id: $id)');
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to show notification.',
         error: exception,
         stackTrace: stackTrace,
       );
+    }
+  }
+
+  // ===========================================================================
+  // Schedule One-Time Notification
+  // ===========================================================================
+
+  Future<void> schedule({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledAt,
+    String? payload,
+  }) async {
+    try {
+      final tz.TZDateTime scheduledDate = TimezoneService.instance.toTZDateTime(
+        scheduledAt,
+      );
+
+      await _plugin.zonedSchedule(
+        id: id,
+        title: title,
+        body: body,
+        scheduledDate: scheduledDate,
+        notificationDetails: _notificationDetails,
+        payload: payload,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      );
+
+      LoggerService.info('Notification scheduled successfully. (id: $id)');
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to schedule notification.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  // ===========================================================================
+  // Schedule Daily Notification (Stretch Goal)
+  // ===========================================================================
+
+  Future<void> scheduleDaily({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledAt,
+    String? payload,
+  }) async {
+    try {
+      final tz.TZDateTime scheduledDate = TimezoneService.instance.toTZDateTime(
+        scheduledAt,
+      );
+
+      await _plugin.zonedSchedule(
+        id: id,
+        title: title,
+        body: body,
+        scheduledDate: scheduledDate,
+        notificationDetails: _notificationDetails,
+        payload: payload,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+
+      LoggerService.info('Daily notification scheduled. (id: $id)');
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to schedule daily notification.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  // ===========================================================================
+  // Pending Notifications
+  // ===========================================================================
+
+  Future<List<PendingNotificationRequest>> pendingNotificationRequests() async {
+    try {
+      return await _plugin.pendingNotificationRequests();
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to fetch pending notifications.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
+      return <PendingNotificationRequest>[];
     }
   }
 
@@ -136,10 +242,28 @@ final class NotificationService {
     try {
       await _plugin.cancel(id: id);
 
-      LoggerService.info('Notification cancelled: $id');
+      LoggerService.info('Notification cancelled successfully. (id: $id)');
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to cancel notification.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  // ===========================================================================
+  // Cancel All Pending Notifications
+  // ===========================================================================
+
+  Future<void> cancelAllPending() async {
+    try {
+      await _plugin.cancelAllPendingNotifications();
+
+      LoggerService.info('All pending notifications cancelled.');
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to cancel pending notifications.',
         error: exception,
         stackTrace: stackTrace,
       );
@@ -165,10 +289,30 @@ final class NotificationService {
   }
 
   // ===========================================================================
+  // Active Notifications
+  // ===========================================================================
+
+  Future<List<ActiveNotification>> getActiveNotifications() async {
+    try {
+      return await _plugin.getActiveNotifications();
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to retrieve active notifications.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
+      return <ActiveNotification>[];
+    }
+  }
+
+  // ===========================================================================
   // Dispose
   // ===========================================================================
 
   void dispose() {
     _initialized = false;
+
+    LoggerService.info('NotificationService disposed.');
   }
 }
