@@ -11,3 +11,4 @@
 .vscode
 .early.coverage
 __pycache__
+.pytest_cache
