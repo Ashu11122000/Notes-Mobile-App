@@ -7,41 +7,51 @@ Pytest Configuration
 
 Responsibilities
 ----------------------------------------------------------------------------
-- Configure an isolated SQLite test database.
+- Configure an isolated SQLite database for testing.
 - Override FastAPI database dependencies.
+- Prevent tests from using the production PostgreSQL engine.
 - Provide reusable database and TestClient fixtures.
 - Ensure complete isolation between test cases.
 
 Notes
 ----------------------------------------------------------------------------
-- Uses SQLite for fast local testing.
-- Creates a fresh schema for every test.
-- Overrides the production database dependency.
-- Compatible with SQLAlchemy 2.x.
+- Uses a temporary SQLite database.
+- Recreates the database schema before every test.
+- Ensures zero data leakage between tests.
+- Compatible with FastAPI + SQLAlchemy 2.x.
 """
 
+from __future__ import annotations
+
+import tempfile
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
+import app.main as main_module
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 
 # =============================================================================
-# Test Database
+# Temporary SQLite Database
 # =============================================================================
 
-TEST_DATABASE_URL = "sqlite://"
+_temp_dir = tempfile.TemporaryDirectory()
+
+TEST_DATABASE_PATH = Path(_temp_dir.name) / "test.db"
+
+TEST_DATABASE_URL = f"sqlite:///{TEST_DATABASE_PATH}"
 
 engine = create_engine(
     TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
+    connect_args={
+        "check_same_thread": False,
+    },
 )
 
 TestingSessionLocal = sessionmaker(
@@ -52,6 +62,14 @@ TestingSessionLocal = sessionmaker(
 )
 
 # =============================================================================
+# Override FastAPI Engine
+# =============================================================================
+
+# Ensure FastAPI startup uses the SQLite engine during tests.
+main_module.engine = engine
+
+
+# =============================================================================
 # Database Fixture
 # =============================================================================
 
@@ -59,18 +77,21 @@ TestingSessionLocal = sessionmaker(
 @pytest.fixture(scope="function")
 def db_session() -> Generator[Session, None, None]:
     """
-    Creates a fresh database session for every test.
+    Create a brand-new database schema for every test.
+
+    This guarantees complete test isolation.
     """
 
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 
-    session = TestingSessionLocal()
+    db = TestingSessionLocal()
 
     try:
-        yield session
+        yield db
     finally:
-        session.close()
+        db.close()
+
         Base.metadata.drop_all(bind=engine)
 
 
@@ -81,7 +102,7 @@ def db_session() -> Generator[Session, None, None]:
 
 def override_get_db() -> Generator[Session, None, None]:
     """
-    Override the production database dependency.
+    Override the application's database dependency.
     """
 
     db = TestingSessionLocal()
@@ -93,7 +114,7 @@ def override_get_db() -> Generator[Session, None, None]:
 
 
 # =============================================================================
-# Test Client Fixture
+# Test Client
 # =============================================================================
 
 
@@ -102,7 +123,8 @@ def test_client(
     db_session: Session,
 ) -> Generator[TestClient, None, None]:
     """
-    Return a FastAPI TestClient using the test database.
+    Return a FastAPI TestClient configured to use
+    the isolated SQLite database.
     """
 
     app.dependency_overrides[get_db] = override_get_db
@@ -121,9 +143,10 @@ def test_client(
 @pytest.fixture(scope="session", autouse=True)
 def cleanup() -> Generator[None, None, None]:
     """
-    Dispose of the SQLAlchemy engine after the test session.
+    Dispose of resources after the complete test session.
     """
 
     yield
 
     engine.dispose()
+    _temp_dir.cleanup()

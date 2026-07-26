@@ -30,7 +30,7 @@ Notes
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Index, Integer, String
+from sqlalchemy import Boolean, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -54,10 +54,6 @@ class User(Base):
     """
 
     __tablename__ = "users"
-
-    __table_args__ = (
-        Index("ix_users_email", "email"),
-    )
 
     # =========================================================================
     # Primary Key
