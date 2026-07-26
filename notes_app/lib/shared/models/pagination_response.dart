@@ -6,18 +6,33 @@ import 'pagination_meta.dart';
 /// File: pagination_response.dart
 /// ============================================================================
 ///
-/// Generic pagination response.
+/// Represents a generic paginated response returned by an API.
 ///
-/// This model represents a paginated API response and is intended to be reused
-/// across multiple features (Notes, Tasks, Users, etc.).
+/// This model is intentionally feature-independent and reusable across
+/// multiple modules including:
+///
+/// - Notes
+/// - Tasks
+/// - Users
+/// - Notifications
+/// - Analytics
+///
+/// It combines:
+///
+/// - A collection of items.
+/// - Pagination metadata.
+///
+/// The concrete item type is supplied through the generic type parameter [T].
+///
+/// This class intentionally contains no business logic and remains independent
+/// of any specific backend implementation.
 ///
 /// Example JSON:
 ///
+/// ```json
 /// {
 ///   "items": [
-///     {
-///       ...
-///     }
+///     { ... }
 ///   ],
 ///   "meta": {
 ///     "page": 1,
@@ -26,16 +41,35 @@ import 'pagination_meta.dart';
 ///     "pages": 5
 ///   }
 /// }
+/// ```
 ///
-/// This model is currently **not used** by the Notes API because the backend
-/// returns a simple `List<NoteResponse>`. It is kept as a reusable shared model
-/// for future APIs that expose pagination metadata.
-///
-/// ============================================================================
-
+/// Although the current Notes API returns only a `List<NoteResponse>`, this
+/// model is retained as a reusable foundation for future paginated endpoints.
 @immutable
-class PaginationResponse<T> {
+final class PaginationResponse<T> {
+  /// Creates an immutable paginated response.
   const PaginationResponse({required this.items, required this.meta});
+
+  /// Creates a paginated response from JSON.
+  factory PaginationResponse.fromJson(
+    Map<String, dynamic> json,
+    T Function(Map<String, dynamic>) fromJsonT,
+  ) {
+    final itemsJson = (json['items'] as List<dynamic>?) ?? const <dynamic>[];
+
+    return PaginationResponse<T>(
+      items: List<T>.unmodifiable(
+        itemsJson.map(
+          (item) => fromJsonT(Map<String, dynamic>.from(item as Map)),
+        ),
+      ),
+      meta: PaginationMeta.fromJson(
+        Map<String, dynamic>.from(
+          (json['meta'] as Map?) ?? const <String, dynamic>{},
+        ),
+      ),
+    );
+  }
 
   /// Items returned for the current page.
   final List<T> items;
@@ -43,29 +77,9 @@ class PaginationResponse<T> {
   /// Pagination metadata.
   final PaginationMeta meta;
 
-  /// Creates a [PaginationResponse] from JSON.
-  factory PaginationResponse.fromJson(
-    Map<String, dynamic> json,
-    T Function(Map<String, dynamic>) fromJsonT,
-  ) {
-    final List<dynamic> itemsJson =
-        (json['items'] as List<dynamic>?) ?? const [];
-
-    return PaginationResponse<T>(
-      items: List<T>.unmodifiable(
-        itemsJson.map(
-          (dynamic item) => fromJsonT(Map<String, dynamic>.from(item as Map)),
-        ),
-      ),
-      meta: PaginationMeta.fromJson(
-        Map<String, dynamic>.from((json['meta'] as Map?) ?? const {}),
-      ),
-    );
-  }
-
-  /// Converts this object to JSON.
+  /// Converts this response into JSON.
   Map<String, dynamic> toJson(Map<String, dynamic> Function(T item) toJsonT) {
-    return <String, dynamic>{
+    return {
       'items': items.map<Map<String, dynamic>>(toJsonT).toList(growable: false),
       'meta': meta.toJson(),
     };
@@ -74,43 +88,66 @@ class PaginationResponse<T> {
   /// Creates a copy with updated values.
   PaginationResponse<T> copyWith({List<T>? items, PaginationMeta? meta}) {
     return PaginationResponse<T>(
-      items: items ?? this.items,
+      items: items != null ? List<T>.unmodifiable(items) : this.items,
       meta: meta ?? this.meta,
     );
   }
 
-  /// Returns true if another page is available.
+  /// Maps every item while preserving pagination metadata.
+  ///
+  /// Useful for converting DTOs into domain entities.
+  PaginationResponse<R> map<R>(R Function(T item) mapper) {
+    return PaginationResponse<R>(
+      items: List<R>.unmodifiable(items.map(mapper)),
+      meta: meta,
+    );
+  }
+
+  /// Returns whether another page exists.
   bool get hasNextPage => meta.hasNextPage;
 
-  /// Returns true if a previous page exists.
+  /// Returns whether a previous page exists.
   bool get hasPreviousPage => meta.hasPreviousPage;
 
-  /// Returns true if no items were returned.
+  /// Returns whether this page contains no items.
   bool get isEmpty => items.isEmpty;
 
-  /// Returns true if at least one item exists.
+  /// Returns whether this page contains at least one item.
   bool get isNotEmpty => items.isNotEmpty;
 
   /// Number of items in the current page.
   int get itemCount => items.length;
 
+  /// Current page number.
+  int get currentPage => meta.page;
+
+  /// Total number of pages.
+  int get totalPages => meta.pages;
+
+  /// Total number of records.
+  int get totalItems => meta.total;
+
+  /// Next page number.
+  int get nextPage => meta.nextPage;
+
+  /// Previous page number.
+  int get previousPage => meta.previousPage;
+
+  @override
+  String toString() =>
+      '$runtimeType('
+      'itemCount: $itemCount, '
+      'meta: $meta'
+      ')';
+
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         other is PaginationResponse<T> &&
-            runtimeType == other.runtimeType &&
             listEquals(items, other.items) &&
             meta == other.meta;
   }
 
   @override
   int get hashCode => Object.hash(Object.hashAll(items), meta);
-
-  @override
-  String toString() {
-    return 'PaginationResponse('
-        'itemCount: $itemCount, '
-        'meta: $meta'
-        ')';
-  }
 }
