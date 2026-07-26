@@ -1,55 +1,69 @@
-services:
+version: "3.9"
 
+services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
 
     container_name: notes_app
+
+    restart: unless-stopped
 
     ports:
       - "8000:8000"
 
-    depends_on:
-      - db
+    env_file:
+      - .env
 
     environment:
-      - APP_NAME=Notes Backend
-      - DEBUG=True
+      DB_HOST: db
+      DB_PORT: 5432
 
-      - HOST=0.0.0.0
-      - PORT=8000
-
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_NAME=notes_db
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-
-      - SECRET_KEY=supersecretkey
-      - ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+    depends_on:
+      db:
+        condition: service_healthy
 
     volumes:
       - .:/app
 
-    restart: always
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   db:
     image: postgres:15
 
     container_name: notes_db
 
-    restart: always
+    restart: unless-stopped
 
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=notes_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: notes_db
 
     ports:
       - "5434:5432"
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notes_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   postgres_data:
