@@ -29,7 +29,7 @@ Notes
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -46,10 +46,6 @@ class Note(Base):
     """
 
     __tablename__ = "notes"
-
-    __table_args__ = (
-        Index("ix_notes_owner_id", "owner_id"),
-    )
 
     # =========================================================================
     # Primary Key

@@ -10,24 +10,8 @@ Responsibilities
 - Create and configure the FastAPI application.
 - Configure middleware.
 - Register API routers.
-- Initialize database tables on application startup.
+- Initialize database tables during development.
 - Expose health check endpoints.
-
-Architecture
-----------------------------------------------------------------------------
-                ┌──────────────────────┐
-                │      FastAPI App     │
-                └──────────┬───────────┘
-                           │
-          ┌────────────────┴────────────────┐
-          │                                 │
- Authentication Routes              Notes Routes
-          │                                 │
-          └────────────────┬────────────────┘
-                           │
-                      Service Layer
-                           │
-                      PostgreSQL DB
 
 Notes
 ----------------------------------------------------------------------------
@@ -39,6 +23,9 @@ Notes
 - Production Ready
 """
 
+from __future__ import annotations
+
+import os
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -51,7 +38,7 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine
 
-# Ensure SQLAlchemy registers models before metadata creation.
+# Ensure SQLAlchemy registers models.
 from app.models.note import Note  # noqa: F401
 from app.models.user import User  # noqa: F401
 
@@ -75,6 +62,22 @@ OPENAPI_TAGS = [
     },
 ]
 
+
+# =============================================================================
+# Helpers
+# =============================================================================
+
+
+def _is_running_tests() -> bool:
+    """
+    Return True when the application is started by pytest.
+    """
+    return (
+        "PYTEST_CURRENT_TEST" in os.environ
+        or "pytest" in os.path.basename(os.getenv("_", "")).lower()
+    )
+
+
 # =============================================================================
 # Application Lifespan
 # =============================================================================
@@ -83,18 +86,14 @@ OPENAPI_TAGS = [
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Execute application startup and shutdown events.
+    Startup / Shutdown events.
 
-    Startup
-    -------
-    - Initialize database schema.
-
-    Shutdown
-    --------
-    - Reserved for future cleanup operations.
+    During pytest, database tables are created by the SQLite
+    fixtures, therefore we skip PostgreSQL initialization.
     """
 
-    Base.metadata.create_all(bind=engine)
+    if not _is_running_tests():
+        Base.metadata.create_all(bind=engine)
 
     yield
 
@@ -117,8 +116,6 @@ Production-ready RESTful backend built with FastAPI.
 - Role-Based Access Control (RBAC)
 - Docker Support
 - OpenAPI Documentation
-
-Designed for Flutter, Web and REST API clients.
 """,
     version=API_VERSION,
     debug=settings.DEBUG,
@@ -148,19 +145,12 @@ app.add_middleware(
 )
 
 # =============================================================================
-# Root Endpoint
+# Root
 # =============================================================================
 
 
-@app.get(
-    "/",
-    summary="API Root",
-)
+@app.get("/", summary="API Root")
 def root() -> dict[str, Any]:
-    """
-    API root endpoint.
-    """
-
     return {
         "service": settings.APP_NAME,
         "version": API_VERSION,
@@ -170,26 +160,19 @@ def root() -> dict[str, Any]:
 
 
 # =============================================================================
-# Health Check
+# Health
 # =============================================================================
 
 
-@app.get(
-    "/health",
-    summary="Health Check",
-)
+@app.get("/health", summary="Health Check")
 def health_check() -> dict[str, str]:
-    """
-    Application health endpoint.
-    """
-
     return {
         "status": "healthy",
     }
 
 
 # =============================================================================
-# API Routes
+# Routes
 # =============================================================================
 
 app.include_router(
