@@ -9,8 +9,8 @@ Responsibilities
 ----------------------------------------------------------------------------
 - Create the SQLAlchemy engine.
 - Configure database connection pooling.
-- Create session factory.
-- Provide database dependency for FastAPI.
+- Create the session factory.
+- Provide the database dependency for FastAPI.
 - Centralize all database connection management.
 
 Architecture
@@ -29,28 +29,35 @@ PostgreSQL Database
 Notes
 ----------------------------------------------------------------------------
 - Compatible with SQLAlchemy 2.x.
-- Uses connection pooling for better performance.
+- Uses optimized connection pooling for better performance.
 - Sessions are automatically closed after each request.
+- Designed for production-ready FastAPI applications.
 """
 
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
+
+__all__ = ("engine", "SessionLocal", "get_db")
 
 # =============================================================================
 # SQLAlchemy Engine
 # =============================================================================
 
-engine = create_engine(
+engine: Engine = create_engine(
     settings.DATABASE_URL,
+    echo=False,
+    future=True,
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,
+    pool_timeout=30,
     pool_recycle=3600,
-    echo=False,
+    pool_use_lifo=True,
+    pool_reset_on_return="rollback",
 )
 
 # =============================================================================
@@ -59,6 +66,7 @@ engine = create_engine(
 
 SessionLocal = sessionmaker(
     bind=engine,
+    class_=Session,
     autoflush=False,
     autocommit=False,
     expire_on_commit=False,
@@ -71,19 +79,19 @@ SessionLocal = sessionmaker(
 
 def get_db() -> Generator[Session, None, None]:
     """
-    Provide a database session for each request.
+    Provide a database session for the lifetime of a request.
 
     Yields:
-        SQLAlchemy Session
+        Session: A SQLAlchemy database session.
 
-    Automatically closes the session after the request
-    finishes, regardless of success or failure.
+    The session is always closed after the request finishes,
+    ensuring connections are returned to the pool even if an
+    exception occurs.
     """
 
-    db = SessionLocal()
+    db: Session = SessionLocal()
 
     try:
         yield db
-
     finally:
         db.close()

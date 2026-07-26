@@ -37,7 +37,7 @@ Notes
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -49,6 +49,27 @@ from app.schemas.note import (
     NoteUpdate,
 )
 from app.services import note_service
+
+__all__ = ("router",)
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+_DEFAULT_PAGE = 1
+_DEFAULT_LIMIT = 10
+_MAX_LIMIT = 100
+
+# =============================================================================
+# Dependency Aliases
+# =============================================================================
+
+DBSession = Annotated[Session, Depends(get_db)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+# =============================================================================
+# Router
+# =============================================================================
 
 router = APIRouter(
     prefix="/notes",
@@ -69,9 +90,13 @@ router = APIRouter(
 )
 def create_note(
     note: NoteCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    db: DBSession,
+    current_user: CurrentUser,
+) -> NoteResponse:
+    """
+    Create a new note for the authenticated user.
+    """
+
     return note_service.create_note(
         db=db,
         user_id=current_user.id,
@@ -91,11 +116,28 @@ def create_note(
     description="Retrieve paginated notes belonging to the authenticated user.",
 )
 def get_notes(
-    page: Annotated[int, Query(ge=1)] = 1,
-    limit: Annotated[int, Query(ge=1, le=100)] = 10,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    page: Annotated[
+        int,
+        Query(
+            ge=1,
+            description="Page number (starting from 1).",
+        ),
+    ] = _DEFAULT_PAGE,
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=_MAX_LIMIT,
+            description="Maximum number of notes per page.",
+        ),
+    ] = _DEFAULT_LIMIT,
+    db: DBSession = None,
+    current_user: CurrentUser = None,
+) -> list[NoteResponse]:
+    """
+    Retrieve paginated notes for the authenticated user.
+    """
+
     skip = (page - 1) * limit
 
     return note_service.get_notes(
@@ -118,10 +160,20 @@ def get_notes(
     description="Retrieve a note by its ID.",
 )
 def get_note(
-    note_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    note_id: Annotated[
+        int,
+        Path(
+            ge=1,
+            description="Unique identifier of the note.",
+        ),
+    ],
+    db: DBSession,
+    current_user: CurrentUser,
+) -> NoteResponse:
+    """
+    Retrieve a single note.
+    """
+
     return note_service.get_note_by_id(
         db=db,
         current_user=current_user,
@@ -141,11 +193,21 @@ def get_note(
     description="Replace or update a note.",
 )
 def update_note(
-    note_id: int,
+    note_id: Annotated[
+        int,
+        Path(
+            ge=1,
+            description="Unique identifier of the note.",
+        ),
+    ],
     note_data: NoteUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    db: DBSession,
+    current_user: CurrentUser,
+) -> NoteResponse:
+    """
+    Fully update a note.
+    """
+
     return note_service.update_note(
         db=db,
         current_user=current_user,
@@ -166,11 +228,21 @@ def update_note(
     description="Update only the supplied fields of a note.",
 )
 def patch_note(
-    note_id: int,
+    note_id: Annotated[
+        int,
+        Path(
+            ge=1,
+            description="Unique identifier of the note.",
+        ),
+    ],
     note_data: NoteUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    db: DBSession,
+    current_user: CurrentUser,
+) -> NoteResponse:
+    """
+    Partially update a note.
+    """
+
     return note_service.update_note(
         db=db,
         current_user=current_user,
@@ -191,10 +263,20 @@ def patch_note(
     description="Delete a note owned by the authenticated user.",
 )
 def delete_note(
-    note_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    note_id: Annotated[
+        int,
+        Path(
+            ge=1,
+            description="Unique identifier of the note.",
+        ),
+    ],
+    db: DBSession,
+    current_user: CurrentUser,
+) -> None:
+    """
+    Delete a note.
+    """
+
     note_service.delete_note(
         db=db,
         current_user=current_user,

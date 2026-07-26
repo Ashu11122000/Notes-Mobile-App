@@ -30,7 +30,7 @@ Notes
 - Supports both PUT and PATCH update operations.
 """
 
-from typing import Sequence
+from collections.abc import Sequence
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -38,6 +38,70 @@ from sqlalchemy.orm import Session
 from app.models.note import Note
 from app.models.user import User
 from app.schemas.note import NoteCreate, NoteUpdate
+
+__all__ = (
+    "create_note",
+    "get_notes",
+    "get_note_by_id",
+    "update_note",
+    "delete_note",
+)
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+_NOTE_NOT_FOUND = "Note not found."
+_NOTE_ACCESS_DENIED = "You are not authorized to access this note."
+_NO_UPDATE_FIELDS = "No fields were provided for update."
+
+
+# =============================================================================
+# Private Helpers
+# =============================================================================
+
+
+def _get_note_or_404(
+    db: Session,
+    note_id: int,
+) -> Note:
+    """
+    Retrieve a note by its primary key.
+
+    Raises:
+        HTTPException: If the note does not exist.
+    """
+
+    note = db.get(Note, note_id)
+
+    if note is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_NOTE_NOT_FOUND,
+        )
+
+    return note
+
+
+def _validate_note_access(
+    note: Note,
+    current_user: User,
+) -> None:
+    """
+    Validate whether the current user can access the note.
+
+    Admin users may access any note.
+    Regular users may access only their own notes.
+    """
+
+    if current_user.role == "admin":
+        return
+
+    if note.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_NOTE_ACCESS_DENIED,
+        )
 
 
 # =============================================================================
@@ -79,7 +143,8 @@ def get_notes(
     limit: int = 10,
 ) -> Sequence[Note]:
     """
-    Retrieve paginated notes belonging to the authenticated user.
+    Retrieve paginated notes belonging to the authenticated user,
+    ordered by newest first.
     """
 
     return (
@@ -106,26 +171,15 @@ def get_note_by_id(
     Retrieve a single note after validating ownership.
     """
 
-    note = (
-        db.query(Note)
-        .filter(Note.id == note_id)
-        .first()
+    note = _get_note_or_404(
+        db=db,
+        note_id=note_id,
     )
 
-    if note is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Note not found.",
-        )
-
-    if (
-        current_user.role != "admin"
-        and note.owner_id != current_user.id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to access this note.",
-        )
+    _validate_note_access(
+        note=note,
+        current_user=current_user,
+    )
 
     return note
 
@@ -144,13 +198,11 @@ def update_note(
     """
     Update a note.
 
-    This method supports both:
-
-    - PUT (full update)
-    - PATCH (partial update)
+    Supports both PUT (full update) and
+    PATCH (partial update).
 
     Only fields explicitly provided by the client
-    will be updated.
+    are updated.
     """
 
     note = get_note_by_id(
@@ -167,7 +219,7 @@ def update_note(
     if not update_data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No fields were provided for update.",
+            detail=_NO_UPDATE_FIELDS,
         )
 
     for field, value in update_data.items():

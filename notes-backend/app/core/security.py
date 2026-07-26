@@ -18,6 +18,7 @@ Security
 - JWT tokens are signed using the configured secret key.
 - Token expiration is configurable through environment variables.
 - Compatible with FastAPI dependency injection.
+- Uses UTC timestamps and standard JWT claims.
 
 Author
 ----------------------------------------------------------------------------
@@ -25,12 +26,19 @@ Team Productivity Platform
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Mapping
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings
+
+__all__ = (
+    "hash_password",
+    "verify_password",
+    "create_access_token",
+    "decode_access_token",
+)
 
 # =============================================================================
 # Password Hashing Configuration
@@ -42,13 +50,23 @@ pwd_context = CryptContext(
 )
 
 # =============================================================================
+# JWT Configuration
+# =============================================================================
+
+_SECRET_KEY = settings.SECRET_KEY.get_secret_value()
+_ALGORITHM = settings.ALGORITHM
+_DEFAULT_TOKEN_EXPIRY = timedelta(
+    minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+)
+
+# =============================================================================
 # Password Utilities
 # =============================================================================
 
 
 def hash_password(password: str) -> str:
     """
-    Hash a plain-text password.
+    Hash a plain-text password using bcrypt.
 
     Args:
         password: User's plain-text password.
@@ -65,14 +83,14 @@ def verify_password(
     hashed_password: str,
 ) -> bool:
     """
-    Verify a password against its hash.
+    Verify a plain-text password against a bcrypt hash.
 
     Args:
         plain_password: Password provided by the user.
-        hashed_password: Stored hashed password.
+        hashed_password: Stored bcrypt hash.
 
     Returns:
-        True if the password matches, otherwise False.
+        True if the password is valid; otherwise False.
     """
 
     return pwd_context.verify(
@@ -87,40 +105,36 @@ def verify_password(
 
 
 def create_access_token(
-    data: dict[str, Any],
+    data: Mapping[str, Any],
     expires_delta: timedelta | None = None,
 ) -> str:
     """
     Create a signed JWT access token.
 
     Args:
-        data: Payload to encode.
-        expires_delta: Optional custom expiration duration.
+        data: Claims to include in the token payload.
+        expires_delta: Optional custom token lifetime.
 
     Returns:
         Encoded JWT access token.
     """
 
-    payload = data.copy()
+    now = datetime.now(timezone.utc)
+    expire = now + (expires_delta or _DEFAULT_TOKEN_EXPIRY)
 
-    expire = datetime.now(timezone.utc) + (
-        expires_delta
-        if expires_delta
-        else timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        )
-    )
-
+    payload = dict(data)
     payload.update(
         {
+            "iat": now,
+            "nbf": now,
             "exp": expire,
         }
     )
 
     return jwt.encode(
         payload,
-        settings.SECRET_KEY,
-        algorithm=settings.ALGORITHM,
+        _SECRET_KEY,
+        algorithm=_ALGORITHM,
     )
 
 
@@ -131,20 +145,19 @@ def decode_access_token(
     Decode and validate a JWT access token.
 
     Args:
-        token: JWT access token.
+        token: Encoded JWT access token.
 
     Returns:
-        Decoded payload if valid, otherwise None.
+        The decoded JWT payload if the token is valid;
+        otherwise None.
     """
 
     try:
-        payload = jwt.decode(
+        return jwt.decode(
             token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
+            _SECRET_KEY,
+            algorithms=[_ALGORITHM],
         )
-
-        return payload
 
     except JWTError:
         return None

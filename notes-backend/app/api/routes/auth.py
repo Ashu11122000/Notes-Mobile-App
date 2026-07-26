@@ -43,11 +43,26 @@ from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, UserResponse
 from app.services.user_service import create_user, get_user_by_email
 
+__all__ = ("router",)
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+_AUTH_HEADERS = {"WWW-Authenticate": "Bearer"}
+
+_INVALID_CREDENTIALS = "Invalid email or password."
+_USER_INACTIVE = "User account is inactive."
+_REGISTER_SUCCESS = "User registered successfully."
+
+# =============================================================================
+# Router
+# =============================================================================
+
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
 )
-
 
 # =============================================================================
 # Register
@@ -63,21 +78,13 @@ router = APIRouter(
 def register(
     user: UserCreate,
     db: Session = Depends(get_db),
-):
+) -> dict[str, str | int]:
     """
     Register a new user.
+
+    Business validation (including duplicate email detection)
+    is delegated to the service layer.
     """
-
-    existing_user = get_user_by_email(
-        db=db,
-        email=user.email,
-    )
-
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A user with this email already exists.",
-        )
 
     new_user = create_user(
         db=db,
@@ -86,7 +93,7 @@ def register(
     )
 
     return {
-        "message": "User registered successfully.",
+        "message": _REGISTER_SUCCESS,
         "user_id": new_user.id,
     }
 
@@ -104,9 +111,9 @@ def register(
 def login(
     user: UserLogin,
     db: Session = Depends(get_db),
-):
+) -> dict[str, str]:
     """
-    Authenticate a user.
+    Authenticate a user and return a JWT access token.
     """
 
     db_user = get_user_by_email(
@@ -114,13 +121,23 @@ def login(
         email=user.email,
     )
 
-    if db_user is None or not verify_password(
-        user.password,
-        db_user.hashed_password,
+    if (
+        db_user is None
+        or not verify_password(
+            user.password,
+            db_user.hashed_password,
+        )
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password.",
+            detail=_INVALID_CREDENTIALS,
+            headers=_AUTH_HEADERS,
+        )
+
+    if not db_user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_USER_INACTIVE,
         )
 
     access_token = create_access_token(
@@ -149,7 +166,7 @@ def login(
 )
 def get_me(
     current_user: User = Depends(get_current_user),
-):
+) -> User:
     """
     Retrieve the authenticated user's profile.
     """

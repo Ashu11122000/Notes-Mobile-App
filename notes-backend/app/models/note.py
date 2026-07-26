@@ -26,13 +26,15 @@ Notes
 - Automatically maintains creation and update timestamps.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+__all__ = ("Note",)
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -44,6 +46,10 @@ class Note(Base):
     """
 
     __tablename__ = "notes"
+
+    __table_args__ = (
+        Index("ix_notes_owner_id", "owner_id"),
+    )
 
     # =========================================================================
     # Primary Key
@@ -79,6 +85,7 @@ class Note(Base):
             ondelete="CASCADE",
         ),
         nullable=False,
+        index=True,
     )
 
     # =========================================================================
@@ -86,15 +93,15 @@ class Note(Base):
     # =========================================================================
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
 
@@ -104,4 +111,16 @@ class Note(Base):
 
     owner: Mapped["User"] = relationship(
         back_populates="notes",
+        lazy="selectin",
     )
+
+    # =========================================================================
+    # Debug Representation
+    # =========================================================================
+
+    def __repr__(self) -> str:
+        return (
+            f"Note(id={self.id!r}, "
+            f"title={self.title!r}, "
+            f"owner_id={self.owner_id!r})"
+        )

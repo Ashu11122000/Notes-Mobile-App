@@ -30,13 +30,22 @@ Notes
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Integer, String
+from sqlalchemy import Boolean, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
+__all__ = ("User",)
+
 if TYPE_CHECKING:
     from app.models.note import Note
+
+# =============================================================================
+# Role Constants
+# =============================================================================
+
+ROLE_USER = "user"
+ROLE_ADMIN = "admin"
 
 
 class User(Base):
@@ -45,6 +54,10 @@ class User(Base):
     """
 
     __tablename__ = "users"
+
+    __table_args__ = (
+        Index("ix_users_email", "email"),
+    )
 
     # =========================================================================
     # Primary Key
@@ -78,7 +91,7 @@ class User(Base):
 
     role: Mapped[str] = mapped_column(
         String(50),
-        default="user",
+        default=ROLE_USER,
         nullable=False,
     )
 
@@ -96,4 +109,17 @@ class User(Base):
         back_populates="owner",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        lazy="selectin",
     )
+
+    # =========================================================================
+    # Debug Representation
+    # =========================================================================
+
+    def __repr__(self) -> str:
+        return (
+            f"User(id={self.id!r}, "
+            f"email={self.email!r}, "
+            f"role={self.role!r}, "
+            f"is_active={self.is_active!r})"
+        )
