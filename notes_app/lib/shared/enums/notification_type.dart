@@ -1,38 +1,122 @@
-/// Represents the different categories of notifications supported by the
-/// application.
+/// =============================================================================
+/// File: notification_type.dart
+/// =============================================================================
 ///
-/// This enum is shared across the application and is primarily used by
-/// NotificationService to determine the purpose of a notification.
+/// Defines the categories of notifications supported by the application.
 ///
-/// The enum is intentionally independent of any notification package.
-/// Mapping to platform-specific implementations should be handled inside
-/// the service layer.
+/// This enum belongs to the domain layer and intentionally remains independent
+/// of platform-specific notification frameworks such as
+/// `flutter_local_notifications`.
+///
+/// The infrastructure or service layer is responsible for translating these
+/// business notification types into platform-specific implementations,
+/// including:
+///
+/// - Android notification channels
+/// - iOS notification categories
+/// - Notification priority
+/// - Sounds
+/// - Icons
+/// - Scheduling behavior
+///
+/// Keeping this enum framework-agnostic preserves Clean Architecture
+/// boundaries and improves maintainability, portability, and testability.
+///
+/// Example:
+///
+/// ```dart
+/// final type = NotificationType.reminder;
+///
+/// switch (type) {
+///   case NotificationType.general:
+///     break;
+///
+///   case NotificationType.reminder:
+///     break;
+///
+///   case NotificationType.info:
+///     break;
+/// }
+/// ```
 enum NotificationType {
-  /// General application notification.
+  /// General-purpose application notification.
+  ///
+  /// Suitable for messages that do not belong to a more specific category.
   general(value: 'general', displayName: 'General'),
 
-  /// Reminder notification for notes.
+  /// Reminder notification.
+  ///
+  /// Typically used for scheduled note reminders or user-created reminders.
   reminder(value: 'reminder', displayName: 'Reminder'),
 
   /// Informational notification.
+  ///
+  /// Used for informational messages such as completed operations,
+  /// application updates, or non-critical events.
   info(value: 'info', displayName: 'Information');
 
   /// Creates a notification type.
   const NotificationType({required this.value, required this.displayName});
 
-  /// Value used for serialization or persistence.
+  /// Persisted value used for serialization.
+  ///
+  /// Examples:
+  /// - `general`
+  /// - `reminder`
+  /// - `info`
   final String value;
 
-  /// Human-readable name displayed in the UI.
+  /// Human-readable label displayed in the user interface.
   final String displayName;
 
-  /// Returns a [NotificationType] from its stored value.
+  /// Returns whether this is a general-purpose notification.
+  bool get isGeneral => this == NotificationType.general;
+
+  /// Returns whether this notification represents a reminder.
+  bool get isReminder => this == NotificationType.reminder;
+
+  /// Returns whether this notification is informational.
+  bool get isInfo => this == NotificationType.info;
+
+  /// Converts a persisted value into a [NotificationType].
   ///
-  /// Defaults to [NotificationType.general] if the value is null or invalid.
+  /// If the supplied value is:
+  /// - `null`
+  /// - empty
+  /// - unsupported
+  ///
+  /// the default value ([NotificationType.general]) is returned.
   static NotificationType fromValue(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return NotificationType.general;
+    }
+
+    final normalizedValue = value.trim().toLowerCase();
+
     return NotificationType.values.firstWhere(
-      (type) => type.value == value,
+      (type) => type.value == normalizedValue,
       orElse: () => NotificationType.general,
     );
   }
+
+  /// Returns whether the supplied value represents a supported
+  /// notification type.
+  static bool isSupported(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return false;
+    }
+
+    final normalizedValue = value.trim().toLowerCase();
+
+    return NotificationType.values.any((type) => type.value == normalizedValue);
+  }
+
+  /// List of all supported persisted values.
+  ///
+  /// Useful for:
+  /// - validation
+  /// - serialization
+  /// - analytics
+  /// - testing
+  static const List<String> supportedValues = ['general', 'reminder', 'info'];
 }
