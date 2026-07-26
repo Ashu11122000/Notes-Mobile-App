@@ -12,20 +12,13 @@ import 'logger_service.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Initialize the timezone database.
-/// • Detect the device's local timezone.
-/// • Configure the application's local timezone.
-/// • Provide helper methods used by NotificationService.
+/// • Initializes the timezone database.
+/// • Detects the device timezone.
+/// • Normalizes legacy timezone names.
+/// • Sets the application's local timezone.
+/// • Provides helper methods for scheduled notifications.
 ///
-/// This service must be initialized exactly once during app startup.
-///
-/// Architecture
-/// ----------------------------------------------------------------------------
-/// AppInitializer
-///        ↓
-/// TimezoneService
-///        ↓
-/// timezone package
+/// This service must be initialized once during application startup.
 ///
 /// ============================================================================
 
@@ -36,7 +29,6 @@ final class TimezoneService {
 
   bool _initialized = false;
 
-  /// Whether the timezone service has been initialized.
   bool get isInitialized => _initialized;
 
   // ===========================================================================
@@ -49,11 +41,16 @@ final class TimezoneService {
     }
 
     try {
-      // Load the timezone database.
+      // Load the complete timezone database.
       tz.initializeTimeZones();
 
-      // Get the device timezone.
-      final String timezoneName = await FlutterTimezone.getLocalTimezone();
+      String timezoneName = await FlutterTimezone.getLocalTimezone();
+
+      // -----------------------------------------------------------------------
+      // Normalize legacy timezone names returned by some Android devices.
+      // -----------------------------------------------------------------------
+
+      timezoneName = _normalizeTimezone(timezoneName);
 
       tz.Location location;
 
@@ -64,7 +61,7 @@ final class TimezoneService {
           'Unknown timezone "$timezoneName". Falling back to UTC.',
         );
 
-        location = tz.getLocation('UTC');
+        location = tz.UTC;
       }
 
       tz.setLocalLocation(location);
@@ -79,10 +76,36 @@ final class TimezoneService {
         stackTrace: stackTrace,
       );
 
-      // Safe fallback.
-      tz.setLocalLocation(tz.getLocation('UTC'));
+      // Never allow timezone initialization to crash the application.
+      tz.setLocalLocation(tz.UTC);
 
       _initialized = true;
+    }
+  }
+
+  // ===========================================================================
+  // Normalize Timezone
+  // ===========================================================================
+
+  String _normalizeTimezone(String timezone) {
+    switch (timezone) {
+      case 'Asia/Calcutta':
+        return 'Asia/Kolkata';
+
+      case 'US/Eastern':
+        return 'America/New_York';
+
+      case 'US/Central':
+        return 'America/Chicago';
+
+      case 'US/Mountain':
+        return 'America/Denver';
+
+      case 'US/Pacific':
+        return 'America/Los_Angeles';
+
+      default:
+        return timezone;
     }
   }
 
