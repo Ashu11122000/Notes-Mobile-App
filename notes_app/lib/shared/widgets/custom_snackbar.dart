@@ -2,19 +2,34 @@ import 'package:flutter/material.dart';
 
 import '../enums/snackbar_type.dart';
 
-/// A reusable helper for displaying Material 3 snackbars.
+/// ============================================================================
+/// File: custom_snack_bar.dart
+/// ============================================================================
 ///
-/// This class centralizes snackbar presentation across the application,
-/// ensuring consistent colors, icons, and behavior.
+/// Enterprise Material 3 snackbar helper.
 ///
-/// Example:
-/// ```dart
-/// CustomSnackBar.show(
-///   context,
-///   message: 'Login successful.',
-///   type: SnackbarType.success,
-/// );
-/// ```
+/// Centralizes snackbar presentation across the application, providing a
+/// consistent look, accessibility, and behavior.
+///
+/// Features:
+///
+/// - Material 3 compliant
+/// - Theme-aware
+/// - Accessible
+/// - Responsive
+/// - Floating appearance
+/// - Optional action button
+/// - Lightweight
+///
+/// Typical use cases:
+///
+/// - Login success
+/// - Registration
+/// - CRUD operations
+/// - Network errors
+/// - Validation
+/// - Session expiration
+/// ============================================================================
 abstract final class CustomSnackBar {
   /// Displays a snackbar.
   static void show(
@@ -22,24 +37,31 @@ abstract final class CustomSnackBar {
     required String message,
     SnackbarType type = SnackbarType.info,
     Duration duration = const Duration(seconds: 3),
+    SnackBarAction? action,
+    bool hideCurrent = true,
   }) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-    final (backgroundColor, foregroundColor, icon) = switch (type) {
+    final (
+      Color backgroundColor,
+      Color foregroundColor,
+      IconData icon,
+    ) = switch (type) {
       SnackbarType.success => (
-        Colors.green,
+        Colors.green.shade700,
         Colors.white,
         Icons.check_circle_rounded,
       ),
       SnackbarType.info => (
-        colorScheme.primary,
-        colorScheme.onPrimary,
+        colorScheme.inverseSurface,
+        colorScheme.onInverseSurface,
         Icons.info_rounded,
       ),
       SnackbarType.warning => (
-        Colors.orange,
+        Colors.orange.shade700,
         Colors.white,
-        Icons.warning_rounded,
+        Icons.warning_amber_rounded,
       ),
       SnackbarType.error => (
         colorScheme.error,
@@ -50,32 +72,48 @@ abstract final class CustomSnackBar {
 
     final messenger = ScaffoldMessenger.of(context);
 
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          duration: duration,
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: backgroundColor,
-          content: Row(
+    if (hideCurrent) {
+      messenger.hideCurrentSnackBar();
+    }
+
+    messenger.showSnackBar(
+      SnackBar(
+        duration: duration,
+        behavior: SnackBarBehavior.floating,
+        dismissDirection: DismissDirection.horizontal,
+        backgroundColor: backgroundColor,
+        action: action,
+        elevation: 2,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Semantics(
+          liveRegion: true,
+          child: Row(
             children: [
-              Icon(icon, color: foregroundColor),
+              Icon(icon, color: foregroundColor, size: 22),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(message, style: TextStyle(color: foregroundColor)),
+                child: Text(
+                  message,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: foregroundColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
             ],
           ),
         ),
-      );
+      ),
+    );
   }
 
-  /// Hides the currently visible snackbar, if any.
+  /// Hides the currently visible snackbar.
   static void hide(BuildContext context) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
   }
 
-  /// Removes all queued snackbars.
+  /// Removes all queued snackbar.
   static void clear(BuildContext context) {
     ScaffoldMessenger.of(context).clearSnackBars();
   }

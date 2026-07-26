@@ -1,11 +1,34 @@
 import 'package:flutter/material.dart';
 
-/// A reusable Material 3 search bar.
+/// ============================================================================
+/// File: custom_search_bar.dart
+/// ============================================================================
 ///
-/// This widget wraps Flutter's Material 3 [SearchBar] to provide a
-/// consistent search experience throughout the application.
+/// Enterprise Material 3 search bar.
+///
+/// A reusable wrapper around Flutter's Material 3 [SearchBar] that provides
+/// a consistent search experience throughout the application.
+///
+/// Features:
+///
+/// - Material 3 compliant
+/// - Theme-aware
+/// - Responsive
+/// - Accessible
+/// - Keyboard friendly
+/// - Desktop/Web friendly
+/// - Lightweight
+///
+/// Typical use cases:
+///
+/// - Notes search
+/// - User search
+/// - Filter bars
+/// - Dashboard search
+/// - Global search
 ///
 /// Example:
+///
 /// ```dart
 /// CustomSearchBar(
 ///   controller: controller,
@@ -13,8 +36,9 @@ import 'package:flutter/material.dart';
 ///   onChanged: provider.search,
 /// )
 /// ```
-class CustomSearchBar extends StatelessWidget {
-  /// Creates a reusable search bar.
+@immutable
+final class CustomSearchBar extends StatelessWidget {
+  /// Creates a reusable Material 3 search bar.
   const CustomSearchBar({
     super.key,
     this.controller,
@@ -27,6 +51,11 @@ class CustomSearchBar extends StatelessWidget {
     this.onTap,
     this.enabled = true,
     this.autoFocus = false,
+    this.semanticLabel,
+    this.textInputAction = TextInputAction.search,
+    this.textCapitalization = TextCapitalization.none,
+    this.constraints,
+    this.showClearButton = true,
   });
 
   /// Controller for the search field.
@@ -43,37 +72,83 @@ class CustomSearchBar extends StatelessWidget {
   /// Defaults to a search icon.
   final Widget? leading;
 
-  /// Trailing widgets.
+  /// Optional trailing widgets.
   final List<Widget>? trailing;
 
-  /// Called whenever the search text changes.
+  /// Invoked whenever the search text changes.
   final ValueChanged<String>? onChanged;
 
-  /// Called when the user submits the search.
+  /// Invoked when the user submits the search.
   final ValueChanged<String>? onSubmitted;
 
-  /// Called when the search bar is tapped.
+  /// Invoked when the search bar is tapped.
   final VoidCallback? onTap;
 
   /// Whether the search bar is enabled.
   final bool enabled;
 
-  /// Whether the search bar should receive focus automatically.
+  /// Whether the search field should receive focus automatically.
   final bool autoFocus;
+
+  /// Optional accessibility label.
+  final String? semanticLabel;
+
+  /// Keyboard action button.
+  final TextInputAction textInputAction;
+
+  /// Text capitalization behavior.
+  final TextCapitalization textCapitalization;
+
+  /// Optional layout constraints.
+  final BoxConstraints? constraints;
+
+  /// Whether a clear button should automatically appear when text exists.
+  final bool showClearButton;
 
   @override
   Widget build(BuildContext context) {
-    return SearchBar(
-      controller: controller,
-      focusNode: focusNode,
-      hintText: hintText,
-      leading: leading ?? const Icon(Icons.search_rounded),
-      trailing: trailing,
-      onChanged: onChanged,
-      onSubmitted: onSubmitted,
-      onTap: onTap,
-      enabled: enabled,
-      autoFocus: autoFocus,
+    final effectiveTrailing = <Widget>[
+      if (trailing != null) ...trailing!,
+      if (showClearButton && controller != null)
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller!,
+          builder: (context, value, _) {
+            if (value.text.isEmpty) {
+              return const SizedBox.shrink();
+            }
+
+            return IconButton(
+              tooltip: 'Clear search',
+              icon: const Icon(Icons.close_rounded),
+              onPressed: () {
+                controller!.clear();
+                onChanged?.call('');
+              },
+            );
+          },
+        ),
+    ];
+
+    return Semantics(
+      textField: true,
+      label: semanticLabel ?? hintText,
+      child: ConstrainedBox(
+        constraints: constraints ?? const BoxConstraints(minHeight: 56),
+        child: SearchBar(
+          controller: controller,
+          focusNode: focusNode,
+          hintText: hintText,
+          leading: leading ?? const Icon(Icons.search_rounded),
+          trailing: effectiveTrailing.isEmpty ? null : effectiveTrailing,
+          onChanged: onChanged,
+          onSubmitted: onSubmitted,
+          onTap: onTap,
+          enabled: enabled,
+          autoFocus: autoFocus,
+          textInputAction: textInputAction,
+          textCapitalization: textCapitalization,
+        ),
+      ),
     );
   }
 }
