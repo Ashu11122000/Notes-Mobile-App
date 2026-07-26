@@ -11,6 +11,10 @@ import 'package:notes_app/features/notes/data/repositories/notes_repository_impl
 import 'package:notes_app/features/notes/domain/repositories/notes_repository.dart';
 import 'package:notes_app/features/notes/presentation/providers/notes_provider.dart';
 
+import 'package:notes_app/features/notifications/presentation/providers/notification_provider.dart';
+
+import 'package:notes_app/features/settings/presentation/providers/settings_provider.dart';
+
 /// ============================================================================
 /// File: app_providers.dart
 /// ============================================================================
@@ -23,26 +27,6 @@ import 'package:notes_app/features/notes/presentation/providers/notes_provider.d
 /// - Register repositories.
 /// - Register ChangeNotifier providers.
 /// - Serve as the application's dependency injection container.
-///
-/// Dependency Graph
-/// ----------------------------------------------------------------------------
-///
-/// Authentication
-///
-/// AuthProvider
-///        ↓
-/// AuthRepositoryImpl
-///        ↓
-/// AuthRemoteDataSourceImpl
-///
-///
-/// Notes
-///
-/// NotesProvider
-///        ↓
-/// NotesRepositoryImpl
-///        ↓
-/// NotesRemoteDataSourceImpl
 ///
 /// ============================================================================
 
@@ -60,49 +44,47 @@ final class AppProviders extends StatelessWidget {
         // Remote Data Sources
         // =====================================================================
         Provider<AuthRemoteDataSource>(
-          create: (_) {
-            return AuthRemoteDataSourceImpl();
-          },
+          create: (_) => AuthRemoteDataSourceImpl(),
         ),
 
         Provider<NotesRemoteDataSource>(
-          create: (_) {
-            return NotesRemoteDataSourceImpl();
-          },
+          create: (_) => NotesRemoteDataSourceImpl(),
         ),
 
         // =====================================================================
         // Repositories
         // =====================================================================
         Provider<AuthRepository>(
-          create: (context) {
-            return AuthRepositoryImpl(
-              remoteDataSource: context.read<AuthRemoteDataSource>(),
-            );
-          },
+          create: (context) => AuthRepositoryImpl(
+            remoteDataSource: context.read<AuthRemoteDataSource>(),
+          ),
         ),
 
         Provider<NotesRepository>(
-          create: (context) {
-            return NotesRepositoryImpl(
-              remoteDataSource: context.read<NotesRemoteDataSource>(),
-            );
-          },
+          create: (context) => NotesRepositoryImpl(
+            remoteDataSource: context.read<NotesRemoteDataSource>(),
+          ),
         ),
 
         // =====================================================================
-        // State Management
+        // ChangeNotifier Providers
         // =====================================================================
         ChangeNotifierProvider<AuthProvider>(
-          create: (context) {
-            return AuthProvider(repository: context.read<AuthRepository>());
-          },
+          create: (context) =>
+              AuthProvider(repository: context.read<AuthRepository>()),
         ),
 
         ChangeNotifierProvider<NotesProvider>(
-          create: (context) {
-            return NotesProvider(repository: context.read<NotesRepository>());
-          },
+          create: (context) =>
+              NotesProvider(repository: context.read<NotesRepository>()),
+        ),
+
+        ChangeNotifierProvider<NotificationProvider>(
+          create: (_) => NotificationProvider(),
+        ),
+
+        ChangeNotifierProvider<SettingsProvider>(
+          create: (_) => SettingsProvider(),
         ),
       ],
       child: child,

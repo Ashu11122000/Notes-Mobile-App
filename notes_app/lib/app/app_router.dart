@@ -14,6 +14,9 @@ import '../features/notes/presentation/screens/edit_note_screen.dart';
 import '../features/notes/presentation/screens/note_detail_screen.dart';
 import '../features/notes/presentation/screens/notes_screen.dart';
 
+import '../features/settings/presentation/screens/settings_screen.dart';
+import '../features/notifications/presentation/screens/notification_settings_screen.dart';
+
 /// ============================================================================
 /// File: app_router.dart
 /// ============================================================================
@@ -28,15 +31,6 @@ import '../features/notes/presentation/screens/notes_screen.dart';
 /// - Handles invalid navigation gracefully.
 /// - Handles unknown routes.
 /// - Prepares for authentication redirects.
-///
-/// Architecture
-/// ----------------------------------------------------------------------------
-/// App
-///     ↓
-/// GoRouter
-///     ↓
-/// Authentication Routes
-/// Notes Routes
 ///
 /// ============================================================================
 
@@ -53,11 +47,6 @@ final class AppRouter {
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: kDebugMode,
 
-    // Authentication redirect will be implemented later.
-    //
-    // redirect: (context, state) {
-    //   ...
-    // },
     routes: <RouteBase>[
       // =======================================================================
       // Authentication
@@ -119,6 +108,19 @@ final class AppRouter {
           return NoteDetailScreen(note: extra);
         },
       ),
+
+      // =======================================================================
+      // Settings
+      // =======================================================================
+      GoRoute(
+        path: AppRoutes.settings,
+        builder: (context, state) => const SettingsScreen(),
+      ),
+
+      GoRoute(
+        path: AppRoutes.notificationSettings,
+        builder: (context, state) => const NotificationSettingsScreen(),
+      ),
     ],
 
     // =======================================================================
@@ -143,10 +145,6 @@ final class AppRouter {
 
 /// ============================================================================
 /// Invalid Navigation Screen
-/// ============================================================================
-///
-/// Displayed when a required route argument is missing or invalid.
-///
 /// ============================================================================
 
 final class _InvalidNavigationScreen extends StatelessWidget {
