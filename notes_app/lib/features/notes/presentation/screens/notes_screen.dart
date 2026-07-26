@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:notes_app/features/notes/presentation/widgets/notes_list.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_routes.dart';
+
+import '../../../settings/presentation/screens/settings_screen.dart';
+
 import '../../constants/notes_constants.dart';
 import '../../domain/entities/note.dart';
 import '../providers/notes_provider.dart';
 import '../widgets/delete_note_dialog.dart';
 import '../widgets/empty_notes_widget.dart';
 import '../widgets/notes_fab.dart';
+import '../widgets/notes_list.dart';
 import '../widgets/notes_search_bar.dart';
 
 /// ============================================================================
@@ -20,15 +23,16 @@ import '../widgets/notes_search_bar.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Displays the authenticated user's notes.
-/// - Supports pull-to-refresh.
-/// - Supports infinite scrolling.
-/// - Supports local searching.
-/// - Navigates to:
-///     • Add Note
-///     • Edit Note
-///     • Note Detail
-/// - Uses NotesProvider for state management.
+/// • Displays all notes.
+/// • Supports searching.
+/// • Supports pull-to-refresh.
+/// • Supports pagination.
+/// • Navigates to:
+///     - Add Note
+///     - Edit Note
+///     - Note Details
+///     - Settings
+/// • Uses NotesProvider for state management.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -42,14 +46,14 @@ import '../widgets/notes_search_bar.dart';
 ///
 /// ============================================================================
 
-class NotesScreen extends StatefulWidget {
+final class NotesScreen extends StatefulWidget {
   const NotesScreen({super.key});
 
   @override
   State<NotesScreen> createState() => _NotesScreenState();
 }
 
-class _NotesScreenState extends State<NotesScreen> {
+final class _NotesScreenState extends State<NotesScreen> {
   // ===========================================================================
   // Controllers
   // ===========================================================================
@@ -95,9 +99,9 @@ class _NotesScreenState extends State<NotesScreen> {
       return;
     }
 
-    final provider = context.read<NotesProvider>();
+    final NotesProvider provider = context.read<NotesProvider>();
 
-    final position = _scrollController.position;
+    final ScrollPosition position = _scrollController.position;
 
     if (position.pixels >=
         position.maxScrollExtent - NotesConstants.paginationThreshold) {
@@ -110,7 +114,7 @@ class _NotesScreenState extends State<NotesScreen> {
   // ===========================================================================
 
   void _onSearchChanged(String query) {
-    final provider = context.read<NotesProvider>();
+    final NotesProvider provider = context.read<NotesProvider>();
 
     if (query.trim().isEmpty) {
       provider.clearSearch();
@@ -127,15 +131,25 @@ class _NotesScreenState extends State<NotesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('My Notes'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('My Notes'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: _navigateToSettings,
+          ),
+        ],
+      ),
 
       floatingActionButton: NotesFab(onPressed: _navigateToAddNote),
 
       body: Column(
         children: [
-          //--------------------------------------------------------------------
+          // ===============================================================
           // Search Bar
-          //--------------------------------------------------------------------
+          // ===============================================================
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: NotesSearchBar(
@@ -147,23 +161,23 @@ class _NotesScreenState extends State<NotesScreen> {
             ),
           ),
 
-          //--------------------------------------------------------------------
+          // ===============================================================
           // Notes Content
-          //--------------------------------------------------------------------
+          // ===============================================================
           Expanded(
             child: Consumer<NotesProvider>(
               builder: (context, provider, child) {
-                // ===============================================================
+                // ===========================================================
                 // Initial Loading
-                // ===============================================================
+                // ===========================================================
 
                 if (provider.isLoading && provider.notes.isEmpty) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                // ===============================================================
+                // ===========================================================
                 // Error State
-                // ===============================================================
+                // ===========================================================
 
                 if (provider.hasError && provider.notes.isEmpty) {
                   return Center(
@@ -214,9 +228,9 @@ class _NotesScreenState extends State<NotesScreen> {
                   );
                 }
 
-                // ===============================================================
+                // ===========================================================
                 // Empty State
-                // ===============================================================
+                // ===========================================================
 
                 if (provider.notes.isEmpty) {
                   return RefreshIndicator(
@@ -237,9 +251,9 @@ class _NotesScreenState extends State<NotesScreen> {
                   );
                 }
 
-                // ===============================================================
+                // ===========================================================
                 // Notes List
-                // ===============================================================
+                // ===========================================================
 
                 return RefreshIndicator(
                   onRefresh: () async {
@@ -265,6 +279,17 @@ class _NotesScreenState extends State<NotesScreen> {
   // ===========================================================================
   // Navigation
   // ===========================================================================
+
+  Future<void> _navigateToSettings() async {
+    await context.push(AppRoutes.settings);
+
+    if (!mounted) {
+      return;
+    }
+
+    // Refresh notes in case any settings affect the UI.
+    setState(() {});
+  }
 
   Future<void> _navigateToAddNote() async {
     await context.push(AppRoutes.addNote);
@@ -338,5 +363,7 @@ class _NotesScreenState extends State<NotesScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+
+    await provider.loadNotes(refresh: true);
   }
 }
