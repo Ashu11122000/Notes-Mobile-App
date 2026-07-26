@@ -1,18 +1,18 @@
-/// ============================================================================
-/// File: app_routes.dart
-/// ============================================================================
-///
-/// Centralized application route constants.
-///
-/// Responsibilities
-/// ----------------------------------------------------------------------------
-/// - Defines all application route paths.
-/// - Defines all application route names.
-/// - Prevents hardcoded route strings.
-/// - Provides a single source of truth for navigation.
-/// - Used by GoRouter throughout the application.
-///
-/// ============================================================================
+// ============================================================================
+// File: app_routes.dart
+// ============================================================================
+//
+// Centralized application route constants.
+//
+// Responsibilities
+// ----------------------------------------------------------------------------
+// - Defines all application route paths.
+// - Defines all application route names.
+// - Prevents hardcoded route strings.
+// - Provides a single source of truth for navigation.
+// - Used by GoRouter throughout the application.
+//
+// ============================================================================
 
 final class AppRoutes {
   const AppRoutes._();

@@ -14,11 +14,11 @@ import '../widgets/note_form.dart';
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// - Displays the form for creating a new note.
-/// - Validates user input.
 /// - Delegates note creation to NotesProvider.
-/// - Shows loading state while creating a note.
+/// - Shows loading state.
 /// - Displays success and error feedback.
-/// - Navigates back on successful creation.
+/// - Clears temporary image selection.
+/// - Navigates back after successful creation.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -39,17 +39,22 @@ final class AddNoteScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<NotesProvider>(
       builder: (context, provider, child) {
-        return Scaffold(
-          appBar: AppBar(title: const Text('Create Note'), centerTitle: true),
-          body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: NoteForm(
-                submitLabel: 'Create Note',
-                isLoading: provider.isLoading,
-                onSubmit: (title, content) async {
-                  await _createNote(context, provider, title, content);
-                },
+        return PopScope(
+          onPopInvokedWithResult: (_, __) {
+            provider.clearSelectedImage();
+          },
+          child: Scaffold(
+            appBar: AppBar(title: const Text('Create Note'), centerTitle: true),
+            body: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: NoteForm(
+                  submitLabel: 'Create Note',
+                  isLoading: provider.isLoading,
+                  onSubmit: (title, content) async {
+                    await _createNote(context, provider, title, content);
+                  },
+                ),
               ),
             ),
           ),
@@ -83,6 +88,8 @@ final class AddNoteScreen extends StatelessWidget {
       );
       return;
     }
+
+    provider.clearSelectedImage();
 
     _showSuccessSnackBar(context);
 

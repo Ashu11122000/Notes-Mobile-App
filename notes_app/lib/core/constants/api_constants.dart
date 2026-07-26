@@ -1,21 +1,21 @@
-/// ============================================================================
-/// File: api_constants.dart
-/// ============================================================================
-///
-/// Centralized API constants.
-///
-/// Responsibilities
-/// ----------------------------------------------------------------------------
-/// - Defines API endpoints.
-/// - Defines HTTP headers.
-/// - Defines timeout values.
-/// - Provides helper methods for dynamic endpoints.
-/// - Keeps API-related constants in a single location.
-///
-/// Environment-specific values (such as the base URL) should be managed
-/// separately through configuration.
-///
-/// ============================================================================
+// ============================================================================
+// File: api_constants.dart
+// ============================================================================
+//
+// Centralized API constants.
+//
+// Responsibilities
+// ----------------------------------------------------------------------------
+// - Defines API endpoints.
+// - Defines HTTP headers.
+// - Defines timeout values.
+// - Provides helper methods for dynamic endpoints.
+// - Keeps API-related constants in a single location.
+//
+// Environment-specific values (such as the base URL) should be managed
+// separately through configuration.
+//
+// ============================================================================
 
 final class ApiConstants {
   const ApiConstants._();

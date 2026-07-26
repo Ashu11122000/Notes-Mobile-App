@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
 
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/notes_provider.dart';
 import 'note_content_field.dart';
 import 'note_title_field.dart';
 
@@ -13,6 +17,7 @@ import 'note_title_field.dart';
 /// ----------------------------------------------------------------------------
 /// - Shared form for creating and editing notes.
 /// - Handles validation.
+/// - Supports image attachment.
 /// - Exposes submitted values through callbacks.
 /// - Contains no business logic.
 /// - Reuses NoteTitleField and NoteContentField.
@@ -44,10 +49,10 @@ class NoteForm extends StatefulWidget {
   /// Initial content value.
   final String initialContent;
 
-  /// Button label.
+  /// Submit button label.
   final String submitLabel;
 
-  /// Indicates whether the form is currently submitting.
+  /// Indicates whether the form is submitting.
   final bool isLoading;
 
   /// Called after successful validation.
@@ -87,7 +92,7 @@ class _NoteFormState extends State<NoteForm> {
   }
 
   Future<void> _submit() async {
-    final form = _formKey.currentState;
+    final FormState? form = _formKey.currentState;
 
     if (form == null || !form.validate()) {
       return;
@@ -103,9 +108,12 @@ class _NoteFormState extends State<NoteForm> {
 
   @override
   Widget build(BuildContext context) {
+    final NotesProvider provider = context.watch<NotesProvider>();
+
     return Form(
       key: _formKey,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           //--------------------------------------------------------------------
           // Title
@@ -132,6 +140,79 @@ class _NoteFormState extends State<NoteForm> {
             ),
           ),
 
+          const SizedBox(height: 20),
+
+          //--------------------------------------------------------------------
+          // Image Attachment
+          //--------------------------------------------------------------------
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Attachment',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  //----------------------------------------------------------------
+                  // Attach Image Button
+                  //----------------------------------------------------------------
+                  OutlinedButton.icon(
+                    onPressed: widget.isLoading
+                        ? null
+                        : provider.pickImageFromGallery,
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: const Text('Attach Image'),
+                  ),
+
+                  //----------------------------------------------------------------
+                  // Image Preview
+                  //----------------------------------------------------------------
+                  if (provider.hasSelectedImage) ...[
+                    const SizedBox(height: 16),
+
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        provider.selectedImage!,
+                        height: 220,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    Text(
+                      provider.selectedImagePath ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton.tonalIcon(
+                        onPressed: widget.isLoading
+                            ? null
+                            : provider.removeSelectedImage,
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('Remove Image'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+
           const SizedBox(height: 24),
 
           //--------------------------------------------------------------------
@@ -151,6 +232,8 @@ class _NoteFormState extends State<NoteForm> {
               label: Text(widget.submitLabel),
             ),
           ),
+
+          const SizedBox(height: 12),
         ],
       ),
     );

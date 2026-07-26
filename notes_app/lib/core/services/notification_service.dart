@@ -1,70 +1,174 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-/// Centralized local notification service.
+import 'logger_service.dart';
+
+/// ============================================================================
+/// File: notification_service.dart
+/// ============================================================================
 ///
-/// Responsibilities:
-/// - Initialize flutter_local_notifications
-/// - Show instant notifications
-/// - Schedule notifications (future)
-/// - Cancel notifications (future)
+/// Local Notification Service
 ///
-/// This service should be the only place interacting with the
-/// flutter_local_notifications package.
+/// Responsibilities
+/// ----------------------------------------------------------------------------
+/// - Initializes flutter_local_notifications.
+/// - Requests notification permissions.
+/// - Creates Android notification channel.
+/// - Shows instant notifications.
+/// - Cancels notifications.
+/// - Cancels all notifications.
+/// - Handles notification taps.
+/// - Logs notification operations.
+/// - Contains no UI/business logic.
+///
+/// ============================================================================
+
 final class NotificationService {
   NotificationService._();
 
-  static final NotificationService _instance = NotificationService._();
+  static final NotificationService instance = NotificationService._();
 
-  /// Shared singleton instance.
-  static NotificationService get instance => _instance;
-
-  final FlutterLocalNotificationsPlugin _notifications =
+  final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
-  /// Initializes the notification plugin.
-  Future<void> initialize() async {
-    const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
-    );
+  static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
+    'notes_channel',
+    'Notes Notifications',
+    description: 'Notifications for note reminders.',
+    importance: Importance.high,
+  );
 
-    const initializationSettings = InitializationSettings(
-      android: androidSettings,
-    );
+  bool _initialized = false;
 
-    await _notifications.initialize(settings: initializationSettings);
+  // ===========================================================================
+  // Initialize
+  // ===========================================================================
+
+  Future<void> initialize({
+    void Function(NotificationResponse response)? onNotificationTap,
+  }) async {
+    if (_initialized) {
+      return;
+    }
+
+    try {
+      const AndroidInitializationSettings androidSettings =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+
+      const InitializationSettings initializationSettings =
+          InitializationSettings(android: androidSettings);
+
+      await _plugin.initialize(
+        settings: initializationSettings,
+        onDidReceiveNotificationResponse: onNotificationTap,
+      );
+
+      final AndroidFlutterLocalNotificationsPlugin? androidPlugin = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+
+      await androidPlugin?.createNotificationChannel(_channel);
+
+      await androidPlugin?.requestNotificationsPermission();
+
+      _initialized = true;
+
+      LoggerService.info('NotificationService initialized successfully.');
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to initialize NotificationService.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
-  /// Displays an instant local notification.
+  // ===========================================================================
+  // Notification Details
+  // ===========================================================================
+
+  NotificationDetails get _notificationDetails {
+    return const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'notes_channel',
+        'Notes Notifications',
+        channelDescription: 'Notifications for note reminders.',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Show Notification
+  // ===========================================================================
+
   Future<void> show({
     required int id,
     required String title,
     required String body,
+    String? payload,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
-      'notes_channel',
-      'Notes Notifications',
-      channelDescription: 'General notifications for the Notes application.',
-      importance: Importance.high,
-      priority: Priority.high,
-    );
+    try {
+      await _plugin.show(
+        id: id,
+        title: title,
+        body: body,
+        notificationDetails: _notificationDetails,
+        payload: payload,
+      );
 
-    const notificationDetails = NotificationDetails(android: androidDetails);
-
-    await _notifications.show(
-      id: id,
-      title: title,
-      body: body,
-      notificationDetails: notificationDetails,
-    );
+      LoggerService.info('Notification shown: $title');
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to show notification.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
-  /// Cancels a notification by its ID.
-  Future<void> cancel(int id) {
-    return _notifications.cancel(id: id);
+  // ===========================================================================
+  // Cancel Notification
+  // ===========================================================================
+
+  Future<void> cancel(int id) async {
+    try {
+      await _plugin.cancel(id: id);
+
+      LoggerService.info('Notification cancelled: $id');
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to cancel notification.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
-  /// Cancels all notifications.
-  Future<void> cancelAll() {
-    return _notifications.cancelAll();
+  // ===========================================================================
+  // Cancel All Notifications
+  // ===========================================================================
+
+  Future<void> cancelAll() async {
+    try {
+      await _plugin.cancelAll();
+
+      LoggerService.info('All notifications cancelled.');
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to cancel all notifications.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  // ===========================================================================
+  // Dispose
+  // ===========================================================================
+
+  void dispose() {
+    _initialized = false;
   }
 }

@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 
 import '../../data/models/create_note_request.dart';
 import '../../data/models/update_note_request.dart';
 import '../../domain/entities/note.dart';
 import '../../domain/repositories/notes_repository.dart';
+import '../../services/image_picker_service.dart';
 
 /// ============================================================================
 /// File: notes_provider.dart
@@ -17,6 +20,7 @@ import '../../domain/repositories/notes_repository.dart';
 /// - Coordinates CRUD operations.
 /// - Handles pagination.
 /// - Supports local searching.
+/// - Manages selected note image.
 /// - Exposes loading and error states.
 /// - Notifies listeners when state changes.
 ///
@@ -33,10 +37,15 @@ import '../../domain/repositories/notes_repository.dart';
 /// ============================================================================
 
 final class NotesProvider extends ChangeNotifier {
-  NotesProvider({required NotesRepository repository})
-    : _repository = repository;
+  NotesProvider({
+    required NotesRepository repository,
+    ImagePickerService? imagePickerService,
+  }) : _repository = repository,
+       _imagePickerService = imagePickerService ?? ImagePickerService();
 
   final NotesRepository _repository;
+
+  final ImagePickerService _imagePickerService;
 
   // ===========================================================================
   // State
@@ -50,6 +59,9 @@ final class NotesProvider extends ChangeNotifier {
 
   /// Currently selected note.
   Note? _selectedNote;
+
+  /// Currently selected image.
+  File? _selectedImage;
 
   /// Loading state for most operations.
   bool _isLoading = false;
@@ -81,6 +93,12 @@ final class NotesProvider extends ChangeNotifier {
   List<Note> get allNotes => List<Note>.unmodifiable(_allNotes);
 
   Note? get selectedNote => _selectedNote;
+
+  File? get selectedImage => _selectedImage;
+
+  bool get hasSelectedImage => _imagePickerService.exists(_selectedImage);
+
+  String? get selectedImagePath => _imagePickerService.getPath(_selectedImage);
 
   bool get isLoading => _isLoading;
 
@@ -145,7 +163,7 @@ final class NotesProvider extends ChangeNotifier {
   // ===========================================================================
 
   Future<void> loadMore() async {
-    if (_isLoadingMore || !_hasMore || _isLoading) {
+    if (_isLoadingMore || _isLoading || !_hasMore) {
       return;
     }
 
@@ -219,6 +237,9 @@ final class NotesProvider extends ChangeNotifier {
 
       _allNotes.insert(0, note);
 
+      // Clear temporary image after successful note creation.
+      _selectedImage = null;
+
       _applySearch();
     } catch (exception) {
       _errorMessage = exception.toString();
@@ -258,6 +279,9 @@ final class NotesProvider extends ChangeNotifier {
         _selectedNote = updated;
       }
 
+      // Clear temporary image after successful update.
+      _selectedImage = null;
+
       _applySearch();
     } catch (exception) {
       _errorMessage = exception.toString();
@@ -296,6 +320,9 @@ final class NotesProvider extends ChangeNotifier {
       if (_selectedNote?.id == noteId) {
         _selectedNote = updated;
       }
+
+      // Clear temporary image after successful patch.
+      _selectedImage = null;
 
       _applySearch();
     } catch (exception) {
@@ -357,6 +384,45 @@ final class NotesProvider extends ChangeNotifier {
   }
 
   // ===========================================================================
+  // Image Picker
+  // ===========================================================================
+
+  /// Opens the gallery and stores the selected image.
+  Future<void> pickImageFromGallery() async {
+    final File? image = await _imagePickerService.pickFromGallery();
+
+    if (image == null) {
+      return;
+    }
+
+    _selectedImage = image;
+
+    notifyListeners();
+  }
+
+  /// Opens the camera and stores the captured image.
+  ///
+  /// Currently unused in the Notes feature but ready for future use.
+  Future<void> pickImageFromCamera() async {
+    final File? image = await _imagePickerService.pickFromCamera();
+
+    if (image == null) {
+      return;
+    }
+
+    _selectedImage = image;
+
+    notifyListeners();
+  }
+
+  /// Removes the currently selected image.
+  void removeSelectedImage() {
+    _selectedImage = _imagePickerService.removeImage();
+
+    notifyListeners();
+  }
+
+  // ===========================================================================
   // Private Helpers
   // ===========================================================================
 
@@ -387,21 +453,31 @@ final class NotesProvider extends ChangeNotifier {
   /// Clears the selected note.
   void clearSelection() {
     _selectedNote = null;
+
+    notifyListeners();
+  }
+
+  /// Clears the currently selected image.
+  void clearSelectedImage() {
+    _selectedImage = null;
+
     notifyListeners();
   }
 
   /// Clears the current error.
   void clearError() {
     _errorMessage = null;
+
     notifyListeners();
   }
 
-  /// Resets the provider to its initial state.
+  /// Resets the provider back to its initial state.
   void reset() {
     _allNotes.clear();
     _notes.clear();
 
     _selectedNote = null;
+    _selectedImage = null;
 
     _isLoading = false;
     _isLoadingMore = false;

@@ -32,10 +32,10 @@ import '../services/logger_service.dart';
 /// ============================================================================
 
 final class DioInterceptor extends Interceptor {
-  const DioInterceptor({Future<String?> Function()? tokenProvider})
-    : _tokenProvider = tokenProvider;
+  const DioInterceptor({this.tokenProvider});
 
-  final Future<String?> Function()? _tokenProvider;
+  /// Provides the latest JWT access token.
+  final Future<String?> Function()? tokenProvider;
 
   // ===========================================================================
   // Request
@@ -65,8 +65,8 @@ final class DioInterceptor extends Interceptor {
       // Authorization Header
       // -----------------------------------------------------------------------
 
-      if (_tokenProvider != null) {
-        final String? token = await _tokenProvider();
+      if (tokenProvider != null) {
+        final String? token = await tokenProvider!();
 
         if (token != null && token.isNotEmpty) {
           options.headers[ApiConstants.authorizationHeader] =
@@ -107,10 +107,10 @@ final class DioInterceptor extends Interceptor {
   // ===========================================================================
 
   @override
-  void onError(DioException exception, ErrorInterceptorHandler handler) {
-    _logError(exception);
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    _logError(err);
 
-    handler.next(exception);
+    handler.next(err);
   }
 
   // ===========================================================================
