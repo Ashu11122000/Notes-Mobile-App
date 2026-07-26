@@ -1,15 +1,32 @@
-
-import 'package:notes_app/core/storage/shared_preferences_service.dart';
+import 'package:flutter/foundation.dart';
 
 import '../constants/storage_constants.dart';
+import 'shared_preferences_service.dart';
 
-/// Manages the user's local session.
+/// ============================================================================
+/// File: session_manager.dart
+/// ============================================================================
 ///
-/// This class is responsible for persisting and retrieving
-/// authentication-related data.
+/// Manages the user's local authentication session.
 ///
-/// It does NOT perform authentication requests.
-/// Those belong to the AuthRepository.
+/// Responsibilities
+/// ----------------------------------------------------------------------------
+/// • Persists authentication data.
+/// • Retrieves authentication data.
+/// • Clears the current session.
+/// • Exposes lightweight authentication state helpers.
+///
+/// This class intentionally does NOT:
+/// • Authenticate users.
+/// • Refresh tokens.
+/// • Perform API requests.
+/// • Navigate between screens.
+///
+/// Those responsibilities belong to repositories and higher application layers.
+///
+/// All values are stored using [SharedPreferencesService].
+/// ============================================================================
+@immutable
 final class SessionManager {
   const SessionManager._();
 
@@ -17,8 +34,10 @@ final class SessionManager {
   // Access Token
   // ===========================================================================
 
-  /// Saves the JWT access token.
-  static Future<bool> saveAccessToken(String token) {
+  /// Persists the JWT access token.
+  static Future<bool> saveAccessToken(String token) async {
+    await SharedPreferencesService.setBool(StorageConstants.isLoggedIn, true);
+
     return SharedPreferencesService.setString(
       StorageConstants.accessToken,
       token,
@@ -30,25 +49,64 @@ final class SessionManager {
     return SharedPreferencesService.getString(StorageConstants.accessToken);
   }
 
+  /// Returns whether an access token exists.
+  static bool get hasAccessToken {
+    final token = getAccessToken();
+
+    return token != null && token.isNotEmpty;
+  }
+
   /// Removes the stored JWT access token.
   static Future<bool> removeAccessToken() {
     return SharedPreferencesService.remove(StorageConstants.accessToken);
   }
 
   // ===========================================================================
+  // Refresh Token
+  // ===========================================================================
+
+  /// Persists the refresh token.
+  ///
+  /// Reserved for future backend support.
+  static Future<bool> saveRefreshToken(String token) {
+    return SharedPreferencesService.setString(
+      StorageConstants.refreshToken,
+      token,
+    );
+  }
+
+  /// Returns the stored refresh token.
+  static String? getRefreshToken() {
+    return SharedPreferencesService.getString(StorageConstants.refreshToken);
+  }
+
+  /// Removes the stored refresh token.
+  static Future<bool> removeRefreshToken() {
+    return SharedPreferencesService.remove(StorageConstants.refreshToken);
+  }
+
+  // ===========================================================================
   // Session
   // ===========================================================================
 
-  /// Returns true if an access token exists.
+  /// Returns whether the user is currently authenticated.
   static bool isLoggedIn() {
-    final token = getAccessToken();
-
-    return token != null && token.isNotEmpty;
+    return SharedPreferencesService.getBool(StorageConstants.isLoggedIn) ??
+        hasAccessToken;
   }
 
-  /// Clears the current user session.
+  /// Persists the login state.
+  static Future<bool> setLoggedIn(bool value) {
+    return SharedPreferencesService.setBool(StorageConstants.isLoggedIn, value);
+  }
+
+  /// Clears the current session.
   static Future<bool> clearSession() async {
-    await removeAccessToken();
+    await Future.wait([
+      SharedPreferencesService.remove(StorageConstants.accessToken),
+      SharedPreferencesService.remove(StorageConstants.refreshToken),
+      SharedPreferencesService.remove(StorageConstants.isLoggedIn),
+    ]);
 
     return true;
   }
