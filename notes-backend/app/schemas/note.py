@@ -22,7 +22,26 @@ Notes
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+)
+
+__all__ = (
+    "NoteBase",
+    "NoteCreate",
+    "NoteUpdate",
+    "NoteResponse",
+)
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+_TITLE_MIN_LENGTH = 1
+_TITLE_MAX_LENGTH = 255
 
 
 # =============================================================================
@@ -35,10 +54,15 @@ class NoteBase(BaseModel):
     Base schema shared by all note models.
     """
 
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+    )
+
     title: str = Field(
         ...,
-        min_length=1,
-        max_length=255,
+        min_length=_TITLE_MIN_LENGTH,
+        max_length=_TITLE_MAX_LENGTH,
         description="Title of the note.",
         examples=["Shopping List"],
     )
@@ -48,6 +72,18 @@ class NoteBase(BaseModel):
         description="Content/body of the note.",
         examples=["Buy milk, bread and eggs."],
     )
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str) -> str:
+        """
+        Ensure the title is not empty after trimming whitespace.
+        """
+
+        if not value.strip():
+            raise ValueError("Title cannot be empty.")
+
+        return value
 
 
 # =============================================================================
@@ -64,7 +100,7 @@ class NoteCreate(NoteBase):
 
 
 # =============================================================================
-# Full Update Schema (PUT)
+# Update Schema (PUT / PATCH)
 # =============================================================================
 
 
@@ -73,24 +109,50 @@ class NoteUpdate(BaseModel):
     Schema used for updating an existing note.
 
     Supports both PUT and PATCH operations.
-    When used with PATCH, call:
 
-        note_update.model_dump(exclude_unset=True)
+    For PATCH requests, use:
 
-    so only provided fields are updated.
+        model_dump(exclude_unset=True)
+
+    so that only explicitly supplied fields are updated.
     """
+
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+    )
 
     title: str | None = Field(
         default=None,
-        min_length=1,
-        max_length=255,
-        description="Updated title.",
+        min_length=_TITLE_MIN_LENGTH,
+        max_length=_TITLE_MAX_LENGTH,
+        description="Updated note title.",
+        examples=["Work Tasks"],
     )
 
     content: str | None = Field(
         default=None,
         description="Updated note content.",
+        examples=["Finish quarterly report."],
     )
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        """
+        Validate title only when it is supplied.
+        """
+
+        if value is None:
+            return value
+
+        if not value.strip():
+            raise ValueError("Title cannot be empty.")
+
+        return value
 
 
 # =============================================================================
@@ -100,14 +162,29 @@ class NoteUpdate(BaseModel):
 
 class NoteResponse(NoteBase):
     """
-    Response returned after reading or creating a note.
+    Response model returned by the Notes API.
     """
 
-    id: int
-    owner_id: int
-    created_at: datetime
-    updated_at: datetime | None
+    id: int = Field(
+        description="Unique identifier of the note.",
+        examples=[1],
+    )
+
+    owner_id: int = Field(
+        description="Identifier of the note owner.",
+        examples=[5],
+    )
+
+    created_at: datetime = Field(
+        description="UTC timestamp when the note was created.",
+    )
+
+    updated_at: datetime | None = Field(
+        default=None,
+        description="UTC timestamp of the last update.",
+    )
 
     model_config = ConfigDict(
-        from_attributes=True
+        from_attributes=True,
+        str_strip_whitespace=True,
     )

@@ -31,10 +31,24 @@ Notes
 """
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
 from app.models.user import User
+
+__all__ = (
+    "create_user",
+    "get_user_by_email",
+    "get_user_by_id",
+)
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+_DUPLICATE_EMAIL_MESSAGE = "A user with this email already exists."
+_DEFAULT_USER_ROLE = "user"
 
 
 # =============================================================================
@@ -51,33 +65,28 @@ def create_user(
     Create a new user account.
 
     Args:
-        db: Database session.
+        db: Active SQLAlchemy database session.
         email: User email address.
         password: Plain-text password.
 
     Returns:
-        Newly created User object.
+        The newly created user.
 
     Raises:
         HTTPException:
-            If a user with the same email already exists.
+            If a user with the given email already exists.
     """
 
-    existing_user = get_user_by_email(
-        db=db,
-        email=email,
-    )
-
-    if existing_user is not None:
+    if get_user_by_email(db=db, email=email) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="A user with this email already exists.",
+            detail=_DUPLICATE_EMAIL_MESSAGE,
         )
 
     user = User(
         email=email,
         hashed_password=hash_password(password),
-        role="user",
+        role=_DEFAULT_USER_ROLE,
         is_active=True,
     )
 
@@ -101,18 +110,20 @@ def get_user_by_email(
     Retrieve a user by email address.
 
     Args:
-        db: Database session.
-        email: User email.
+        db: Active SQLAlchemy database session.
+        email: User email address.
 
     Returns:
-        User object if found, otherwise None.
+        The matching User if found; otherwise None.
     """
 
-    return (
-        db.query(User)
-        .filter(User.email == email)
-        .first()
+    statement = (
+        select(User)
+        .where(User.email == email)
+        .limit(1)
     )
+
+    return db.scalar(statement)
 
 
 # =============================================================================
@@ -128,15 +139,11 @@ def get_user_by_id(
     Retrieve a user by primary key.
 
     Args:
-        db: Database session.
-        user_id: User ID.
+        db: Active SQLAlchemy database session.
+        user_id: User identifier.
 
     Returns:
-        User object if found, otherwise None.
+        The matching User if found; otherwise None.
     """
 
-    return (
-        db.query(User)
-        .filter(User.id == user_id)
-        .first()
-    )
+    return db.get(User, user_id)
