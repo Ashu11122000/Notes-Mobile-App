@@ -8,17 +8,23 @@ import '../../../../shared/widgets/loading_indicator.dart';
 import '../providers/auth_provider.dart';
 
 /// ============================================================================
-/// Splash Screen
+/// File: splash_screen.dart
 /// ============================================================================
+///
+/// Splash Screen
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Displays the application splash screen.
-/// - Attempts automatic login.
-/// - Redirects to Login or Notes.
-/// - Contains no authentication business logic.
+/// • Displays the application splash screen.
+/// • Initializes the authentication state.
+/// • Redirects to Login or Notes.
+/// • Contains no authentication business logic.
+///
+/// Business logic remains inside [AuthProvider].
 /// ============================================================================
+
 class SplashScreen extends StatefulWidget {
+  /// Creates the splash screen.
   const SplashScreen({super.key});
 
   @override
@@ -26,6 +32,9 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  static const EdgeInsets _padding = EdgeInsets.all(24);
+  static const SizedBox _spacing = SizedBox(height: 48);
+
   @override
   void initState() {
     super.initState();
@@ -36,37 +45,47 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initialize() async {
-    final authProvider = context.read<AuthProvider>();
+    final AuthProvider authProvider = context.read<AuthProvider>();
 
-    final isLoggedIn = await authProvider.autoLogin();
+    try {
+      final bool isLoggedIn = await authProvider.initialize();
 
-    if (!mounted) {
-      return;
-    }
+      if (!mounted) {
+        return;
+      }
 
-    if (isLoggedIn) {
-      context.go(AppRoutes.notes);
-    } else {
+      final String destination = isLoggedIn ? AppRoutes.notes : AppRoutes.login;
+
+      context.go(destination);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
       context.go(AppRoutes.login);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AppLogo(),
+        child: Semantics(
+          container: true,
+          label: 'Application loading',
+          child: Center(
+            child: Padding(
+              padding: _padding,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  AppLogo(),
 
-                SizedBox(height: 48),
+                  _spacing,
 
-                LoadingIndicator(message: 'Loading...'),
-              ],
+                  LoadingIndicator(message: 'Loading...'),
+                ],
+              ),
             ),
           ),
         ),

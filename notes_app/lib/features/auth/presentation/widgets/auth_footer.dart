@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 
+/// ============================================================================
+/// File: auth_footer.dart
+/// ============================================================================
+///
 /// A reusable footer for authentication screens.
 ///
-/// Displays a supporting message followed by a clickable action.
+/// Displays supporting text followed by a clickable action.
 ///
-/// This widget is shared between the Login and Register screens.
+/// Shared between:
+/// • Login Screen
+/// • Register Screen
+/// • Forgot Password Screen (future)
 ///
-/// Example:
-/// ```dart
-/// AuthFooter(
-///   questionText: "Don't have an account?",
-///   actionText: 'Sign Up',
-///   onPressed: () {},
-/// )
-/// ```
+/// Lightweight, reusable, Material 3 compliant and accessible.
+/// ============================================================================
+
 class AuthFooter extends StatelessWidget {
   /// Creates an authentication footer.
   const AuthFooter({
@@ -21,7 +23,10 @@ class AuthFooter extends StatelessWidget {
     required this.questionText,
     required this.actionText,
     required this.onPressed,
+    this.alignment = WrapAlignment.center,
   });
+
+  static const EdgeInsets _padding = EdgeInsets.symmetric(vertical: 24);
 
   /// Supporting text displayed before the action.
   final String questionText;
@@ -29,23 +34,29 @@ class AuthFooter extends StatelessWidget {
   /// Clickable action text.
   final String actionText;
 
-  /// Called when the action is tapped.
+  /// Callback when the action is pressed.
   final VoidCallback onPressed;
+
+  /// Horizontal alignment of the footer.
+  final WrapAlignment alignment;
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final TextTheme textTheme = Theme.of(context).textTheme;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 4,
-        children: [
-          Text(questionText, style: textTheme.bodyMedium),
-          TextButton(onPressed: onPressed, child: Text(actionText)),
-        ],
+    return Semantics(
+      container: true,
+      child: Padding(
+        padding: _padding,
+        child: Wrap(
+          alignment: alignment,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 4,
+          children: <Widget>[
+            Text(questionText, style: textTheme.bodyMedium),
+            TextButton(onPressed: onPressed, child: Text(actionText)),
+          ],
+        ),
       ),
     );
   }

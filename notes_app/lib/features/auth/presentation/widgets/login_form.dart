@@ -7,21 +7,28 @@ import '../../../../shared/widgets/primary_button.dart';
 /// Signature invoked when the login form is submitted.
 typedef LoginSubmitted = Future<void> Function(String email, String password);
 
-/// A reusable login form.
+/// ============================================================================
+/// File: login_form.dart
+/// ============================================================================
 ///
-/// This widget is responsible only for collecting and validating
-/// the user's credentials.
+/// Reusable login form.
 ///
-/// Business logic such as authentication, navigation, and displaying
-/// snackbars should be handled by the parent screen.
+/// Responsibilities
+/// ----------------------------------------------------------------------------
+/// • Collects user credentials.
+/// • Performs lightweight input validation.
+/// • Handles keyboard navigation.
+/// • Supports platform autofill.
+/// • Delegates authentication to the parent widget.
+///
+/// No business logic exists in this widget.
+/// ============================================================================
+
 class LoginForm extends StatefulWidget {
-  /// Creates a login form.
   const LoginForm({super.key, required this.onSubmit, this.isLoading = false});
 
-  /// Called after successful validation.
   final LoginSubmitted onSubmit;
 
-  /// Whether the submit button should display a loading state.
   final bool isLoading;
 
   @override
@@ -29,16 +36,30 @@ class LoginForm extends StatefulWidget {
 }
 
 class _LoginFormState extends State<LoginForm> {
-  final _formKey = GlobalKey<FormState>();
+  static const SizedBox _vertical16 = SizedBox(height: 16);
+  static const SizedBox _vertical24 = SizedBox(height: 24);
 
-  final _emailController = TextEditingController();
+  static final RegExp _emailRegex = RegExp(
+    r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
+  );
 
-  final _passwordController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  final TextEditingController _emailController = TextEditingController();
+
+  final TextEditingController _passwordController = TextEditingController();
+
+  final FocusNode _emailFocusNode = FocusNode();
+
+  final FocusNode _passwordFocusNode = FocusNode();
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
 
     super.dispose();
   }
@@ -50,76 +71,93 @@ class _LoginFormState extends State<LoginForm> {
       return;
     }
 
-    // Notify the platform that the autofill session has completed.
+    form.save();
+
+    FocusScope.of(context).unfocus();
+
     TextInput.finishAutofillContext();
 
-    await widget.onSubmit(
-      _emailController.text.trim(),
-      _passwordController.text,
-    );
+    final String email = _emailController.text.trim();
+
+    final String password = _passwordController.text;
+
+    await widget.onSubmit(email, password);
+
+    if (!mounted) return;
   }
 
   @override
   Widget build(BuildContext context) {
-    return AutofillGroup(
-      child: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            CustomTextField(
-              controller: _emailController,
-              labelText: 'Email',
-              hintText: 'Enter your email',
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              prefixIcon: Icons.email_outlined,
-              autofillHints: const [AutofillHints.email],
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Email is required.';
-                }
+    return IgnorePointer(
+      ignoring: widget.isLoading,
+      child: AutofillGroup(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              CustomTextField(
+                controller: _emailController,
+                focusNode: _emailFocusNode,
+                labelText: 'Email',
+                hintText: 'Enter your email',
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                prefixIcon: Icons.email_outlined,
+                autofillHints: const [
+                  AutofillHints.email,
+                  AutofillHints.username,
+                ],
+                onFieldSubmitted: (_) {
+                  _passwordFocusNode.requestFocus();
+                },
+                validator: (value) {
+                  final email = value?.trim() ?? '';
 
-                final email = value.trim();
+                  if (email.isEmpty) {
+                    return 'Email is required.';
+                  }
 
-                const pattern =
-                    r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$';
+                  if (!_emailRegex.hasMatch(email)) {
+                    return 'Please enter a valid email address.';
+                  }
 
-                if (!RegExp(pattern).hasMatch(email)) {
-                  return 'Please enter a valid email address.';
-                }
+                  return null;
+                },
+              ),
 
-                return null;
-              },
-            ),
+              _vertical16,
 
-            const SizedBox(height: 16),
+              CustomTextField(
+                controller: _passwordController,
+                focusNode: _passwordFocusNode,
+                labelText: 'Password',
+                hintText: 'Enter your password',
+                obscureText: true,
+                textInputAction: TextInputAction.done,
+                prefixIcon: Icons.lock_outline,
+                autofillHints: const [AutofillHints.password],
+                onFieldSubmitted: (_) => _submit(),
+                validator: (value) {
+                  if ((value ?? '').isEmpty) {
+                    return 'Password is required.';
+                  }
 
-            CustomTextField(
-              controller: _passwordController,
-              labelText: 'Password',
-              hintText: 'Enter your password',
-              obscureText: true,
-              textInputAction: TextInputAction.done,
-              prefixIcon: Icons.lock_outline,
-              autofillHints: const [AutofillHints.password],
-              onFieldSubmitted: (_) => _submit(),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Password is required.';
-                }
+                  return null;
+                },
+              ),
 
-                return null;
-              },
-            ),
+              _vertical24,
 
-            const SizedBox(height: 24),
-
-            PrimaryButton(
-              text: 'Sign In',
-              isLoading: widget.isLoading,
-              onPressed: _submit,
-            ),
-          ],
+              Semantics(
+                button: true,
+                child: PrimaryButton(
+                  text: 'Sign In',
+                  isLoading: widget.isLoading,
+                  onPressed: _submit,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -8,13 +8,23 @@ import '../../../../shared/widgets/primary_button.dart';
 typedef RegisterSubmitted =
     Future<void> Function(String email, String password);
 
-/// A reusable registration form.
+/// ============================================================================
+/// File: register_form.dart
+/// ============================================================================
 ///
-/// This widget is responsible only for collecting and validating the
-/// user's registration details.
+/// Reusable registration form.
 ///
-/// Business logic such as authentication, navigation, and displaying
-/// snackbars should be handled by the parent screen.
+/// Responsibilities
+/// ----------------------------------------------------------------------------
+/// • Collects registration credentials.
+/// • Performs lightweight input validation.
+/// • Handles keyboard navigation.
+/// • Supports platform autofill.
+/// • Delegates registration to the parent widget.
+///
+/// No business logic exists in this widget.
+/// ============================================================================
+
 class RegisterForm extends StatefulWidget {
   /// Creates a registration form.
   const RegisterForm({
@@ -34,11 +44,23 @@ class RegisterForm extends StatefulWidget {
 }
 
 class _RegisterFormState extends State<RegisterForm> {
-  final _formKey = GlobalKey<FormState>();
+  static const SizedBox _vertical16 = SizedBox(height: 16);
+  static const SizedBox _vertical24 = SizedBox(height: 24);
 
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  static final RegExp _emailRegex = RegExp(
+    r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
+  );
+
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
+  final FocusNode _emailFocusNode = FocusNode();
+  final FocusNode _passwordFocusNode = FocusNode();
+  final FocusNode _confirmPasswordFocusNode = FocusNode();
 
   @override
   void dispose() {
@@ -46,33 +68,44 @@ class _RegisterFormState extends State<RegisterForm> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
 
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    _confirmPasswordFocusNode.dispose();
+
     super.dispose();
   }
 
   Future<void> _submit() async {
-    final form = _formKey.currentState;
+    final FormState? form = _formKey.currentState;
 
     if (form == null || !form.validate()) {
       return;
     }
 
-    // Notify the platform that the autofill session has completed.
+    form.save();
+
+    FocusScope.of(context).unfocus();
+
     TextInput.finishAutofillContext();
 
-    await widget.onSubmit(
-      _emailController.text.trim(),
-      _passwordController.text,
-    );
+    final String email = _emailController.text.trim();
+    final String password = _passwordController.text;
+
+    await widget.onSubmit(email, password);
+
+    if (!mounted) {
+      return;
+    }
   }
 
   String? _validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty) {
+    final String email = value?.trim() ?? '';
+
+    if (email.isEmpty) {
       return 'Email is required.';
     }
 
-    const pattern = r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$';
-
-    if (!RegExp(pattern).hasMatch(value.trim())) {
+    if (!_emailRegex.hasMatch(email)) {
       return 'Please enter a valid email address.';
     }
 
@@ -80,11 +113,13 @@ class _RegisterFormState extends State<RegisterForm> {
   }
 
   String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
+    final String password = value ?? '';
+
+    if (password.isEmpty) {
       return 'Password is required.';
     }
 
-    if (value.length < 8) {
+    if (password.length < 8) {
       return 'Password must be at least 8 characters.';
     }
 
@@ -92,11 +127,13 @@ class _RegisterFormState extends State<RegisterForm> {
   }
 
   String? _validateConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) {
+    final String confirmPassword = value ?? '';
+
+    if (confirmPassword.isEmpty) {
       return 'Please confirm your password.';
     }
 
-    if (value != _passwordController.text) {
+    if (confirmPassword != _passwordController.text) {
       return 'Passwords do not match.';
     }
 
@@ -105,57 +142,75 @@ class _RegisterFormState extends State<RegisterForm> {
 
   @override
   Widget build(BuildContext context) {
-    return AutofillGroup(
-      child: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            CustomTextField(
-              controller: _emailController,
-              labelText: 'Email',
-              hintText: 'Enter your email',
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              prefixIcon: Icons.email_outlined,
-              autofillHints: const [AutofillHints.email],
-              validator: _validateEmail,
-            ),
+    return IgnorePointer(
+      ignoring: widget.isLoading,
+      child: AutofillGroup(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: <Widget>[
+              CustomTextField(
+                controller: _emailController,
+                focusNode: _emailFocusNode,
+                labelText: 'Email',
+                hintText: 'Enter your email',
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                prefixIcon: Icons.email_outlined,
+                autofillHints: const <String>[
+                  AutofillHints.email,
+                  AutofillHints.username,
+                ],
+                onFieldSubmitted: (_) {
+                  _passwordFocusNode.requestFocus();
+                },
+                validator: _validateEmail,
+              ),
 
-            const SizedBox(height: 16),
+              _vertical16,
 
-            CustomTextField(
-              controller: _passwordController,
-              labelText: 'Password',
-              hintText: 'Create a password',
-              obscureText: true,
-              textInputAction: TextInputAction.next,
-              prefixIcon: Icons.lock_outline,
-              autofillHints: const [AutofillHints.newPassword],
-              validator: _validatePassword,
-            ),
+              CustomTextField(
+                controller: _passwordController,
+                focusNode: _passwordFocusNode,
+                labelText: 'Password',
+                hintText: 'Create a password',
+                obscureText: true,
+                textInputAction: TextInputAction.next,
+                prefixIcon: Icons.lock_outline,
+                autofillHints: const <String>[AutofillHints.newPassword],
+                onFieldSubmitted: (_) {
+                  _confirmPasswordFocusNode.requestFocus();
+                },
+                validator: _validatePassword,
+              ),
 
-            const SizedBox(height: 16),
+              _vertical16,
 
-            CustomTextField(
-              controller: _confirmPasswordController,
-              labelText: 'Confirm Password',
-              hintText: 'Re-enter your password',
-              obscureText: true,
-              textInputAction: TextInputAction.done,
-              prefixIcon: Icons.lock_reset_outlined,
-              autofillHints: const [AutofillHints.newPassword],
-              validator: _validateConfirmPassword,
-              onFieldSubmitted: (_) => _submit(),
-            ),
+              CustomTextField(
+                controller: _confirmPasswordController,
+                focusNode: _confirmPasswordFocusNode,
+                labelText: 'Confirm Password',
+                hintText: 'Re-enter your password',
+                obscureText: true,
+                textInputAction: TextInputAction.done,
+                prefixIcon: Icons.lock_reset_outlined,
+                autofillHints: const <String>[AutofillHints.newPassword],
+                validator: _validateConfirmPassword,
+                onFieldSubmitted: (_) => _submit(),
+              ),
 
-            const SizedBox(height: 24),
+              _vertical24,
 
-            PrimaryButton(
-              text: 'Create Account',
-              isLoading: widget.isLoading,
-              onPressed: _submit,
-            ),
-          ],
+              Semantics(
+                button: true,
+                child: PrimaryButton(
+                  text: 'Create Account',
+                  isLoading: widget.isLoading,
+                  onPressed: _submit,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
