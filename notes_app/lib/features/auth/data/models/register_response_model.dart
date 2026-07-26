@@ -1,49 +1,52 @@
 import 'package:flutter/foundation.dart';
 
-/// =============================================================================
+/// ============================================================================
 /// File: register_response_model.dart
-/// =============================================================================
+/// ============================================================================
 ///
-/// Register Response Model
+/// Register Response Model (DTO)
 ///
 /// Responsibilities
-/// -----------------------------------------------------------------------------
-/// - Represents the response returned by the FastAPI register endpoint.
-/// - Stores the success message.
-/// - Stores the newly created user ID.
-/// - Supports JSON serialization/deserialization.
-/// - Provides immutable data handling.
+/// ----------------------------------------------------------------------------
+/// • Represents the response returned by the FastAPI registration endpoint.
+/// • Stores the success message.
+/// • Stores the newly created user identifier.
+/// • Converts between JSON and Dart objects.
+/// • Remains immutable and free of business logic.
 ///
 /// FastAPI Endpoint
-/// -----------------------------------------------------------------------------
+/// ----------------------------------------------------------------------------
 /// POST /api/v1/auth/register
 ///
 /// Response Body
-/// -----------------------------------------------------------------------------
+/// ----------------------------------------------------------------------------
 /// {
 ///   "message": "User registered successfully.",
 ///   "user_id": 4
 /// }
 ///
 /// Notes
-/// -----------------------------------------------------------------------------
-/// - This model does not contain authentication tokens.
-/// - Users must log in separately after successful registration.
-/// - Fully compatible with the FastAPI register response.
-/// =============================================================================
+/// ----------------------------------------------------------------------------
+/// • This model intentionally contains no authentication tokens.
+/// • Users must authenticate separately after successful registration.
+/// • Fully compatible with the FastAPI registration response.
+/// ============================================================================
 
 @immutable
-class RegisterResponseModel {
-  /// Creates an immutable register response model.
+final class RegisterResponseModel {
+  /// Creates an immutable registration response model.
   const RegisterResponseModel({required this.message, required this.userId});
+
+  static const String _messageKey = 'message';
+  static const String _userIdKey = 'user_id';
 
   /// Success message returned by the backend.
   final String message;
 
-  /// ID of the newly created user.
+  /// Identifier of the newly created user.
   final int userId;
 
-  /// Creates a copy of this model with updated values.
+  /// Returns a copy of this model with updated values.
   RegisterResponseModel copyWith({String? message, int? userId}) {
     return RegisterResponseModel(
       message: message ?? this.message,
@@ -51,36 +54,30 @@ class RegisterResponseModel {
     );
   }
 
-  /// Creates a model from JSON.
+  /// Creates a model from a JSON object.
   factory RegisterResponseModel.fromJson(Map<String, dynamic> json) {
     return RegisterResponseModel(
-      message: json['message'] as String,
-      userId: json['user_id'] as int,
+      message: (json[_messageKey] ?? '') as String,
+      userId: (json[_userIdKey] as num?)?.toInt() ?? 0,
     );
   }
 
-  /// Converts this model into JSON.
-  Map<String, dynamic> toJson() {
-    return {'message': message, 'user_id': userId};
-  }
+  /// Converts this model into a JSON object.
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    _messageKey: message,
+    _userIdKey: userId,
+  };
 
   @override
-  String toString() {
-    return 'RegisterResponseModel('
-        'message: $message, '
-        'userId: $userId'
-        ')';
-  }
+  String toString() =>
+      'RegisterResponseModel(message: $message, userId: $userId)';
 
   @override
   bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-
-    return other is RegisterResponseModel &&
-        other.message == message &&
-        other.userId == userId;
+    return identical(this, other) ||
+        (other is RegisterResponseModel &&
+            other.message == message &&
+            other.userId == userId);
   }
 
   @override

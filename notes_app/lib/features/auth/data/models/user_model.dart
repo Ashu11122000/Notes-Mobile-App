@@ -1,24 +1,24 @@
 import 'package:flutter/foundation.dart';
 
-/// =============================================================================
+/// ============================================================================
 /// File: user_model.dart
-/// =============================================================================
+/// ============================================================================
 ///
-/// User Model
+/// User Model (DTO)
 ///
 /// Responsibilities
-/// -----------------------------------------------------------------------------
-/// - Represents the authenticated user.
-/// - Maps the response returned by the FastAPI `/auth/me` endpoint.
-/// - Provides JSON serialization/deserialization.
-/// - Provides immutable data handling.
+/// ----------------------------------------------------------------------------
+/// • Represents the authenticated user returned by the FastAPI API.
+/// • Converts between JSON and Dart objects.
+/// • Remains immutable and free of business logic.
+/// • Provides lightweight state updates through [copyWith].
 ///
 /// FastAPI Endpoint
-/// -----------------------------------------------------------------------------
+/// ----------------------------------------------------------------------------
 /// GET /api/v1/auth/me
 ///
 /// Response Body
-/// -----------------------------------------------------------------------------
+/// ----------------------------------------------------------------------------
 /// {
 ///   "id": 1,
 ///   "email": "ashish@example.com",
@@ -27,15 +27,15 @@ import 'package:flutter/foundation.dart';
 /// }
 ///
 /// Notes
-/// -----------------------------------------------------------------------------
-/// - This model contains only user information.
-/// - Authentication tokens are handled separately by
-///   LoginResponseModel and SessionManager.
-/// - Fully compatible with the FastAPI UserResponse schema.
-/// =============================================================================
+/// ----------------------------------------------------------------------------
+/// • This model contains only user profile information.
+/// • Authentication tokens are managed separately by
+///   [LoginResponseModel] and [SessionManager].
+/// • Fully compatible with the FastAPI UserResponse schema.
+/// ============================================================================
 
 @immutable
-class UserModel {
+final class UserModel {
   /// Creates an immutable user model.
   const UserModel({
     required this.id,
@@ -43,6 +43,11 @@ class UserModel {
     required this.role,
     required this.isActive,
   });
+
+  static const String _idKey = 'id';
+  static const String _emailKey = 'email';
+  static const String _roleKey = 'role';
+  static const String _isActiveKey = 'is_active';
 
   /// Unique user identifier.
   final int id;
@@ -52,7 +57,7 @@ class UserModel {
 
   /// User role.
   ///
-  /// Example:
+  /// Common values:
   /// - admin
   /// - user
   final String role;
@@ -60,7 +65,7 @@ class UserModel {
   /// Indicates whether the user account is active.
   final bool isActive;
 
-  /// Creates a copy of this model with updated values.
+  /// Returns a new instance with the provided values replaced.
   UserModel copyWith({int? id, String? email, String? role, bool? isActive}) {
     return UserModel(
       id: id ?? this.id,
@@ -70,42 +75,36 @@ class UserModel {
     );
   }
 
-  /// Creates a [UserModel] from JSON.
+  /// Creates a model from a JSON object.
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] as int,
-      email: json['email'] as String,
-      role: json['role'] as String,
-      isActive: json['is_active'] as bool,
+      id: (json[_idKey] as num?)?.toInt() ?? 0,
+      email: (json[_emailKey] ?? '') as String,
+      role: (json[_roleKey] ?? '') as String,
+      isActive: json[_isActiveKey] as bool? ?? false,
     );
   }
 
-  /// Converts this model to JSON.
-  Map<String, dynamic> toJson() {
-    return {'id': id, 'email': email, 'role': role, 'is_active': isActive};
-  }
+  /// Converts this model into a JSON object.
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    _idKey: id,
+    _emailKey: email,
+    _roleKey: role,
+    _isActiveKey: isActive,
+  };
 
   @override
-  String toString() {
-    return 'UserModel('
-        'id: $id, '
-        'email: $email, '
-        'role: $role, '
-        'isActive: $isActive'
-        ')';
-  }
+  String toString() =>
+      'UserModel(id: $id, email: $email, role: $role, isActive: $isActive)';
 
   @override
   bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-
-    return other is UserModel &&
-        other.id == id &&
-        other.email == email &&
-        other.role == role &&
-        other.isActive == isActive;
+    return identical(this, other) ||
+        (other is UserModel &&
+            other.id == id &&
+            other.email == email &&
+            other.role == role &&
+            other.isActive == isActive);
   }
 
   @override
