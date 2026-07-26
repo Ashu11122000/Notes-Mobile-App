@@ -10,16 +10,16 @@ import 'dio_interceptor.dart';
 /// File: dio_client.dart
 /// ============================================================================
 ///
-/// Singleton Dio Client
+/// Enterprise Dio Client.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Provides a single Dio instance.
-/// - Configures the base URL.
-/// - Configures default headers.
-/// - Configures request timeouts.
-/// - Registers global interceptors.
-/// - Enables request/response logging in debug mode.
+/// • Provides a singleton Dio instance.
+/// • Configures base options.
+/// • Applies global HTTP headers.
+/// • Registers application interceptors.
+/// • Enables request logging in debug builds.
+/// • Centralizes networking configuration.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -31,8 +31,9 @@ import 'dio_interceptor.dart';
 ///      ↓
 /// FastAPI
 ///
+/// This client intentionally owns only HTTP configuration.
+/// Business logic belongs inside repositories.
 /// ============================================================================
-
 final class DioClient {
   DioClient._internal() {
     _dio = Dio(_baseOptions());
@@ -53,14 +54,26 @@ final class DioClient {
 
   static BaseOptions _baseOptions() {
     return BaseOptions(
-      baseUrl: AppConfig.baseUrl,
-      connectTimeout: ApiConstants.connectTimeout,
-      receiveTimeout: ApiConstants.receiveTimeout,
-      sendTimeout: ApiConstants.sendTimeout,
+      baseUrl: AppConfig.apiBaseUrl,
+
+      connectTimeout: AppConfig.connectTimeout,
+      receiveTimeout: AppConfig.receiveTimeout,
+      sendTimeout: AppConfig.sendTimeout,
+
       responseType: ResponseType.json,
+
+      contentType: ApiConstants.applicationJson,
+
       headers: const <String, String>{
         ApiConstants.acceptHeader: ApiConstants.applicationJson,
         ApiConstants.contentTypeHeader: ApiConstants.applicationJson,
+        ApiConstants.userAgentHeader: 'NotesApp/1.0',
+      },
+
+      followRedirects: true,
+
+      validateStatus: (status) {
+        return status != null && status >= 200 && status < 300;
       },
     );
   }
@@ -70,6 +83,10 @@ final class DioClient {
   // ===========================================================================
 
   void _registerInterceptors() {
+    if (_dio.interceptors.isNotEmpty) {
+      return;
+    }
+
     _dio.interceptors.add(
       DioInterceptor(tokenProvider: () async => SessionManager.getAccessToken()),
     );
@@ -83,6 +100,7 @@ final class DioClient {
           responseHeader: false,
           responseBody: true,
           error: true,
+          logPrint: (Object object) => debugPrint(object.toString()),
         ),
       );
     }
