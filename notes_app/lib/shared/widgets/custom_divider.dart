@@ -1,40 +1,58 @@
 import 'package:flutter/material.dart';
 
-/// A reusable Material 3 divider.
+/// ============================================================================
+/// File: custom_divider.dart
+/// ============================================================================
 ///
-/// This widget provides a consistent divider throughout the application
-/// while allowing optional customization of spacing and indentation.
+/// Enterprise Material 3 divider.
 ///
-/// The visual appearance is inherited from the application's
-/// [DividerTheme].
+/// A lightweight, reusable divider that standardizes separators throughout
+/// the application while respecting the active [DividerTheme].
+///
+/// This widget intentionally remains minimal. Most visual customization should
+/// be performed globally through the application's theme, ensuring a
+/// consistent design language.
+///
+/// Typical use cases:
+///
+/// - Settings sections
+/// - Lists
+/// - Dialogs
+/// - Bottom sheets
+/// - Profile screens
+/// - Forms
 ///
 /// Example:
+///
 /// ```dart
-/// const CustomDivider()
+/// const CustomDivider();
 /// ```
 ///
 /// ```dart
 /// const CustomDivider(
 ///   indent: 16,
 ///   endIndent: 16,
-/// )
+/// );
 /// ```
-class CustomDivider extends StatelessWidget {
-  /// Creates a reusable divider.
+@immutable
+final class CustomDivider extends StatelessWidget {
+  /// Creates a reusable Material 3 divider.
   const CustomDivider({
     super.key,
     this.height = 24,
     this.thickness,
     this.indent = 0,
     this.endIndent = 0,
+    this.color,
+    this.radius,
   });
 
   /// Total height occupied by the divider.
   final double height;
 
-  /// Divider thickness.
+  /// Thickness of the divider.
   ///
-  /// If null, the application's [DividerTheme] is used.
+  /// When omitted, the value from the active [DividerTheme] is used.
   final double? thickness;
 
   /// Empty space before the divider begins.
@@ -43,13 +61,32 @@ class CustomDivider extends StatelessWidget {
   /// Empty space after the divider ends.
   final double endIndent;
 
+  /// Optional divider color.
+  ///
+  /// Prefer configuring the application's [DividerTheme] instead of setting
+  /// this property unless a specific screen requires a custom appearance.
+  final Color? color;
+
+  /// Optional border radius.
+  ///
+  /// Useful when creating premium section separators that integrate with
+  /// rounded surfaces.
+  final BorderRadiusGeometry? radius;
+
   @override
   Widget build(BuildContext context) {
-    return Divider(
+    Widget divider = Divider(
       height: height,
       thickness: thickness,
       indent: indent,
       endIndent: endIndent,
+      color: color,
     );
+
+    if (radius != null) {
+      divider = ClipRRect(borderRadius: radius!, child: divider);
+    }
+
+    return ExcludeSemantics(child: divider);
   }
 }

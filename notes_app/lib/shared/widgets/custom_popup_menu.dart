@@ -1,23 +1,43 @@
 import 'package:flutter/material.dart';
 
-/// Represents a popup menu item.
+/// ============================================================================
+/// File: custom_popup_menu.dart
+/// ============================================================================
 ///
-/// This model is shared by [CustomPopupMenu] and encapsulates the
-/// information required to render a menu option.
+/// Enterprise Material 3 popup menu.
+///
+/// Provides a reusable, type-safe popup menu implementation with a consistent
+/// look and behavior across the application.
+///
+/// Typical use cases:
+///
+/// - Note actions
+/// - Overflow menus
+/// - Profile menu
+/// - Settings menu
+/// - Context actions
+///
+/// The implementation intentionally wraps Flutter's [PopupMenuButton] while
+/// exposing a simplified and reusable API.
+/// ============================================================================
+
+/// Represents a popup menu item.
 @immutable
-class PopupMenuItemData<T> {
+final class PopupMenuItemData<T> {
   /// Creates a popup menu item.
   const PopupMenuItemData({
     required this.value,
     required this.label,
     this.icon,
     this.enabled = true,
+    this.isDestructive = false,
+    this.semanticLabel,
   });
 
-  /// Value returned when the item is selected.
+  /// Value returned when this item is selected.
   final T value;
 
-  /// Text displayed for the menu item.
+  /// Display label.
   final String label;
 
   /// Optional leading icon.
@@ -25,32 +45,22 @@ class PopupMenuItemData<T> {
 
   /// Whether the item is enabled.
   final bool enabled;
+
+  /// Whether this action represents a destructive operation.
+  ///
+  /// Example:
+  /// - Delete
+  /// - Remove
+  /// - Sign Out
+  final bool isDestructive;
+
+  /// Optional accessibility label.
+  final String? semanticLabel;
 }
 
-/// A reusable Material 3 popup menu.
-///
-/// This widget provides a consistent popup menu implementation while
-/// remaining generic enough for use across the application.
-///
-/// Example:
-/// ```dart
-/// CustomPopupMenu<String>(
-///   items: [
-///     PopupMenuItemData(
-///       value: 'edit',
-///       label: 'Edit',
-///       icon: Icons.edit_rounded,
-///     ),
-///     PopupMenuItemData(
-///       value: 'delete',
-///       label: 'Delete',
-///       icon: Icons.delete_rounded,
-///     ),
-///   ],
-///   onSelected: (value) {},
-/// )
-/// ```
-class CustomPopupMenu<T> extends StatelessWidget {
+/// Enterprise Material 3 popup menu.
+@immutable
+final class CustomPopupMenu<T> extends StatelessWidget {
   /// Creates a reusable popup menu.
   const CustomPopupMenu({
     super.key,
@@ -59,15 +69,19 @@ class CustomPopupMenu<T> extends StatelessWidget {
     this.icon = Icons.more_vert_rounded,
     this.tooltip,
     this.enabled = true,
+    this.iconSize,
+    this.offset = Offset.zero,
+    this.padding,
+    this.shape,
   });
 
-  /// Menu items.
+  /// Popup menu items.
   final List<PopupMenuItemData<T>> items;
 
-  /// Called when a menu item is selected.
+  /// Invoked when a menu item is selected.
   final ValueChanged<T> onSelected;
 
-  /// Icon displayed for the popup button.
+  /// Icon displayed by the popup button.
   final IconData icon;
 
   /// Optional tooltip.
@@ -76,30 +90,66 @@ class CustomPopupMenu<T> extends StatelessWidget {
   /// Whether the popup menu is enabled.
   final bool enabled;
 
+  /// Optional icon size.
+  final double? iconSize;
+
+  /// Popup menu offset.
+  final Offset offset;
+
+  /// Optional button padding.
+  final EdgeInsetsGeometry? padding;
+
+  /// Optional popup shape.
+  final ShapeBorder? shape;
+
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<T>(
-      enabled: enabled,
-      tooltip: tooltip,
-      onSelected: onSelected,
-      itemBuilder: (context) {
-        return items.map((item) {
-          return PopupMenuItem<T>(
-            value: item.value,
-            enabled: item.enabled,
-            child: Row(
-              children: [
-                if (item.icon != null) ...[
-                  Icon(item.icon, size: 20),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(child: Text(item.label)),
-              ],
-            ),
-          );
-        }).toList();
-      },
-      icon: Icon(icon),
+    final theme = Theme.of(context);
+
+    return Semantics(
+      button: true,
+      label: tooltip,
+      child: PopupMenuButton<T>(
+        enabled: enabled,
+        tooltip: tooltip,
+        onSelected: onSelected,
+        offset: offset,
+        padding: padding ?? const EdgeInsets.all(8),
+        shape:
+            shape ??
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        itemBuilder: (_) =>
+            List<PopupMenuEntry<T>>.generate(items.length, (index) {
+              final item = items[index];
+
+              final color = item.isDestructive ? theme.colorScheme.error : null;
+
+              return PopupMenuItem<T>(
+                value: item.value,
+                enabled: item.enabled,
+                child: Semantics(
+                  button: true,
+                  enabled: item.enabled,
+                  label: item.semanticLabel ?? item.label,
+                  child: Row(
+                    children: [
+                      if (item.icon != null) ...[
+                        Icon(item.icon, size: 20, color: color),
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: Text(
+                          item.label,
+                          style: color != null ? TextStyle(color: color) : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+        icon: Icon(icon, size: iconSize),
+      ),
     );
   }
 }
