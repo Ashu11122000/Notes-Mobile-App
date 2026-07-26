@@ -1,21 +1,21 @@
-/// ============================================================================
-/// File: notes_constants.dart
-/// ============================================================================
-///
-/// Notes feature constants.
-///
-/// Responsibilities
-/// ----------------------------------------------------------------------------
-/// - Centralize Notes-specific configuration.
-/// - Avoid magic numbers and hardcoded strings.
-/// - Provide reusable values across the Notes feature.
-///
-/// Notes
-/// ----------------------------------------------------------------------------
-/// API endpoints belong in [ApiConstants].
-/// This file contains only Notes feature constants.
-///
-/// ============================================================================
+// ============================================================================
+// File: notes_constants.dart
+// ============================================================================
+//
+// Notes feature constants.
+//
+// Responsibilities
+// ----------------------------------------------------------------------------
+// - Centralize Notes-specific configuration.
+// - Avoid magic numbers and hardcoded strings.
+// - Provide reusable values across the Notes feature.
+//
+// Notes
+// ----------------------------------------------------------------------------
+// API endpoints belong in [ApiConstants].
+// This file contains only Notes feature constants.
+//
+// ============================================================================
 
 final class NotesConstants {
   const NotesConstants._();

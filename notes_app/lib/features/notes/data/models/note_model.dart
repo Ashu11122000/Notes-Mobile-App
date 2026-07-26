@@ -88,6 +88,7 @@ final class NoteModel extends Note {
   }
 
   /// Creates a copy with updated values.
+  @override
   NoteModel copyWith({
     int? id,
     int? ownerId,

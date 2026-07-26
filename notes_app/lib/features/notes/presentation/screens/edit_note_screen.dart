@@ -18,6 +18,7 @@ import '../widgets/note_form.dart';
 /// - Delegates update operations to NotesProvider.
 /// - Shows loading state while updating.
 /// - Displays success and error feedback.
+/// - Clears temporary image selection.
 /// - Navigates back after a successful update.
 ///
 /// Architecture
@@ -42,19 +43,24 @@ final class EditNoteScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<NotesProvider>(
       builder: (context, provider, child) {
-        return Scaffold(
-          appBar: AppBar(title: const Text('Edit Note'), centerTitle: true),
-          body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: NoteForm(
-                initialTitle: note.title,
-                initialContent: note.content ?? '',
-                submitLabel: 'Update Note',
-                isLoading: provider.isLoading,
-                onSubmit: (title, content) async {
-                  await _updateNote(context, provider, title, content);
-                },
+        return PopScope(
+          onPopInvokedWithResult: (_, __) {
+            provider.clearSelectedImage();
+          },
+          child: Scaffold(
+            appBar: AppBar(title: const Text('Edit Note'), centerTitle: true),
+            body: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: NoteForm(
+                  initialTitle: note.title,
+                  initialContent: note.content ?? '',
+                  submitLabel: 'Update Note',
+                  isLoading: provider.isLoading,
+                  onSubmit: (title, content) async {
+                    await _updateNote(context, provider, title, content);
+                  },
+                ),
               ),
             ),
           ),
@@ -88,6 +94,8 @@ final class EditNoteScreen extends StatelessWidget {
       );
       return;
     }
+
+    provider.clearSelectedImage();
 
     _showSuccessSnackBar(context);
 

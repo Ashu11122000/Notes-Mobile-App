@@ -52,13 +52,14 @@ class PaginatedNotesResponse extends PaginationResponse<NoteModel> {
   Map<String, dynamic> toJson(
     Map<String, dynamic> Function(NoteModel item) toJsonT,
   ) {
-    return {
+    return <String, dynamic>{
       'items': items.map((item) => item.toJson()).toList(growable: false),
       'meta': meta.toJson(),
     };
   }
 
   /// Returns a copy with updated values.
+  @override
   PaginatedNotesResponse copyWith({
     List<NoteModel>? items,
     PaginationMeta? meta,
