@@ -16,16 +16,24 @@ import '../widgets/reminder_title.dart';
 /// ----------------------------------------------------------------------------
 /// • Displays notification preferences.
 /// • Enables/disables notifications.
-/// • Configures daily reminder preference.
-/// • Selects default reminder time.
+/// • Configures daily reminders.
+/// • Selects reminder time.
 /// • Sends test notifications.
 /// • Cancels notifications.
 ///
-/// Notes
+/// Does NOT:
 /// ----------------------------------------------------------------------------
-/// This screen manages only notification preferences.
+/// • Schedule reminders directly.
+/// • Access NotificationService.
+/// • Handle notification business rules.
 ///
-/// Notification scheduling is handled by ReminderManager.
+/// Architecture
+/// ----------------------------------------------------------------------------
+/// UI
+///   ↓
+/// NotificationProvider
+///   ↓
+/// NotificationService
 ///
 /// ============================================================================
 
@@ -57,30 +65,37 @@ final class _NotificationSettingsScreenState
         return Scaffold(
           appBar: AppBar(
             title: const Text('Notification Settings'),
+
             centerTitle: true,
           ),
+
           body: SafeArea(
             child: ListView(
               padding: const EdgeInsets.all(16),
+
               children: [
-                // =============================================================
-                // Enable Notifications
-                // =============================================================
+                // ============================================================
+                // Notifications Toggle
+                // ============================================================
                 const NotificationToggle(),
 
                 const SizedBox(height: 16),
 
-                // =============================================================
-                // Daily Reminder Preference
-                // =============================================================
+                // ============================================================
+                // Daily Reminder
+                // ============================================================
                 Card(
+                  clipBehavior: Clip.antiAlias,
+
                   child: SwitchListTile(
-                    secondary: const Icon(Icons.repeat),
-                    title: const Text('Enable Daily Reminder'),
-                    subtitle: const Text(
-                      'Repeat reminder every day at the selected time.',
-                    ),
+                    secondary: const Icon(Icons.repeat_rounded),
+
+                    title: const Text('Daily Reminder'),
+
+                    subtitle: const Text('Repeat reminder every day.'),
+
                     value: provider.dailyReminderEnabled,
+
                     onChanged: provider.notificationsEnabled
                         ? (value) async {
                             await provider.setDailyReminderEnabled(value);
@@ -91,12 +106,14 @@ final class _NotificationSettingsScreenState
 
                 const SizedBox(height: 16),
 
-                // =============================================================
+                // ============================================================
                 // Reminder Time
-                // =============================================================
+                // ============================================================
                 ReminderTimePicker(
                   selectedTime: _selectedTime,
+
                   enabled: provider.notificationsEnabled,
+
                   onTimeSelected: (time) {
                     setState(() {
                       _selectedTime = time;
@@ -104,24 +121,45 @@ final class _NotificationSettingsScreenState
                   },
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
-                // =============================================================
+                // ============================================================
                 // Reminder Preview
-                // =============================================================
+                // ============================================================
                 ReminderTile(
                   title: 'Daily Notes Reminder',
+
                   time: _selectedTime,
+
                   enabled: provider.notificationsEnabled,
-                  onEdit: () {},
+
+                  onEdit: () async {
+                    final TimeOfDay? time = await showTimePicker(
+                      context: context,
+
+                      initialTime: _selectedTime,
+                    );
+
+                    if (time == null) {
+                      return;
+                    }
+
+                    setState(() {
+                      _selectedTime = time;
+                    });
+                  },
                 ),
 
                 const SizedBox(height: 32),
 
-                // =============================================================
-                // Send Test Notification
-                // =============================================================
+                // ============================================================
+                // Test Notification
+                // ============================================================
                 FilledButton.icon(
+                  icon: const Icon(Icons.notifications_active_outlined),
+
+                  label: const Text('Send Test Notification'),
+
                   onPressed: provider.notificationsEnabled
                       ? () async {
                           await provider.sendTestNotification();
@@ -130,26 +168,24 @@ final class _NotificationSettingsScreenState
                             return;
                           }
 
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Test notification sent successfully.',
-                              ),
-                              behavior: SnackBarBehavior.floating,
-                            ),
+                          _showMessage(
+                            context,
+                            'Test notification sent successfully.',
                           );
                         }
                       : null,
-                  icon: const Icon(Icons.notifications_active_outlined),
-                  label: const Text('Send Test Notification'),
                 ),
 
                 const SizedBox(height: 12),
 
-                // =============================================================
-                // Cancel All Notifications
-                // =============================================================
+                // ============================================================
+                // Cancel Notifications
+                // ============================================================
                 OutlinedButton.icon(
+                  icon: const Icon(Icons.notifications_off_outlined),
+
+                  label: const Text('Cancel All Notifications'),
+
                   onPressed: provider.notificationsEnabled
                       ? () async {
                           await provider.cancelAllNotifications();
@@ -158,24 +194,21 @@ final class _NotificationSettingsScreenState
                             return;
                           }
 
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('All notifications cancelled.'),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
+                          _showMessage(context, 'All notifications cancelled.');
                         }
                       : null,
-                  icon: const Icon(Icons.notifications_off_outlined),
-                  label: const Text('Cancel All Notifications'),
                 ),
 
                 const SizedBox(height: 12),
 
-                // =============================================================
-                // Reset Preferences
-                // =============================================================
+                // ============================================================
+                // Reset
+                // ============================================================
                 TextButton.icon(
+                  icon: const Icon(Icons.restart_alt_rounded),
+
+                  label: const Text('Reset Preferences'),
+
                   onPressed: () async {
                     await provider.resetPreferences();
 
@@ -183,21 +216,28 @@ final class _NotificationSettingsScreenState
                       return;
                     }
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Notification preferences reset.'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
+                    setState(() {
+                      _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+                    });
+
+                    _showMessage(context, 'Notification preferences reset.');
                   },
-                  icon: const Icon(Icons.restart_alt),
-                  label: const Text('Reset Preferences'),
                 ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  // ==========================================================================
+  // Snackbar Helper
+  // ==========================================================================
+
+  void _showMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 }

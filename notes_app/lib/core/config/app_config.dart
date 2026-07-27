@@ -4,38 +4,20 @@ import 'package:flutter/foundation.dart';
 /// File: app_config.dart
 /// ============================================================================
 ///
-/// Centralized application configuration.
+/// Application runtime configuration.
 ///
-/// This class contains compile-time application configuration used throughout
-/// the project. Configuration values are injected using `--dart-define`,
-/// allowing different environments (development, staging, production) without
-/// changing source code.
+/// Responsibilities
+/// ----------------------------------------------------------------------------
+/// • Stores environment configuration.
+/// • Stores backend base URL.
+/// • Stores network settings.
+/// • Supports dart-define environments.
 ///
-/// Example:
+/// API paths are NOT stored here.
+/// Use ApiConstants for endpoints.
 ///
-/// ```bash
-/// flutter run \
-///   --dart-define=BASE_URL=http://10.0.2.2:8000 \
-///   --dart-define=APP_ENV=development
-/// ```
-///
-/// Supported URLs:
-///
-/// Android Emulator:
-///   http://10.0.2.2:8000
-///
-/// iOS Simulator:
-///   http://localhost:8000
-///
-/// Physical Device:
-///   http://<YOUR_LOCAL_IP>:8000
-///
-/// Production:
-///   https://api.yourdomain.com
-///
-/// This class intentionally contains only compile-time constants and lightweight
-/// getters to keep startup time minimal and avoid runtime allocations.
 /// ============================================================================
+
 @immutable
 final class AppConfig {
   const AppConfig._();
@@ -44,138 +26,113 @@ final class AppConfig {
   // Environment
   // ===========================================================================
 
-  /// Current application environment.
-  ///
-  /// Examples:
-  /// - development
-  /// - staging
-  /// - production
   static const String environment = String.fromEnvironment(
     'APP_ENV',
     defaultValue: 'development',
   );
 
   // ===========================================================================
-  // API Configuration
+  // Backend Configuration
   // ===========================================================================
 
-  /// Backend server base URL.
+  /// Backend root URL.
+  ///
+  /// Android Emulator:
+  /// http://10.0.2.2:8000
+  ///
+  /// Physical Device:
+  /// http://YOUR_LOCAL_IP:8000
+  ///
   static const String baseUrl = String.fromEnvironment(
     'BASE_URL',
     defaultValue: 'http://10.0.2.2:8000',
   );
 
-  /// REST API version.
+  /// API version prefix.
   ///
-  /// Keep this synchronized with the backend.
+  /// Used only by ApiConstants.
   static const String apiVersion = '/api/v1';
 
-  /// Complete API base URL.
-  ///
-  /// Example:
-  ///
-  /// http://10.0.2.2:8000/api/v1
-  static const String apiBaseUrl = '$baseUrl$apiVersion';
-
-  /// Creates a fully-qualified API endpoint.
-  ///
-  /// Example:
-  ///
-  /// ```dart
-  /// final uri = AppConfig.endpoint('/notes');
-  /// ```
-  static Uri endpoint(String path) {
-    final normalizedPath = path.startsWith('/') ? path : '/$path';
-    return Uri.parse('$apiBaseUrl$normalizedPath');
-  }
-
   // ===========================================================================
-  // Network Configuration
+  // Network
   // ===========================================================================
 
-  /// Connection timeout.
   static const Duration connectTimeout = Duration(seconds: 15);
 
-  /// Receive timeout.
   static const Duration receiveTimeout = Duration(seconds: 20);
 
-  /// Upload timeout.
   static const Duration sendTimeout = Duration(seconds: 20);
 
   // ===========================================================================
   // Pagination
   // ===========================================================================
 
-  /// Default first page.
   static const int defaultPage = 1;
 
-  /// Default number of records per page.
   static const int defaultPageSize = 20;
 
   // ===========================================================================
   // Search
   // ===========================================================================
 
-  /// Debounce duration for search inputs.
   static const Duration searchDebounce = Duration(milliseconds: 400);
 
   // ===========================================================================
-  // Image Upload
+  // Upload
   // ===========================================================================
 
-  /// Maximum allowed image size (5 MB).
   static const int maxImageSizeBytes = 5 * 1024 * 1024;
 
   // ===========================================================================
-  // Build Modes
+  // Build Mode
   // ===========================================================================
 
-  /// Whether the application is running in debug mode.
   static bool get isDebug => kDebugMode;
 
-  /// Whether the application is running in profile mode.
   static bool get isProfile => kProfileMode;
 
-  /// Whether the application is running in release mode.
   static bool get isRelease => kReleaseMode;
 
   // ===========================================================================
   // Validation
   // ===========================================================================
 
-  /// Returns true if the configured base URL appears valid.
   static bool get isValidBaseUrl {
-    final uri = Uri.tryParse(baseUrl);
+    final Uri? uri = Uri.tryParse(baseUrl);
 
     return uri != null && uri.hasScheme && uri.host.isNotEmpty;
   }
 
   // ===========================================================================
-  // Debug Helpers
+  // Debug
   // ===========================================================================
 
-  /// Prints the current application configuration.
-  ///
-  /// This method executes only in debug mode.
   static void printConfiguration() {
-    if (!isDebug) return;
+    if (!isDebug) {
+      return;
+    }
 
     debugPrint('''
 ================ App Configuration ================
+
 Environment      : $environment
+
 Base URL         : $baseUrl
-API Base URL     : $apiBaseUrl
+
 API Version      : $apiVersion
-Debug Mode       : $isDebug
-Profile Mode     : $isProfile
-Release Mode     : $isRelease
+
+Debug            : $isDebug
+
+Profile          : $isProfile
+
+Release          : $isRelease
+
 Connect Timeout  : ${connectTimeout.inSeconds}s
+
 Receive Timeout  : ${receiveTimeout.inSeconds}s
+
 Send Timeout     : ${sendTimeout.inSeconds}s
-Default Page     : $defaultPage
-Page Size        : $defaultPageSize
-Search Debounce  : ${searchDebounce.inMilliseconds} ms
-Image Size Limit : ${maxImageSizeBytes ~/ (1024 * 1024)} MB
+
 ===================================================
 ''');
   }

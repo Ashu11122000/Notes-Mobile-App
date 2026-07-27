@@ -4,8 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_routes.dart';
 
-import '../../../settings/presentation/screens/settings_screen.dart';
-
 import '../../constants/notes_constants.dart';
 import '../../domain/entities/note.dart';
 import '../providers/notes_provider.dart';
@@ -19,29 +17,31 @@ import '../widgets/notes_search_bar.dart';
 /// File: notes_screen.dart
 /// ============================================================================
 ///
-/// Notes Screen
+/// Notes Screen.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Displays all notes.
-/// • Supports searching.
-/// • Supports pull-to-refresh.
-/// • Supports pagination.
-/// • Navigates to:
-///     - Add Note
-///     - Edit Note
-///     - Note Details
-///     - Settings
-/// • Uses NotesProvider for state management.
+/// • Displays notes list.
+/// • Handles searching.
+/// • Handles pagination.
+/// • Handles refresh.
+/// • Handles navigation.
+/// • Delegates state management to NotesProvider.
+///
+/// Does NOT:
+/// ----------------------------------------------------------------------------
+/// • Call repository.
+/// • Call API.
+/// • Handle business logic.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
 /// UI
-///     ↓
+///    ↓
 /// NotesProvider
-///     ↓
+///    ↓
 /// NotesRepository
-///     ↓
+///    ↓
 /// FastAPI
 ///
 /// ============================================================================
@@ -118,6 +118,7 @@ final class _NotesScreenState extends State<NotesScreen> {
 
     if (query.trim().isEmpty) {
       provider.clearSearch();
+
       return;
     }
 
@@ -133,11 +134,15 @@ final class _NotesScreenState extends State<NotesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Notes'),
+
         centerTitle: true,
+
         actions: [
           IconButton(
             tooltip: 'Settings',
+
             icon: const Icon(Icons.settings_outlined),
+
             onPressed: _navigateToSettings,
           ),
         ],
@@ -148,13 +153,16 @@ final class _NotesScreenState extends State<NotesScreen> {
       body: Column(
         children: [
           // ===============================================================
-          // Search Bar
+          // Search
           // ===============================================================
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+
             child: NotesSearchBar(
               controller: _searchController,
+
               onChanged: _onSearchChanged,
+
               onClear: () {
                 context.read<NotesProvider>().clearSearch();
               },
@@ -167,81 +175,45 @@ final class _NotesScreenState extends State<NotesScreen> {
           Expanded(
             child: Consumer<NotesProvider>(
               builder: (context, provider, child) {
-                // ===========================================================
+                // =========================================================
                 // Initial Loading
-                // ===========================================================
+                // =========================================================
 
                 if (provider.isLoading && provider.notes.isEmpty) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                // ===========================================================
+                // =========================================================
                 // Error State
-                // ===========================================================
+                // =========================================================
 
                 if (provider.hasError && provider.notes.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline_rounded,
-                            size: 72,
-                            color: Theme.of(context).colorScheme.error,
-                          ),
+                  return _ErrorView(
+                    message: provider.errorMessage ?? 'Unable to load notes.',
 
-                          const SizedBox(height: 16),
-
-                          Text(
-                            'Unable to load notes',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-
-                          const SizedBox(height: 8),
-
-                          Text(
-                            provider.errorMessage ??
-                                'An unexpected error occurred.',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          FilledButton.icon(
-                            onPressed: () {
-                              provider.loadNotes(refresh: true);
-                            },
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Retry'),
-                          ),
-                        ],
-                      ),
-                    ),
+                    onRetry: () {
+                      provider.loadNotes(refresh: true);
+                    },
                   );
                 }
 
-                // ===========================================================
+                // =========================================================
                 // Empty State
-                // ===========================================================
+                // =========================================================
 
                 if (provider.notes.isEmpty) {
                   return RefreshIndicator(
                     onRefresh: () async {
                       await provider.loadNotes(refresh: true);
                     },
+
                     child: ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
+
                       children: [
                         SizedBox(
                           height: MediaQuery.of(context).size.height * 0.72,
+
                           child: EmptyNotesWidget(
                             onCreatePressed: _navigateToAddNote,
                           ),
@@ -251,20 +223,26 @@ final class _NotesScreenState extends State<NotesScreen> {
                   );
                 }
 
-                // ===========================================================
+                // =========================================================
                 // Notes List
-                // ===========================================================
+                // =========================================================
 
                 return RefreshIndicator(
                   onRefresh: () async {
                     await provider.loadNotes(refresh: true);
                   },
+
                   child: NoteList(
                     notes: provider.notes,
+
                     controller: _scrollController,
+
                     isLoadingMore: provider.isLoadingMore,
+
                     onNoteTap: _openNoteDetails,
+
                     onEdit: _navigateToEditNote,
+
                     onDelete: _deleteNote,
                   ),
                 );
@@ -282,43 +260,18 @@ final class _NotesScreenState extends State<NotesScreen> {
 
   Future<void> _navigateToSettings() async {
     await context.push(AppRoutes.settings);
-
-    if (!mounted) {
-      return;
-    }
-
-    // Refresh notes in case any settings affect the UI.
-    setState(() {});
   }
 
   Future<void> _navigateToAddNote() async {
     await context.push(AppRoutes.addNote);
-
-    if (!mounted) {
-      return;
-    }
-
-    await context.read<NotesProvider>().loadNotes(refresh: true);
   }
 
   Future<void> _navigateToEditNote(Note note) async {
     await context.push(AppRoutes.editNote, extra: note);
-
-    if (!mounted) {
-      return;
-    }
-
-    await context.read<NotesProvider>().loadNotes(refresh: true);
   }
 
   Future<void> _openNoteDetails(Note note) async {
     await context.push(AppRoutes.noteDetail, extra: note);
-
-    if (!mounted) {
-      return;
-    }
-
-    await context.read<NotesProvider>().loadNotes(refresh: true);
   }
 
   // ===========================================================================
@@ -328,6 +281,7 @@ final class _NotesScreenState extends State<NotesScreen> {
   Future<void> _deleteNote(Note note) async {
     final bool? confirmed = await DeleteNoteDialog.show(
       context,
+
       noteTitle: note.title,
     );
 
@@ -339,31 +293,107 @@ final class _NotesScreenState extends State<NotesScreen> {
 
     provider.clearError();
 
-    await provider.deleteNote(note.id);
+    final bool deleted = await provider.deleteNote(note.id);
 
     if (!mounted) {
       return;
     }
 
-    if (provider.hasError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(provider.errorMessage ?? 'Failed to delete note.'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
+    if (!deleted) {
+      _showSnackBar(
+        provider.errorMessage ?? 'Failed to delete note.',
+
+        isError: true,
       );
 
       return;
     }
 
+    _showSnackBar('Note deleted successfully.');
+  }
+
+  // ===========================================================================
+  // Snackbar
+  // ===========================================================================
+
+  void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Note deleted successfully.'),
+      SnackBar(
+        content: Text(message),
+
         behavior: SnackBarBehavior.floating,
+
+        backgroundColor: isError ? Theme.of(context).colorScheme.error : null,
       ),
     );
+  }
+}
 
-    await provider.loadNotes(refresh: true);
+// ============================================================================
+// Error View
+// ============================================================================
+
+final class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.message, required this.onRetry});
+
+  final String message;
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+
+              size: 72,
+
+              color: theme.colorScheme.error,
+            ),
+
+            const SizedBox(height: 16),
+
+            Text(
+              'Unable to load notes',
+
+              style: theme.textTheme.titleLarge,
+
+              textAlign: TextAlign.center,
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              message,
+
+              textAlign: TextAlign.center,
+
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            FilledButton.icon(
+              onPressed: onRetry,
+
+              icon: const Icon(Icons.refresh),
+
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -4,53 +4,104 @@ import 'package:flutter/material.dart';
 /// File: pagination_loader.dart
 /// ============================================================================
 ///
-/// Pagination Loader
+/// Pagination Loader.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Displays a loading indicator while additional data is being loaded.
-/// - Used for infinite scrolling and pagination.
-/// - Contains no business logic.
-/// - Reusable across all paginated screens.
+/// • Displays loading indicator during pagination.
+/// • Used by infinite scrolling lists/grids.
+/// • Contains no business logic.
+/// • Reusable across all paginated features.
+///
+/// Architecture
+/// ----------------------------------------------------------------------------
+/// List/Grid
+///     ↓
+/// PaginationLoader
+///     ↓
+/// Loading UI
 ///
 /// ============================================================================
-class PaginationLoader extends StatelessWidget {
+
+final class PaginationLoader extends StatelessWidget {
   const PaginationLoader({
     super.key,
     this.message = 'Loading more...',
     this.padding = const EdgeInsets.symmetric(vertical: 24),
+    this.indicatorSize = 28,
+    this.strokeWidth = 2.5,
+    this.showMessage = true,
   });
 
-  /// Loading message.
+  /// Loading text.
   final String message;
 
-  /// Outer padding.
+  /// Outer spacing.
   final EdgeInsetsGeometry padding;
+
+  /// Circular indicator size.
+  final double indicatorSize;
+
+  /// Circular indicator thickness.
+  final double strokeWidth;
+
+  /// Whether to show message.
+  final bool showMessage;
+
+  // ===========================================================================
+  // Constants
+  // ===========================================================================
+
+  static const double _messageSpacing = 12;
+
+  // ===========================================================================
+  // Build
+  // ===========================================================================
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final ThemeData theme = Theme.of(context);
 
-    return Padding(
-      padding: padding,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+    return Semantics(
+      liveRegion: true,
+
+      label: message,
+
+      child: Padding(
+        padding: padding,
+
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+
+            children: <Widget>[
+              SizedBox(
+                width: indicatorSize,
+
+                height: indicatorSize,
+
+                child: CircularProgressIndicator(
+                  strokeWidth: strokeWidth,
+
+                  color: theme.colorScheme.primary,
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+
+              if (showMessage) ...<Widget>[
+                const SizedBox(height: _messageSpacing),
+
+                Text(
+                  message,
+
+                  textAlign: TextAlign.center,
+
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

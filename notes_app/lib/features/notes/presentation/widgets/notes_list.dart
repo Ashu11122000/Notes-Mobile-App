@@ -12,11 +12,11 @@ import 'pagination_loader.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Displays a scrollable list of notes.
-/// - Supports infinite scrolling.
-/// - Displays a pagination loader.
-/// - Delegates user interactions through callbacks.
-/// - Contains no business logic.
+/// • Displays a scrollable list of notes.
+/// • Supports infinite scrolling.
+/// • Displays pagination loading state.
+/// • Delegates user interactions.
+/// • Contains no business logic.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -28,55 +28,87 @@ import 'pagination_loader.dart';
 ///
 /// ============================================================================
 
-class NoteList extends StatelessWidget {
+final class NoteList extends StatelessWidget {
   const NoteList({
     super.key,
     required this.notes,
     this.controller,
     this.isLoadingMore = false,
+    this.padding = const EdgeInsets.all(16),
     this.onNoteTap,
     this.onEdit,
     this.onDelete,
   });
 
-  /// Notes to display.
+  /// Notes collection.
   final List<Note> notes;
 
   /// Optional scroll controller.
   final ScrollController? controller;
 
-  /// Indicates whether the next page is loading.
+  /// Indicates pagination loading.
   final bool isLoadingMore;
 
-  /// Called when a note is tapped.
+  /// Outer list padding.
+  final EdgeInsetsGeometry padding;
+
+  /// Note tap callback.
   final ValueChanged<Note>? onNoteTap;
 
-  /// Called when edit is selected.
+  /// Edit callback.
   final ValueChanged<Note>? onEdit;
 
-  /// Called when delete is selected.
+  /// Delete callback.
   final ValueChanged<Note>? onDelete;
+
+  // ===========================================================================
+  // Constants
+  // ===========================================================================
+
+  static const double _cacheExtent = 800;
+
+  static const double _itemSpacing = 12;
+
+  // ===========================================================================
+  // Build
+  // ===========================================================================
 
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
       controller: controller,
-      padding: const EdgeInsets.all(16),
+
+      padding: padding,
+
+      cacheExtent: _cacheExtent,
+
       physics: const AlwaysScrollableScrollPhysics(),
+
       itemCount: notes.length + (isLoadingMore ? 1 : 0),
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
+
+      separatorBuilder: (BuildContext context, int index) {
+        return const SizedBox(height: _itemSpacing);
+      },
+
+      itemBuilder: (BuildContext context, int index) {
         if (index >= notes.length) {
           return const PaginationLoader();
         }
 
         final Note note = notes[index];
 
-        return NoteCard(
-          note: note,
-          onTap: () => onNoteTap?.call(note),
-          onEdit: () => onEdit?.call(note),
-          onDelete: () => onDelete?.call(note),
+        return Semantics(
+          label: 'Note item ${index + 1}',
+
+          child: NoteCard(
+            note: note,
+
+            onTap: onNoteTap == null ? null : () => onNoteTap!(note),
+
+            onEdit: onEdit == null ? null : () => onEdit!(note),
+
+            onDelete: onDelete == null ? null : () => onDelete!(note),
+          ),
         );
       },
     );

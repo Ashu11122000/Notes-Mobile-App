@@ -1,18 +1,20 @@
+import 'package:flutter/foundation.dart';
+
 import '../../../../shared/models/pagination_meta.dart';
 import '../../../../shared/models/pagination_response.dart';
 import 'note_model.dart';
 
-/// =============================================================================
+/// ============================================================================
 /// File: paginated_notes_response.dart
-/// =============================================================================
+/// ============================================================================
 ///
-/// Typed paginated response for Notes.
+/// Strongly typed paginated response for Notes.
 ///
-/// This wraps the generic [PaginationResponse] while providing a strongly typed
-/// API for the Notes feature.
+/// Uses composition instead of inheritance because
+/// [PaginationResponse] is declared as a final class.
 ///
-/// Example JSON:
-///
+/// Expected JSON
+/// ----------------------------------------------------------------------------
 /// {
 ///   "items": [
 ///     {
@@ -32,43 +34,96 @@ import 'note_model.dart';
 ///   }
 /// }
 ///
-class PaginatedNotesResponse extends PaginationResponse<NoteModel> {
-  const PaginatedNotesResponse({required super.items, required super.meta});
+/// ============================================================================
 
-  /// Creates a paginated notes response from JSON.
-  factory PaginatedNotesResponse.fromJson(Map<String, dynamic> json) {
+@immutable
+final class PaginatedNotesResponse {
+  const PaginatedNotesResponse({required this.response});
+
+  /// Underlying generic pagination response.
+  final PaginationResponse<NoteModel> response;
+
+  // ===========================================================================
+  // Convenience Getters
+  // ===========================================================================
+
+  List<NoteModel> get items => response.items;
+
+  PaginationMeta get meta => response.meta;
+
+  bool get isEmpty => items.isEmpty;
+
+  bool get isNotEmpty => items.isNotEmpty;
+
+  // ===========================================================================
+  // Factories
+  // ===========================================================================
+
+  factory PaginatedNotesResponse.empty() {
     return PaginatedNotesResponse(
-      items: (json['items'] as List<dynamic>? ?? [])
-          .map((item) => NoteModel.fromJson(item as Map<String, dynamic>))
-          .toList(growable: false),
-      meta: PaginationMeta.fromJson(
-        json['meta'] as Map<String, dynamic>? ?? const {},
+      response: PaginationResponse<NoteModel>(
+        items: const <NoteModel>[],
+        meta: const PaginationMeta(page: 1, size: 0, total: 0, pages: 0),
       ),
     );
   }
 
-  /// Converts this response to JSON.
-  @override
-  Map<String, dynamic> toJson(
-    Map<String, dynamic> Function(NoteModel item) toJsonT,
-  ) {
+  factory PaginatedNotesResponse.fromJson(Map<String, dynamic> json) {
+    final List<dynamic> rawItems =
+        json['items'] as List<dynamic>? ?? const <dynamic>[];
+
+    return PaginatedNotesResponse(
+      response: PaginationResponse<NoteModel>(
+        items: List<NoteModel>.unmodifiable(
+          rawItems.map(
+            (dynamic item) =>
+                NoteModel.fromJson(Map<String, dynamic>.from(item as Map)),
+          ),
+        ),
+        meta: PaginationMeta.fromJson(
+          Map<String, dynamic>.from(
+            json['meta'] as Map? ?? const <String, dynamic>{},
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Serialization
+  // ===========================================================================
+
+  Map<String, dynamic> toJson() {
     return <String, dynamic>{
-      'items': items.map((item) => item.toJson()).toList(growable: false),
+      'items': items.map((note) => note.toJson()).toList(growable: false),
       'meta': meta.toJson(),
     };
   }
 
-  /// Returns a copy with updated values.
-  @override
-  PaginatedNotesResponse copyWith({
-    List<NoteModel>? items,
-    PaginationMeta? meta,
-  }) {
-    return PaginatedNotesResponse(
-      items: items ?? this.items,
-      meta: meta ?? this.meta,
-    );
+  // ===========================================================================
+  // Copy
+  // ===========================================================================
+
+  PaginatedNotesResponse copyWith({PaginationResponse<NoteModel>? response}) {
+    return PaginatedNotesResponse(response: response ?? this.response);
   }
+
+  // ===========================================================================
+  // Equality
+  // ===========================================================================
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is PaginatedNotesResponse && response == other.response;
+  }
+
+  @override
+  int get hashCode => response.hashCode;
+
+  // ===========================================================================
+  // Debug
+  // ===========================================================================
 
   @override
   String toString() {

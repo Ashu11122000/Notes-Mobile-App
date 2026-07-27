@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// ============================================================================
 /// File: reminder_model.dart
 /// ============================================================================
@@ -6,18 +8,27 @@
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Represents a locally scheduled reminder.
-/// - Stores all information required to schedule/cancel notifications.
-/// - Supports JSON serialization for local persistence.
-/// - Immutable data model.
+/// • Represents a locally scheduled notification reminder.
+/// • Stores notification scheduling information.
+/// • Supports local persistence.
+/// • Provides immutable reminder state.
 ///
 /// Notes
 /// ----------------------------------------------------------------------------
-/// This model is local to the device. It is NOT sent to the FastAPI backend.
-/// It is stored locally and used by NotificationService to schedule reminders.
+/// This model belongs ONLY to the Flutter application.
+///
+/// It is NOT:
+/// - Sent to FastAPI.
+/// - Stored in PostgreSQL.
+///
+/// It is used by:
+/// - ReminderManager.
+/// - NotificationService.
+/// - Local storage.
 ///
 /// ============================================================================
 
+@immutable
 final class ReminderModel {
   const ReminderModel({
     required this.notificationId,
@@ -30,59 +41,88 @@ final class ReminderModel {
     this.repeatDaily = false,
   });
 
+  // ===========================================================================
+  // Fields
+  // ===========================================================================
+
   /// Unique notification identifier.
   ///
-  /// Used by flutter_local_notifications.
+  /// Required by flutter_local_notifications.
   final int notificationId;
 
-  /// Associated note identifier.
+  /// Related note identifier.
   final int noteId;
 
   /// Notification title.
   final String title;
 
-  /// Notification body.
+  /// Notification message body.
   final String body;
 
-  /// Date & time when the notification should fire.
+  /// Scheduled notification date/time.
   final DateTime scheduledAt;
 
-  /// Optional payload.
+  /// Optional navigation payload.
   ///
-  /// Used to open the corresponding note when the notification is tapped.
+  /// Example:
+  /// "note/12"
   final String? payload;
 
-  /// Whether the reminder is enabled.
+  /// Whether this reminder is active.
   final bool isEnabled;
 
-  /// Whether the reminder should repeat every day.
-  ///
-  /// Stretch Goal support.
+  /// Whether reminder repeats daily.
   final bool repeatDaily;
 
   // ===========================================================================
-  // Convenience Getters
+  // Computed Properties
   // ===========================================================================
 
-  /// Returns true if the reminder time has already passed.
+  /// Returns true when reminder time has passed.
   bool get isExpired => scheduledAt.isBefore(DateTime.now());
 
-  /// Returns true if the reminder is scheduled in the future.
+  /// Returns true when reminder is in future.
   bool get isUpcoming => scheduledAt.isAfter(DateTime.now());
 
+  /// Alias for readability.
+  bool get isPast => isExpired;
+
+  /// Alias for readability.
+  bool get isFuture => isUpcoming;
+
+  /// Basic validation.
+  bool get isValid => title.trim().isNotEmpty && body.trim().isNotEmpty;
+
+  /// Human readable date.
+  String get formattedDateTime =>
+      '${scheduledAt.day}/'
+      '${scheduledAt.month}/'
+      '${scheduledAt.year} '
+      '${scheduledAt.hour}:'
+      '${scheduledAt.minute.toString().padLeft(2, '0')}';
+
   // ===========================================================================
-  // JSON Serialization
+  // JSON
   // ===========================================================================
 
   factory ReminderModel.fromJson(Map<String, dynamic> json) {
     return ReminderModel(
-      notificationId: (json['notification_id'] as num).toInt(),
-      noteId: (json['note_id'] as num).toInt(),
-      title: json['title'] as String,
-      body: json['body'] as String,
-      scheduledAt: DateTime.parse(json['scheduled_at'] as String),
+      notificationId: (json['notification_id'] as num?)?.toInt() ?? 0,
+
+      noteId: (json['note_id'] as num?)?.toInt() ?? 0,
+
+      title: json['title'] as String? ?? '',
+
+      body: json['body'] as String? ?? '',
+
+      scheduledAt:
+          DateTime.tryParse(json['scheduled_at'] as String? ?? '') ??
+          DateTime.now(),
+
       payload: json['payload'] as String?,
+
       isEnabled: json['is_enabled'] as bool? ?? true,
+
       repeatDaily: json['repeat_daily'] as bool? ?? false,
     );
   }
@@ -90,12 +130,19 @@ final class ReminderModel {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'notification_id': notificationId,
+
       'note_id': noteId,
+
       'title': title,
+
       'body': body,
+
       'scheduled_at': scheduledAt.toIso8601String(),
+
       'payload': payload,
+
       'is_enabled': isEnabled,
+
       'repeat_daily': repeatDaily,
     };
   }
@@ -116,12 +163,19 @@ final class ReminderModel {
   }) {
     return ReminderModel(
       notificationId: notificationId ?? this.notificationId,
+
       noteId: noteId ?? this.noteId,
+
       title: title ?? this.title,
+
       body: body ?? this.body,
+
       scheduledAt: scheduledAt ?? this.scheduledAt,
+
       payload: payload ?? this.payload,
+
       isEnabled: isEnabled ?? this.isEnabled,
+
       repeatDaily: repeatDaily ?? this.repeatDaily,
     );
   }
@@ -132,19 +186,17 @@ final class ReminderModel {
 
   @override
   bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-
-    return other is ReminderModel &&
-        other.notificationId == notificationId &&
-        other.noteId == noteId &&
-        other.title == title &&
-        other.body == body &&
-        other.scheduledAt == scheduledAt &&
-        other.payload == payload &&
-        other.isEnabled == isEnabled &&
-        other.repeatDaily == repeatDaily;
+    return identical(this, other) ||
+        other is ReminderModel &&
+            runtimeType == other.runtimeType &&
+            notificationId == other.notificationId &&
+            noteId == other.noteId &&
+            title == other.title &&
+            body == other.body &&
+            scheduledAt == other.scheduledAt &&
+            payload == other.payload &&
+            isEnabled == other.isEnabled &&
+            repeatDaily == other.repeatDaily;
   }
 
   @override
@@ -158,6 +210,10 @@ final class ReminderModel {
     isEnabled,
     repeatDaily,
   );
+
+  // ===========================================================================
+  // Debug
+  // ===========================================================================
 
   @override
   String toString() {

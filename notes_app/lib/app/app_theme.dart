@@ -2,227 +2,1157 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Centralized application theme.
+
+/// ============================================================================
+/// File: app_theme.dart
+/// ============================================================================
 ///
-/// Provides the application's light and dark themes using
-/// Material 3 with a shared enterprise design system.
+/// Application Theme System
+///
+/// Responsibilities
+/// ----------------------------------------------------------------------------
+/// • Defines light and dark themes.
+/// • Provides Material 3 design system.
+/// • Centralizes typography.
+/// • Centralizes component styling.
+/// • Maintains consistent enterprise UI.
+///
+/// Architecture
+/// ----------------------------------------------------------------------------
+///
+/// UI
+/// ↓
+/// AppTheme
+/// ↓
+/// ThemeData
+///
+/// ============================================================================
+
+
 final class AppTheme {
+
   const AppTheme._();
 
-  /// Primary seed color.
-  static const Color _seedColor = Color(0xFF2563EB);
 
-  /// Light Theme.
-  static ThemeData get lightTheme => _buildTheme(Brightness.light);
 
-  /// Dark Theme.
-  static ThemeData get darkTheme => _buildTheme(Brightness.dark);
+  // ===========================================================================
+  // Brand
+  // ===========================================================================
 
-  /// Builds the application theme.
-  static ThemeData _buildTheme(Brightness brightness) {
-    final ColorScheme colorScheme = ColorScheme.fromSeed(
-      seedColor: _seedColor,
-      brightness: brightness,
+
+  static const Color _seedColor =
+      Color(0xFF2563EB);
+
+
+
+  static const double _radiusSmall = 8;
+
+  static const double _radiusMedium = 12;
+
+  static const double _radiusLarge = 20;
+
+
+
+
+
+  // ===========================================================================
+  // Public Themes
+  // ===========================================================================
+
+
+  static ThemeData get lightTheme {
+
+    return _buildTheme(
+      Brightness.light,
     );
+
+  }
+
+
+
+
+  static ThemeData get darkTheme {
+
+    return _buildTheme(
+      Brightness.dark,
+    );
+
+  }
+
+
+
+
+
+
+
+  // ===========================================================================
+  // Theme Builder
+  // ===========================================================================
+
+
+  static ThemeData _buildTheme(
+    Brightness brightness,
+  ) {
+
+
+    final ColorScheme scheme =
+        ColorScheme.fromSeed(
+
+      seedColor: _seedColor,
+
+      brightness: brightness,
+
+    );
+
+
+
+    final TextTheme textTheme =
+        GoogleFonts.interTextTheme(
+          brightness == Brightness.dark
+              ? ThemeData.dark().textTheme
+              : ThemeData.light().textTheme,
+        );
+
+
 
     return ThemeData(
+
       useMaterial3: true,
+
       brightness: brightness,
-      colorScheme: colorScheme,
 
-      scaffoldBackgroundColor: colorScheme.surface,
-      cardColor: colorScheme.surface,
 
-      visualDensity: VisualDensity.adaptivePlatformDensity,
+      colorScheme: scheme,
 
-      textTheme: GoogleFonts.interTextTheme(
-        brightness == Brightness.dark
-            ? ThemeData.dark().textTheme
-            : ThemeData.light().textTheme,
-      ),
 
-      appBarTheme: _appBarTheme(colorScheme),
+      scaffoldBackgroundColor:
+          scheme.surface,
 
-      cardTheme: _cardTheme(colorScheme),
 
-      inputDecorationTheme: _inputDecorationTheme(colorScheme),
 
-      elevatedButtonTheme: _elevatedButtonTheme(),
+      visualDensity:
+          VisualDensity.adaptivePlatformDensity,
 
-      outlinedButtonTheme: _outlinedButtonTheme(),
 
-      filledButtonTheme: _filledButtonTheme(),
 
-      snackBarTheme: _snackBarTheme(),
+      textTheme:
+          _textTheme(textTheme),
 
-      dividerTheme: DividerThemeData(
-        color: colorScheme.outlineVariant,
+
+
+      splashFactory:
+          InkSparkle.splashFactory,
+
+
+
+      appBarTheme:
+          _appBarTheme(scheme),
+
+
+
+      cardTheme:
+          _cardTheme(scheme),
+
+
+
+      inputDecorationTheme:
+          _inputDecorationTheme(scheme),
+
+
+
+      filledButtonTheme:
+          _filledButtonTheme(),
+
+
+
+      outlinedButtonTheme:
+          _outlinedButtonTheme(),
+
+
+
+      elevatedButtonTheme:
+          _elevatedButtonTheme(),
+
+
+
+      snackBarTheme:
+          _snackBarTheme(),
+
+
+
+      dividerTheme:
+          DividerThemeData(
+
+        color:
+            scheme.outlineVariant,
+
         thickness: 1,
+
       ),
 
-      progressIndicatorTheme: ProgressIndicatorThemeData(
-        color: colorScheme.primary,
+
+
+      progressIndicatorTheme:
+          ProgressIndicatorThemeData(
+
+        color:
+            scheme.primary,
+
       ),
 
-      checkboxTheme: CheckboxThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+
+
+      iconTheme:
+          IconThemeData(
+
+        color:
+            scheme.onSurfaceVariant,
+
+        size: 24,
+
       ),
 
-      radioTheme: RadioThemeData(
-        fillColor: WidgetStatePropertyAll(colorScheme.primary),
-      ),
+            iconButtonTheme:
+          IconButtonThemeData(
 
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStatePropertyAll(colorScheme.primary),
-      ),
+        style:
+            IconButton.styleFrom(
 
-      iconTheme: IconThemeData(color: colorScheme.onSurfaceVariant, size: 24),
+          foregroundColor:
+              scheme.primary,
 
-      iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(foregroundColor: colorScheme.primary),
-      ),
+          shape:
+              RoundedRectangleBorder(
 
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
-      ),
+            borderRadius:
+                BorderRadius.circular(
+                  _radiusSmall,
+                ),
 
-      chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        side: BorderSide.none,
-      ),
+          ),
 
-      listTileTheme: ListTileThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        iconColor: colorScheme.primary,
-      ),
-
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: colorScheme.surface,
-        indicatorColor: colorScheme.primaryContainer,
-      ),
-
-      tooltipTheme: TooltipThemeData(
-        decoration: BoxDecoration(
-          color: colorScheme.inverseSurface,
-          borderRadius: BorderRadius.circular(8),
         ),
-        textStyle: TextStyle(color: colorScheme.onInverseSurface),
+
       ),
 
-      textSelectionTheme: TextSelectionThemeData(
-        cursorColor: colorScheme.primary,
-        selectionColor: colorScheme.primary.withValues(alpha: 0.25),
-        selectionHandleColor: colorScheme.primary,
-      ),
 
-      dialogTheme: DialogThemeData(
-        backgroundColor: colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      ),
 
-      bottomSheetTheme: BottomSheetThemeData(
-        showDragHandle: true,
-        backgroundColor: colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+
+      floatingActionButtonTheme:
+          FloatingActionButtonThemeData(
+
+        backgroundColor:
+            scheme.primary,
+
+
+        foregroundColor:
+            scheme.onPrimary,
+
+
+        elevation: 2,
+
+
+        shape:
+            RoundedRectangleBorder(
+
+          borderRadius:
+              BorderRadius.circular(
+                _radiusMedium,
+              ),
+
         ),
+
       ),
 
-      pageTransitionsTheme: const PageTransitionsTheme(
+
+
+
+
+      checkboxTheme:
+          CheckboxThemeData(
+
+        shape:
+            RoundedRectangleBorder(
+
+          borderRadius:
+              BorderRadius.circular(
+                4,
+              ),
+
+        ),
+
+
+        side:
+            BorderSide(
+
+          color:
+              scheme.outline,
+
+        ),
+
+      ),
+
+
+
+
+
+      radioTheme:
+          RadioThemeData(
+
+        fillColor:
+            WidgetStatePropertyAll(
+              scheme.primary,
+            ),
+
+      ),
+
+
+
+
+
+      switchTheme:
+          SwitchThemeData(
+
+        thumbColor:
+            WidgetStateProperty.resolveWith(
+              (
+                states,
+              ) {
+
+                if (states.contains(
+                  WidgetState.selected,
+                )) {
+
+                  return scheme.primary;
+
+                }
+
+
+                return scheme.outline;
+
+              },
+            ),
+
+      ),
+
+
+
+
+
+      chipTheme:
+          ChipThemeData(
+
+        padding:
+            const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
+
+
+        shape:
+            RoundedRectangleBorder(
+
+          borderRadius:
+              BorderRadius.circular(
+                _radiusMedium,
+              ),
+
+        ),
+
+
+        side:
+            BorderSide.none,
+
+
+      ),
+
+
+
+
+
+
+      listTileTheme:
+          ListTileThemeData(
+
+        contentPadding:
+            const EdgeInsets.symmetric(
+              horizontal: 16,
+            ),
+
+
+        shape:
+            RoundedRectangleBorder(
+
+          borderRadius:
+              BorderRadius.circular(
+                _radiusMedium,
+              ),
+
+        ),
+
+
+        iconColor:
+            scheme.primary,
+
+
+        minVerticalPadding:
+            12,
+
+
+      ),
+
+
+
+
+
+
+      navigationBarTheme:
+          NavigationBarThemeData(
+
+        backgroundColor:
+            scheme.surface,
+
+
+        indicatorColor:
+            scheme.primaryContainer,
+
+
+        labelTextStyle:
+            WidgetStatePropertyAll(
+
+              GoogleFonts.inter(
+
+                fontWeight:
+                    FontWeight.w600,
+
+              ),
+
+            ),
+
+      ),
+
+
+
+
+
+
+      tooltipTheme:
+          TooltipThemeData(
+
+        padding:
+            const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
+
+
+        decoration:
+            BoxDecoration(
+
+          color:
+              scheme.inverseSurface,
+
+
+          borderRadius:
+              BorderRadius.circular(
+                _radiusSmall,
+              ),
+
+        ),
+
+
+        textStyle:
+            TextStyle(
+
+          color:
+              scheme.onInverseSurface,
+
+
+        ),
+
+      ),
+
+
+
+
+
+
+      dialogTheme:
+          DialogThemeData(
+
+        backgroundColor:
+            scheme.surface,
+
+
+        surfaceTintColor:
+            Colors.transparent,
+
+
+        shape:
+            RoundedRectangleBorder(
+
+          borderRadius:
+              BorderRadius.circular(
+                _radiusLarge,
+              ),
+
+        ),
+
+      ),
+
+
+
+
+
+
+      bottomSheetTheme:
+          BottomSheetThemeData(
+
+        showDragHandle:
+            true,
+
+
+        backgroundColor:
+            scheme.surface,
+
+
+        surfaceTintColor:
+            Colors.transparent,
+
+
+        shape:
+            const RoundedRectangleBorder(
+
+          borderRadius:
+              BorderRadius.vertical(
+
+            top:
+                Radius.circular(
+                  24,
+                ),
+
+          ),
+
+        ),
+
+      ),
+
+
+
+
+
+      pageTransitionsTheme:
+          const PageTransitionsTheme(
+
         builders: {
-          TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+
+          TargetPlatform.android:
+              FadeForwardsPageTransitionsBuilder(),
+
+
+          TargetPlatform.iOS:
+              CupertinoPageTransitionsBuilder(),
+
         },
+
       ),
+
     );
+
   }
 
-  static AppBarTheme _appBarTheme(ColorScheme colorScheme) {
+  
+
+
+
+
+  // ===========================================================================
+  // Typography
+  // ===========================================================================
+
+
+  static TextTheme _textTheme(
+    TextTheme base,
+  ) {
+
+    return base.copyWith(
+
+
+      displayLarge:
+          base.displayLarge?.copyWith(
+
+        fontWeight:
+            FontWeight.w700,
+
+        letterSpacing:
+            -1.5,
+
+      ),
+
+
+
+      displayMedium:
+          base.displayMedium?.copyWith(
+
+        fontWeight:
+            FontWeight.w700,
+
+      ),
+
+
+
+      headlineLarge:
+          base.headlineLarge?.copyWith(
+
+        fontWeight:
+            FontWeight.w700,
+
+      ),
+
+
+
+      headlineMedium:
+          base.headlineMedium?.copyWith(
+
+        fontWeight:
+            FontWeight.w700,
+
+      ),
+
+
+
+      titleLarge:
+          base.titleLarge?.copyWith(
+
+        fontWeight:
+            FontWeight.w600,
+
+      ),
+
+
+
+      titleMedium:
+          base.titleMedium?.copyWith(
+
+        fontWeight:
+            FontWeight.w600,
+
+      ),
+
+
+
+      bodyLarge:
+          base.bodyLarge?.copyWith(
+
+        height:
+            1.5,
+
+      ),
+
+
+
+      bodyMedium:
+          base.bodyMedium?.copyWith(
+
+        height:
+            1.45,
+
+      ),
+
+
+
+      labelLarge:
+          base.labelLarge?.copyWith(
+
+        fontWeight:
+            FontWeight.w600,
+
+      ),
+
+
+    );
+
+  }
+
+
+
+
+
+
+
+
+  // ===========================================================================
+  // App Bar
+  // ===========================================================================
+
+
+  static AppBarTheme _appBarTheme(
+    ColorScheme scheme,
+  ) {
+
+
     return AppBarTheme(
-      centerTitle: false,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      backgroundColor: colorScheme.surface,
-      foregroundColor: colorScheme.onSurface,
-      surfaceTintColor: Colors.transparent,
+
+      centerTitle:
+          false,
+
+
+      elevation:
+          0,
+
+
+      scrolledUnderElevation:
+          0,
+
+
+      backgroundColor:
+          scheme.surface,
+
+
+      foregroundColor:
+          scheme.onSurface,
+
+
+      surfaceTintColor:
+          Colors.transparent,
+
+
+      titleTextStyle:
+          GoogleFonts.inter(
+
+        fontSize:
+            20,
+
+
+        fontWeight:
+            FontWeight.w700,
+
+
+        color:
+            scheme.onSurface,
+
+
+      ),
+
     );
+
   }
 
-  static CardThemeData _cardTheme(ColorScheme colorScheme) {
+
+
+
+
+
+
+
+  // ===========================================================================
+  // Card Theme
+  // ===========================================================================
+
+
+  static CardThemeData _cardTheme(
+    ColorScheme scheme,
+  ) {
+
+
     return CardThemeData(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      color: colorScheme.surface,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+
+      elevation:
+          0,
+
+
+      margin:
+          EdgeInsets.zero,
+
+
+      color:
+          scheme.surfaceContainer,
+
+
+      surfaceTintColor:
+          Colors.transparent,
+
+
+      shadowColor:
+          scheme.shadow.withValues(
+            alpha: 0.12,
+          ),
+
+
+      shape:
+          RoundedRectangleBorder(
+
+        borderRadius:
+            BorderRadius.circular(
+              _radiusLarge,
+            ),
+
+      ),
+
     );
+
   }
 
-  static InputDecorationTheme _inputDecorationTheme(ColorScheme colorScheme) {
+
+
+
+
+
+
+
+  // ===========================================================================
+  // Input Fields
+  // ===========================================================================
+
+
+  static InputDecorationTheme _inputDecorationTheme(
+    ColorScheme scheme,
+  ) {
+
+
+    OutlineInputBorder border(
+      Color color,
+      [
+        double width = 1,
+      ]
+    ) {
+
+      return OutlineInputBorder(
+
+        borderRadius:
+            BorderRadius.circular(
+              _radiusMedium,
+            ),
+
+
+        borderSide:
+            BorderSide(
+
+          color:
+              color,
+
+
+          width:
+              width,
+
+
+        ),
+
+      );
+
+    }
+
+
+
+
+
     return InputDecorationTheme(
-      filled: true,
-      fillColor: colorScheme.surfaceContainerHighest,
 
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
 
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      filled:
+          true,
 
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.outlineVariant),
+
+      fillColor:
+          scheme.surfaceContainerHighest,
+
+
+
+      contentPadding:
+          const EdgeInsets.symmetric(
+
+        horizontal:
+            16,
+
+
+        vertical:
+            18,
+
+
       ),
 
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.primary, width: 2),
+
+
+
+      border:
+          border(
+            scheme.outlineVariant,
+          ),
+
+
+
+      enabledBorder:
+          border(
+            scheme.outlineVariant,
+          ),
+
+
+
+
+      focusedBorder:
+          border(
+            scheme.primary,
+            2,
+          ),
+
+
+
+
+      errorBorder:
+          border(
+            scheme.error,
+          ),
+
+
+
+
+      focusedErrorBorder:
+          border(
+            scheme.error,
+            2,
+          ),
+
+
+
+
+      labelStyle:
+          GoogleFonts.inter(
+
+        fontWeight:
+            FontWeight.w500,
+
       ),
 
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.error),
+
+
+      hintStyle:
+          GoogleFonts.inter(
+
+        color:
+            scheme.onSurfaceVariant,
+
       ),
 
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.error, width: 2),
-      ),
+
     );
+
   }
 
-  static ElevatedButtonThemeData _elevatedButtonTheme() {
-    return ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 52),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
+  
 
-  static OutlinedButtonThemeData _outlinedButtonTheme() {
-    return OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 52),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
+
+
+  // ===========================================================================
+  // Button Themes
+  // ===========================================================================
+
 
   static FilledButtonThemeData _filledButtonTheme() {
+
+
     return FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        minimumSize: const Size(double.infinity, 52),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+
+      style:
+          FilledButton.styleFrom(
+
+        minimumSize:
+            const Size(
+              double.infinity,
+              52,
+            ),
+
+
+        padding:
+            const EdgeInsets.symmetric(
+              horizontal: 20,
+            ),
+
+
+        shape:
+            RoundedRectangleBorder(
+
+          borderRadius:
+              BorderRadius.circular(
+                _radiusMedium,
+              ),
+
+        ),
+
+
+
+        textStyle:
+            GoogleFonts.inter(
+
+          fontWeight:
+              FontWeight.w600,
+
+        ),
+
       ),
+
     );
+
   }
 
-  static SnackBarThemeData _snackBarTheme() {
-    return SnackBarThemeData(
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+
+
+
+
+
+  static ElevatedButtonThemeData _elevatedButtonTheme() {
+
+
+    return ElevatedButtonThemeData(
+
+      style:
+          ElevatedButton.styleFrom(
+
+        minimumSize:
+            const Size(
+              double.infinity,
+              52,
+            ),
+
+
+
+        elevation:
+            1,
+
+
+
+        shape:
+            RoundedRectangleBorder(
+
+          borderRadius:
+              BorderRadius.circular(
+                _radiusMedium,
+              ),
+
+        ),
+
+
+
+        textStyle:
+            GoogleFonts.inter(
+
+          fontWeight:
+              FontWeight.w600,
+
+        ),
+
+      ),
+
     );
+
   }
+
+
+
+
+
+
+
+  static OutlinedButtonThemeData _outlinedButtonTheme() {
+
+
+    return OutlinedButtonThemeData(
+
+      style:
+          OutlinedButton.styleFrom(
+
+        minimumSize:
+            const Size(
+              double.infinity,
+              52,
+            ),
+
+
+
+        side:
+            const BorderSide(
+
+          width:
+              1,
+
+        ),
+
+
+
+        shape:
+            RoundedRectangleBorder(
+
+          borderRadius:
+              BorderRadius.circular(
+                _radiusMedium,
+              ),
+
+        ),
+
+
+
+        textStyle:
+            GoogleFonts.inter(
+
+          fontWeight:
+              FontWeight.w600,
+
+        ),
+
+      ),
+
+    );
+
+  }
+
+
+
+
+
+
+
+
+  // ===========================================================================
+  // Snackbar
+  // ===========================================================================
+
+
+  static SnackBarThemeData _snackBarTheme() {
+
+
+    return SnackBarThemeData(
+
+      behavior:
+          SnackBarBehavior.floating,
+
+
+
+      elevation:
+          4,
+
+
+
+      shape:
+          RoundedRectangleBorder(
+
+        borderRadius:
+            BorderRadius.circular(
+              _radiusMedium,
+            ),
+
+      ),
+
+
+
+      contentTextStyle:
+          GoogleFonts.inter(
+
+        fontWeight:
+            FontWeight.w500,
+
+      ),
+
+    );
+
+  }
+
 }

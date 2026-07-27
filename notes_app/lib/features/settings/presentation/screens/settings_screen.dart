@@ -16,23 +16,27 @@ import '../providers/settings_provider.dart';
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Displays application settings.
-/// • Displays the logged-in user information.
-/// • Allows theme selection.
-/// • Navigates to notification settings.
-/// • Displays application information.
-/// • Performs local logout.
-/// • Contains no business logic.
+/// • Shows current user information.
+/// • Controls theme preference.
+/// • Opens notification settings.
+/// • Handles logout confirmation.
+///
+/// Does NOT:
+/// ----------------------------------------------------------------------------
+/// • Call APIs.
+/// • Manage authentication logic.
+/// • Manage notification scheduling.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
 /// UI
-///     ↓
+///   ↓
 /// SettingsProvider
-///     ↓
+///   ↓
 /// SharedPreferences
 ///
 /// AuthProvider
-///     ↓
+///   ↓
 /// SessionManager
 ///
 /// ============================================================================
@@ -63,119 +67,102 @@ final class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Consumer2<SettingsProvider, AuthProvider>(
-      builder: (context, settingsProvider, authProvider, child) {
-        final theme = Theme.of(context);
+      builder: (context, settings, auth, child) {
+        final ThemeData theme = Theme.of(context);
 
-        final user = authProvider.currentUser;
+        final user = auth.currentUser;
 
         return Scaffold(
           appBar: AppBar(title: const Text('Settings'), centerTitle: true),
+
           body: ListView(
             padding: const EdgeInsets.all(16),
+
             children: [
               // ===============================================================
-              // Profile Card
+              // Profile
               // ===============================================================
-              Card(
-                elevation: 0,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 32,
-                        backgroundColor: theme.colorScheme.primaryContainer,
-                        child: Icon(
-                          Icons.person,
-                          size: 34,
-                          color: theme.colorScheme.primary,
-                        ),
+              _SectionCard(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer,
+
+                        borderRadius: BorderRadius.circular(20),
                       ),
 
-                      const SizedBox(width: 16),
+                      child: Icon(
+                        Icons.person_outline,
 
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              user?.email ?? 'Guest User',
-                              style: theme.textTheme.titleLarge,
-                            ),
+                        size: 34,
 
-                            const SizedBox(height: 4),
-
-                            Text(
-                              user?.role ?? 'No role available',
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
+                        color: theme.colorScheme.primary,
                       ),
-                    ],
-                  ),
+                    ),
+
+                    const SizedBox(width: 16),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+
+                        children: [
+                          Text(
+                            user?.email ?? 'Guest User',
+
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+
+                          const SizedBox(height: 4),
+
+                          Text(
+                            user?.role ?? 'No role available',
+
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
               const SizedBox(height: 24),
 
               // ===============================================================
-              // Appearance Section
+              // Appearance
               // ===============================================================
               Text('Appearance', style: theme.textTheme.titleMedium),
 
               const SizedBox(height: 8),
 
-              Card(
-                elevation: 0,
+              _SectionCard(
                 child: Column(
-                  children: [
-                    RadioListTile<ThemeMode>(
-                      title: const Text('System'),
-                      subtitle: const Text('Follow the device theme.'),
-                      value: ThemeMode.system,
-                      groupValue: settingsProvider.themeMode,
-                      onChanged: (value) async {
-                        if (value == null) {
-                          return;
-                        }
+                  children: ThemeMode.values.map((mode) {
+                    return RadioListTile<ThemeMode>(
+                      title: Text(_themeTitle(mode)),
 
-                        await settingsProvider.setThemeMode(value);
-                      },
-                    ),
+                      subtitle: Text(_themeSubtitle(mode)),
 
-                    const Divider(height: 1),
+                      value: mode,
 
-                    RadioListTile<ThemeMode>(
-                      title: const Text('Light'),
-                      subtitle: const Text('Always use light mode.'),
-                      value: ThemeMode.light,
-                      groupValue: settingsProvider.themeMode,
-                      onChanged: (value) async {
-                        if (value == null) {
-                          return;
-                        }
+                      groupValue: settings.themeMode,
 
-                        await settingsProvider.setThemeMode(value);
-                      },
-                    ),
-
-                    const Divider(height: 1),
-
-                    RadioListTile<ThemeMode>(
-                      title: const Text('Dark'),
-                      subtitle: const Text('Always use dark mode.'),
-                      value: ThemeMode.dark,
-                      groupValue: settingsProvider.themeMode,
-                      onChanged: (value) async {
-                        if (value == null) {
-                          return;
-                        }
-
-                        await settingsProvider.setThemeMode(value);
-                      },
-                    ),
-                  ],
+                      onChanged: settings.isLoading
+                          ? null
+                          : (value) {
+                              if (value != null) {
+                                settings.setThemeMode(value);
+                              }
+                            },
+                    );
+                  }).toList(),
                 ),
               ),
 
@@ -188,15 +175,16 @@ final class _SettingsScreenState extends State<SettingsScreen> {
 
               const SizedBox(height: 8),
 
-              Card(
-                elevation: 0,
+              _SectionCard(
                 child: ListTile(
                   leading: const Icon(Icons.notifications_outlined),
+
                   title: const Text('Notification Settings'),
-                  subtitle: const Text(
-                    'Reminder preferences and test notifications.',
-                  ),
+
+                  subtitle: const Text('Manage reminders and alerts.'),
+
                   trailing: const Icon(Icons.chevron_right),
+
                   onTap: () {
                     context.push(AppRoutes.notificationSettings);
                   },
@@ -212,21 +200,26 @@ final class _SettingsScreenState extends State<SettingsScreen> {
 
               const SizedBox(height: 8),
 
-              Card(
-                elevation: 0,
-                child: Column(
-                  children: const [
+              _SectionCard(
+                child: const Column(
+                  children: [
                     ListTile(
                       leading: Icon(Icons.info_outline),
+
                       title: Text('Notes App'),
+
                       subtitle: Text(
                         'Production-ready Flutter Notes application.',
                       ),
                     ),
+
                     Divider(height: 1),
+
                     ListTile(
                       leading: Icon(Icons.code),
+
                       title: Text('Version'),
+
                       subtitle: Text('1.0.0'),
                     ),
                   ],
@@ -236,27 +229,28 @@ final class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 24),
 
               // ===============================================================
-              // Account
+              // Logout
               // ===============================================================
-              Text('Account', style: theme.textTheme.titleMedium),
-
-              const SizedBox(height: 8),
-
-              Card(
-                elevation: 0,
+              _SectionCard(
                 child: ListTile(
                   leading: Icon(
                     Icons.logout_rounded,
+
                     color: theme.colorScheme.error,
                   ),
+
                   title: Text(
                     'Logout',
+
                     style: TextStyle(
                       color: theme.colorScheme.error,
+
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+
                   subtitle: const Text('Sign out from this device.'),
+
                   onTap: () => _logout(context),
                 ),
               ),
@@ -267,28 +261,30 @@ final class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ===========================================================================
-  // Logout
-  // ===========================================================================
-
   Future<void> _logout(BuildContext context) async {
-    final bool? shouldLogout = await showDialog<bool>(
+    final bool? confirm = await showDialog<bool>(
       context: context,
+
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Logout'),
+
           content: const Text('Are you sure you want to logout?'),
+
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(false);
+                Navigator.pop(dialogContext, false);
               },
+
               child: const Text('Cancel'),
             ),
+
             FilledButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(true);
+                Navigator.pop(dialogContext, true);
               },
+
               child: const Text('Logout'),
             ),
           ],
@@ -296,17 +292,11 @@ final class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
 
-    if (shouldLogout != true) {
+    if (confirm != true || !context.mounted) {
       return;
     }
 
-    if (!context.mounted) {
-      return;
-    }
-
-    final AuthProvider authProvider = context.read<AuthProvider>();
-
-    await authProvider.logout();
+    await context.read<AuthProvider>().logout();
 
     if (!context.mounted) {
       return;
@@ -315,10 +305,48 @@ final class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Logged out successfully.'),
+
         behavior: SnackBarBehavior.floating,
       ),
     );
 
     context.go(AppRoutes.login);
+  }
+
+  String _themeTitle(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.system:
+        return 'System';
+
+      case ThemeMode.light:
+        return 'Light';
+
+      case ThemeMode.dark:
+        return 'Dark';
+    }
+  }
+
+  String _themeSubtitle(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.system:
+        return 'Follow device theme';
+
+      case ThemeMode.light:
+        return 'Always use light theme';
+
+      case ThemeMode.dark:
+        return 'Always use dark theme';
+    }
+  }
+}
+
+final class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(clipBehavior: Clip.antiAlias, child: child);
   }
 }

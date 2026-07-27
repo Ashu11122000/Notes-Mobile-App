@@ -14,18 +14,22 @@ import '../models/reminder_model.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Persist reminders locally.
-/// • Schedule notifications.
-/// • Update reminders.
-/// • Delete reminders.
-/// • Restore reminders after app restart.
-/// • Generate notification identifiers.
+/// • Persists reminders locally.
+/// • Schedules notifications.
+/// • Updates reminders.
+/// • Deletes reminders.
+/// • Restores reminders after restart.
+/// • Generates notification identifiers.
 ///
-/// Notes
+/// Architecture
 /// ----------------------------------------------------------------------------
-/// This manager is the single source of truth for reminder persistence.
-///
-/// UI should never directly communicate with NotificationService.
+/// UI
+///      ↓
+/// ReminderManager
+///      ↓
+/// NotificationService
+///      ↓
+/// flutter_local_notifications
 ///
 /// ============================================================================
 
@@ -45,16 +49,16 @@ final class ReminderManager {
       final SharedPreferences preferences =
           await SharedPreferences.getInstance();
 
-      final List<String> storedReminders =
+      final List<String> stored =
           preferences.getStringList(_storageKey) ?? <String>[];
 
-      return storedReminders
+      return stored
           .map(
-            (json) => ReminderModel.fromJson(
-              jsonDecode(json) as Map<String, dynamic>,
+            (item) => ReminderModel.fromJson(
+              jsonDecode(item) as Map<String, dynamic>,
             ),
           )
-          .toList();
+          .toList(growable: false);
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to load reminders.',
@@ -73,11 +77,13 @@ final class ReminderManager {
   Future<ReminderModel?> getReminderByNote(int noteId) async {
     final reminders = await getReminders();
 
-    try {
-      return reminders.firstWhere((reminder) => reminder.noteId == noteId);
-    } catch (_) {
-      return null;
+    for (final reminder in reminders) {
+      if (reminder.noteId == noteId) {
+        return reminder;
+      }
     }
+
+    return null;
   }
 
   // ===========================================================================
@@ -89,7 +95,7 @@ final class ReminderManager {
       final SharedPreferences preferences =
           await SharedPreferences.getInstance();
 
-      final reminders = await getReminders();
+      final List<ReminderModel> reminders = await getReminders();
 
       reminders.removeWhere(
         (item) => item.notificationId == reminder.notificationId,
@@ -102,11 +108,11 @@ final class ReminderManager {
         reminders.map((item) => jsonEncode(item.toJson())).toList(),
       );
 
-      await _scheduleReminder(reminder);
+      await scheduleReminder(reminder);
 
       LoggerService.info(
         'Reminder saved successfully. '
-        '(notificationId: ${reminder.notificationId})',
+        'ID: ${reminder.notificationId}',
       );
     } catch (exception, stackTrace) {
       LoggerService.error(
@@ -114,11 +120,21 @@ final class ReminderManager {
         error: exception,
         stackTrace: stackTrace,
       );
+
+      rethrow;
     }
   }
 
   // ===========================================================================
-  // Schedule Reminder
+  // Public Schedule Reminder
+  // ===========================================================================
+
+  Future<void> scheduleReminder(ReminderModel reminder) async {
+    await _scheduleReminder(reminder);
+  }
+
+  // ===========================================================================
+  // Internal Scheduling
   // ===========================================================================
 
   Future<void> _scheduleReminder(ReminderModel reminder) async {
@@ -127,7 +143,7 @@ final class ReminderManager {
     }
 
     if (reminder.isExpired) {
-      LoggerService.warning('Skipped scheduling expired reminder.');
+      LoggerService.warning('Skipped expired reminder.');
 
       return;
     }
@@ -156,11 +172,21 @@ final class ReminderManager {
   // ===========================================================================
 
   Future<void> updateReminder(ReminderModel reminder) async {
-    await NotificationService.instance.cancel(reminder.notificationId);
+    try {
+      await NotificationService.instance.cancel(reminder.notificationId);
 
-    await saveReminder(reminder);
+      await saveReminder(reminder);
 
-    LoggerService.info('Reminder updated successfully.');
+      LoggerService.info('Reminder updated successfully.');
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to update reminder.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
+      rethrow;
+    }
   }
 
   // ===========================================================================
@@ -178,6 +204,7 @@ final class ReminderManager {
 
       await preferences.setStringList(
         _storageKey,
+
         reminders.map((item) => jsonEncode(item.toJson())).toList(),
       );
 
@@ -185,7 +212,7 @@ final class ReminderManager {
 
       LoggerService.info(
         'Reminder deleted successfully. '
-        '(notificationId: $notificationId)',
+        'ID: $notificationId',
       );
     } catch (exception, stackTrace) {
       LoggerService.error(
@@ -193,6 +220,8 @@ final class ReminderManager {
         error: exception,
         stackTrace: stackTrace,
       );
+
+      rethrow;
     }
   }
 
@@ -202,7 +231,7 @@ final class ReminderManager {
 
   Future<void> deleteReminderByNote(int noteId) async {
     try {
-      final reminder = await getReminderByNote(noteId);
+      final ReminderModel? reminder = await getReminderByNote(noteId);
 
       if (reminder == null) {
         return;
@@ -211,8 +240,8 @@ final class ReminderManager {
       await deleteReminder(reminder.notificationId);
 
       LoggerService.info(
-        'Reminder deleted for note. '
-        '(noteId: $noteId)',
+        'Reminder removed for note. '
+        'Note ID: $noteId',
       );
     } catch (exception, stackTrace) {
       LoggerService.error(
@@ -220,16 +249,20 @@ final class ReminderManager {
         error: exception,
         stackTrace: stackTrace,
       );
+
+      rethrow;
     }
   }
 
   // ===========================================================================
-  // Restore Reminders
+  // Restore Reminders After App Restart
   // ===========================================================================
 
   Future<void> restoreReminders() async {
     try {
-      final reminders = await getReminders();
+      final List<ReminderModel> reminders = await getReminders();
+
+      final List<ReminderModel> activeReminders = <ReminderModel>[];
 
       for (final reminder in reminders) {
         if (!reminder.isEnabled) {
@@ -237,19 +270,36 @@ final class ReminderManager {
         }
 
         if (reminder.isExpired) {
+          await NotificationService.instance.cancel(reminder.notificationId);
+
           continue;
         }
 
         await _scheduleReminder(reminder);
+
+        activeReminders.add(reminder);
       }
 
-      LoggerService.info('Restored ${reminders.length} reminder(s).');
+      // Remove expired reminders permanently.
+
+      final SharedPreferences preferences =
+          await SharedPreferences.getInstance();
+
+      await preferences.setStringList(
+        _storageKey,
+
+        activeReminders.map((item) => jsonEncode(item.toJson())).toList(),
+      );
+
+      LoggerService.info('Restored ${activeReminders.length} reminders.');
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to restore reminders.',
         error: exception,
         stackTrace: stackTrace,
       );
+
+      rethrow;
     }
   }
 
@@ -259,7 +309,7 @@ final class ReminderManager {
 
   Future<void> clear() async {
     try {
-      final reminders = await getReminders();
+      final List<ReminderModel> reminders = await getReminders();
 
       for (final reminder in reminders) {
         await NotificationService.instance.cancel(reminder.notificationId);
@@ -270,30 +320,38 @@ final class ReminderManager {
 
       await preferences.remove(_storageKey);
 
-      LoggerService.info('All reminders cleared.');
+      LoggerService.info('All reminders cleared successfully.');
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to clear reminders.',
         error: exception,
         stackTrace: stackTrace,
       );
+
+      rethrow;
     }
   }
 
   // ===========================================================================
-  // Next Notification Id
+  // Generate Next Notification ID
   // ===========================================================================
 
   Future<int> nextNotificationId() async {
-    final reminders = await getReminders();
+    final List<ReminderModel> reminders = await getReminders();
 
     if (reminders.isEmpty) {
       return 1;
     }
 
-    reminders.sort((a, b) => a.notificationId.compareTo(b.notificationId));
+    int maxId = 0;
 
-    return reminders.last.notificationId + 1;
+    for (final reminder in reminders) {
+      if (reminder.notificationId > maxId) {
+        maxId = reminder.notificationId;
+      }
+    }
+
+    return maxId + 1;
   }
 
   // ===========================================================================

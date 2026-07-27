@@ -6,17 +6,28 @@ import '../../constants/notes_constants.dart';
 /// File: note_title_field.dart
 /// ============================================================================
 ///
-/// Note Title Field
+/// Note Title Field.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Reusable title input for Notes forms.
-/// - Used by Create Note and Edit Note screens.
-/// - Contains no business logic.
-/// - Supports validation and customization.
+/// • Reusable title input for Notes forms.
+/// • Used by Create Note and Edit Note screens.
+/// • Handles only presentation validation.
+/// • Contains no business logic.
+///
+/// Architecture
+/// ----------------------------------------------------------------------------
+/// Screen
+///    ↓
+/// NoteTitleField
+///    ↓
+/// Form Controller
+///    ↓
+/// NotesProvider
 ///
 /// ============================================================================
-class NoteTitleField extends StatelessWidget {
+
+final class NoteTitleField extends StatelessWidget {
   const NoteTitleField({
     super.key,
     required this.controller,
@@ -30,72 +41,110 @@ class NoteTitleField extends StatelessWidget {
     this.validator,
   });
 
-  /// Controller for the title field.
+  /// Controller for title input.
   final TextEditingController controller;
 
   /// Optional focus node.
   final FocusNode? focusNode;
 
-  /// Called whenever the value changes.
+  /// Called when text changes.
   final ValueChanged<String>? onChanged;
 
-  /// Called when the user submits the field.
+  /// Called when submitted.
   final ValueChanged<String>? onSubmitted;
 
-  /// Whether the field is enabled.
+  /// Enables/disables input.
   final bool enabled;
 
-  /// Whether the field should autofocus.
+  /// Automatically focuses field.
   final bool autofocus;
 
-  /// Whether the field is read-only.
+  /// Read-only mode.
   final bool readOnly;
 
   /// Keyboard action.
   final TextInputAction textInputAction;
 
-  /// Optional custom validator.
+  /// Custom validator.
   final FormFieldValidator<String>? validator;
+
+  // ===========================================================================
+  // Constants
+  // ===========================================================================
+
+  static const String _label = 'Title';
+
+  static const String _hint = 'Enter note title';
+
+  // ===========================================================================
+  // Build
+  // ===========================================================================
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      focusNode: focusNode,
-      enabled: enabled,
-      autofocus: autofocus,
-      readOnly: readOnly,
-      textInputAction: textInputAction,
-      textCapitalization: TextCapitalization.sentences,
-      keyboardType: TextInputType.text,
-      maxLength: NotesConstants.maxTitleLength,
-      decoration: const InputDecoration(
-        labelText: 'Title',
-        hintText: 'Enter note title',
-        prefixIcon: Icon(Icons.title),
+    return Semantics(
+      label: 'Note title input',
+
+      child: TextFormField(
+        controller: controller,
+
+        focusNode: focusNode,
+
+        enabled: enabled,
+
+        autofocus: autofocus,
+
+        readOnly: readOnly,
+
+        textInputAction: textInputAction,
+
+        keyboardType: TextInputType.text,
+
+        textCapitalization: TextCapitalization.sentences,
+
+        autocorrect: true,
+
+        enableSuggestions: true,
+
+        maxLength: NotesConstants.maxTitleLength,
+
+        decoration: const InputDecoration(
+          labelText: _label,
+
+          hintText: _hint,
+
+          prefixIcon: Icon(Icons.title_rounded),
+        ),
+
+        validator: validator ?? _defaultValidator,
+
+        onChanged: onChanged,
+
+        onFieldSubmitted: onSubmitted,
       ),
-      validator:
-          validator ??
-          (value) {
-            final text = value?.trim() ?? '';
-
-            if (text.isEmpty) {
-              return 'Title is required.';
-            }
-
-            if (text.length < NotesConstants.minTitleLength) {
-              return 'Title is too short.';
-            }
-
-            if (text.length > NotesConstants.maxTitleLength) {
-              return 'Title cannot exceed '
-                  '${NotesConstants.maxTitleLength} characters.';
-            }
-
-            return null;
-          },
-      onChanged: onChanged,
-      onFieldSubmitted: onSubmitted,
     );
+  }
+
+  // ===========================================================================
+  // Validation
+  // ===========================================================================
+
+  static String? _defaultValidator(String? value) {
+    final String text = value?.trim() ?? '';
+
+    if (text.isEmpty) {
+      return 'Title is required.';
+    }
+
+    if (text.length < NotesConstants.minTitleLength) {
+      return 'Title is too short.';
+    }
+
+    if (text.length > NotesConstants.maxTitleLength) {
+      return 'Title cannot exceed '
+          '${NotesConstants.maxTitleLength} characters.';
+    }
+
+    return null;
   }
 }
