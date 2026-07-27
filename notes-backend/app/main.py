@@ -9,12 +9,12 @@ Notes Backend API
 
 Responsibilities
 -------------------------------------------------------------------------------
-- Create and configure the FastAPI application.
+- Configure FastAPI application.
 - Register middleware.
 - Register API routers.
-- Manage application startup/shutdown.
-- Expose health endpoints.
-- Configure OpenAPI documentation.
+- Manage application lifecycle.
+- Provide health endpoints.
+- Configure OpenAPI.
 
 Compatible With
 -------------------------------------------------------------------------------
@@ -31,7 +31,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -58,7 +58,7 @@ OPENAPI_TAGS = [
     },
     {
         "name": "System",
-        "description": "System and health endpoints.",
+        "description": "Application health and status.",
     },
 ]
 
@@ -74,7 +74,7 @@ async def lifespan(_: FastAPI):
     """
     Application startup/shutdown.
 
-    Database schema should be managed through Alembic migrations.
+    Database schema is managed using Alembic migrations.
     """
 
     logger.info(
@@ -86,11 +86,14 @@ async def lifespan(_: FastAPI):
 
     yield
 
-    logger.info("Stopping %s", settings.APP_NAME)
+    logger.info(
+        "Stopping %s",
+        settings.APP_NAME,
+    )
 
 
 # =============================================================================
-# FastAPI Application
+# FastAPI
 # =============================================================================
 
 app = FastAPI(
@@ -131,7 +134,7 @@ app.add_middleware(
 )
 
 # =============================================================================
-# Root Endpoint
+# Root
 # =============================================================================
 
 
@@ -142,7 +145,7 @@ app.add_middleware(
 )
 def root() -> dict[str, Any]:
     """
-    API root endpoint.
+    Root endpoint.
     """
 
     return {
@@ -159,15 +162,14 @@ def root() -> dict[str, Any]:
 # =============================================================================
 
 
-@app.api_route(
+@app.get(
     "/health",
-    methods=["GET", "HEAD"],
     tags=["System"],
     summary="Health Check",
 )
-def health() -> dict[str, str] | Response:
+def health() -> dict[str, str]:
     """
-    Health endpoint used by Docker and load balancers.
+    Health endpoint used by Docker.
     """
 
     database_status = "healthy"
