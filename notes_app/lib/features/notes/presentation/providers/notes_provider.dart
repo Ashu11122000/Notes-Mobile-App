@@ -3,36 +3,43 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/services/logger_service.dart';
+
 import '../../../notifications/models/reminder_model.dart';
 import '../../../notifications/utils/reminder_manager.dart';
+
 import '../../data/models/create_note_request.dart';
 import '../../data/models/update_note_request.dart';
+
 import '../../domain/entities/note.dart';
 import '../../domain/repositories/notes_repository.dart';
+
 import '../../services/image_picker_service.dart';
 
 /// ============================================================================
 /// File: notes_provider.dart
 /// ============================================================================
 ///
-/// Notes Provider.
+/// Enterprise Notes Provider.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Manages Notes UI state.
+/// • Manages notes UI state.
 /// • Coordinates CRUD operations.
 /// • Handles pagination.
 /// • Handles searching.
-/// • Manages selected images.
-/// • Coordinates reminders.
+/// • Handles image selection.
+/// • Coordinates local reminders.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
+///
 /// UI
 ///    ↓
 /// NotesProvider
 ///    ↓
 /// NotesRepository
+///    ↓
+/// NotesRemoteDataSource
 ///    ↓
 /// FastAPI
 ///
@@ -104,7 +111,7 @@ final class NotesProvider extends ChangeNotifier {
   String _searchQuery = '';
 
   // ===========================================================================
-  // Public Getters
+  // Getters
   // ===========================================================================
 
   List<Note> get notes => List<Note>.unmodifiable(_notes);
@@ -113,49 +120,25 @@ final class NotesProvider extends ChangeNotifier {
 
   Note? get selectedNote => _selectedNote;
 
-  // ===========================================================================
-  // Image Getters
-  // ===========================================================================
+  bool get isLoading => _isLoading;
+
+  bool get isLoadingMore => _isLoadingMore;
+
+  String? get errorMessage => _errorMessage;
+
+  bool get hasError => _errorMessage != null;
+
+  bool get hasMore => _hasMore;
+
+  int get currentPage => _currentPage;
+
+  String get searchQuery => _searchQuery;
 
   File? get selectedImage => _selectedImage;
 
   bool get hasSelectedImage => _imagePickerService.exists(_selectedImage);
 
   String? get selectedImagePath => _imagePickerService.getPath(_selectedImage);
-
-  // ===========================================================================
-  // Loading Getters
-  // ===========================================================================
-
-  bool get isLoading => _isLoading;
-
-  bool get isLoadingMore => _isLoadingMore;
-
-  // ===========================================================================
-  // Error Getters
-  // ===========================================================================
-
-  String? get errorMessage => _errorMessage;
-
-  bool get hasError => _errorMessage != null;
-
-  // ===========================================================================
-  // Pagination Getters
-  // ===========================================================================
-
-  bool get hasMore => _hasMore;
-
-  int get currentPage => _currentPage;
-
-  // ===========================================================================
-  // Search Getters
-  // ===========================================================================
-
-  String get searchQuery => _searchQuery;
-
-  // ===========================================================================
-  // Utility Getters
-  // ===========================================================================
 
   bool get isEmpty => _notes.isEmpty;
 
@@ -169,8 +152,8 @@ final class NotesProvider extends ChangeNotifier {
   ///
   /// When [refresh] is true:
   /// - resets pagination
-  /// - clears previous cache
-  /// - loads first page again
+  /// - clears existing cache
+  /// - reloads first page
   Future<void> loadNotes({bool refresh = false}) async {
     if (_isLoading && !refresh) {
       return;
@@ -223,7 +206,9 @@ final class NotesProvider extends ChangeNotifier {
   // Load More Notes
   // ===========================================================================
 
-  /// Loads next pagination page.
+  /// Loads next page of notes.
+  ///
+  /// Prevents duplicate pagination requests.
   Future<void> loadMore() async {
     if (_isLoadingMore || !_hasMore) {
       return;
@@ -240,6 +225,13 @@ final class NotesProvider extends ChangeNotifier {
         page: nextPage,
         limit: _pageSize,
       );
+
+      // No more records
+      if (response.isEmpty) {
+        _hasMore = false;
+
+        return;
+      }
 
       _allNotes.addAll(response);
 
@@ -272,7 +264,8 @@ final class NotesProvider extends ChangeNotifier {
   // Get Single Note
   // ===========================================================================
 
-  /// Fetches a single note by id.
+  /// Fetches single note by id.
+
   Future<Note?> getNote(int noteId) async {
     try {
       clearError();
@@ -322,8 +315,11 @@ final class NotesProvider extends ChangeNotifier {
   // ===========================================================================
 
   /// Creates a new note.
+
   Future<Note?> createNote(CreateNoteRequest request) async {
     try {
+      _setLoading(true);
+
       clearError();
 
       if (!request.isValid) {
@@ -356,6 +352,8 @@ final class NotesProvider extends ChangeNotifier {
       _setError(exception.toString());
 
       return null;
+    } finally {
+      _setLoading(false);
     }
   }
 
@@ -363,9 +361,12 @@ final class NotesProvider extends ChangeNotifier {
   // Update Note
   // ===========================================================================
 
-  /// Updates existing note using PUT.
+  /// Updates an existing note using PUT.
+
   Future<Note?> updateNote(int noteId, UpdateNoteRequest request) async {
     try {
+      _setLoading(true);
+
       clearError();
 
       if (!request.hasUpdates) {
@@ -394,6 +395,8 @@ final class NotesProvider extends ChangeNotifier {
       _setError(exception.toString());
 
       return null;
+    } finally {
+      _setLoading(false);
     }
   }
 
@@ -402,10 +405,11 @@ final class NotesProvider extends ChangeNotifier {
   // ===========================================================================
 
   /// Partially updates an existing note.
-  ///
-  /// Uses PATCH API operation.
+
   Future<Note?> patchNote(int noteId, UpdateNoteRequest request) async {
     try {
+      _setLoading(true);
+
       clearError();
 
       if (!request.hasUpdates) {
@@ -434,6 +438,8 @@ final class NotesProvider extends ChangeNotifier {
       _setError(exception.toString());
 
       return null;
+    } finally {
+      _setLoading(false);
     }
   }
 
@@ -441,9 +447,12 @@ final class NotesProvider extends ChangeNotifier {
   // Delete Note
   // ===========================================================================
 
-  /// Deletes a note permanently.
+  /// Deletes note permanently.
+
   Future<bool> deleteNote(int noteId) async {
     try {
+      _setLoading(true);
+
       clearError();
 
       await _repository.deleteNote(noteId);
@@ -468,6 +477,8 @@ final class NotesProvider extends ChangeNotifier {
       _setError(exception.toString());
 
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
@@ -475,7 +486,8 @@ final class NotesProvider extends ChangeNotifier {
   // Local Cache Helpers
   // ===========================================================================
 
-  /// Replaces updated note in local cache.
+  /// Replaces updated note inside local cache.
+
   void _replaceNote(Note updatedNote) {
     final int index = _allNotes.indexWhere((note) => note.id == updatedNote.id);
 
@@ -493,6 +505,7 @@ final class NotesProvider extends ChangeNotifier {
   }
 
   /// Removes deleted note from cache.
+
   void _removeNoteFromCache(int noteId) {
     _allNotes.removeWhere((note) => note.id == noteId);
 
@@ -507,15 +520,8 @@ final class NotesProvider extends ChangeNotifier {
   // Search
   // ===========================================================================
 
-  /// Public search method used by UI.
-  ///
-  /// Example:
-  ///
-  /// NotesSearchBar
-  ///       ↓
-  /// provider.search(query)
-  ///       ↓
-  /// local filtering
+  /// Searches notes locally.
+
   void search(String query) {
     _searchQuery = query.trim();
 
@@ -524,12 +530,14 @@ final class NotesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Existing alias for compatibility.
+  /// Compatibility alias.
+
   void searchNotes(String query) {
     search(query);
   }
 
-  /// Clears current search.
+  /// Clears search.
+
   void clearSearch() {
     if (_searchQuery.isEmpty) {
       return;
@@ -542,7 +550,8 @@ final class NotesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Applies local filtering.
+  /// Applies search filter.
+
   void _applySearchFilter() {
     if (_searchQuery.isEmpty) {
       _notes
@@ -572,6 +581,7 @@ final class NotesProvider extends ChangeNotifier {
   // ===========================================================================
 
   /// Picks image from gallery.
+
   Future<void> pickImageFromGallery() async {
     try {
       final File? image = await _imagePickerService.pickFromGallery();
@@ -584,10 +594,10 @@ final class NotesProvider extends ChangeNotifier {
 
       notifyListeners();
 
-      LoggerService.info('Image selected successfully.');
+      LoggerService.info('Image selected from gallery successfully.');
     } catch (exception, stackTrace) {
       LoggerService.error(
-        'Failed to pick image.',
+        'Failed to pick image from gallery.',
         error: exception,
         stackTrace: stackTrace,
       );
@@ -596,7 +606,8 @@ final class NotesProvider extends ChangeNotifier {
     }
   }
 
-  /// Picks image from camera.
+  /// Captures image using camera.
+
   Future<void> pickImageFromCamera() async {
     try {
       final File? image = await _imagePickerService.pickFromCamera();
@@ -609,7 +620,7 @@ final class NotesProvider extends ChangeNotifier {
 
       notifyListeners();
 
-      LoggerService.info('Camera image selected successfully.');
+      LoggerService.info('Image captured successfully.');
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to capture image.',
@@ -622,6 +633,7 @@ final class NotesProvider extends ChangeNotifier {
   }
 
   /// Removes selected image.
+
   void removeSelectedImage() {
     if (_selectedImage == null) {
       return;
@@ -632,11 +644,8 @@ final class NotesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Public method used by screens.
-  ///
-  /// Example:
-  /// AddNoteScreen.onPop
-  /// EditNoteScreen.onPop
+  /// Clears selected image.
+
   void clearSelectedImage() {
     if (_selectedImage == null) {
       return;
@@ -647,7 +656,8 @@ final class NotesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Internal cleanup helper.
+  /// Internal image cleanup.
+
   void _clearSelectedImage() {
     _selectedImage = null;
   }
@@ -656,7 +666,8 @@ final class NotesProvider extends ChangeNotifier {
   // Reminder Management
   // ===========================================================================
 
-  /// Schedules a local reminder for a note.
+  /// Creates a local reminder for a note.
+
   Future<void> scheduleNoteReminder({
     required Note note,
     required DateTime reminderTime,
@@ -673,10 +684,14 @@ final class NotesProvider extends ChangeNotifier {
 
         scheduledAt: reminderTime,
 
-        payload: null,
+        payload: note.id.toString(),
       );
 
-      await _reminderManager.scheduleReminder(reminder);
+      // IMPORTANT:
+      // ReminderManager exposes saveReminder()
+      // not scheduleReminder()
+
+      await _reminderManager.saveReminder(reminder);
 
       LoggerService.info(
         'Reminder scheduled successfully. '
@@ -693,7 +708,8 @@ final class NotesProvider extends ChangeNotifier {
     }
   }
 
-  /// Cancels a note reminder.
+  /// Cancels reminder associated with note.
+
   Future<void> cancelNoteReminder(int noteId) async {
     try {
       await _reminderManager.deleteReminderByNote(noteId);
@@ -714,12 +730,11 @@ final class NotesProvider extends ChangeNotifier {
   }
 
   // ===========================================================================
-  // Public Error Handling
+  // Error Handling
   // ===========================================================================
 
-  /// Clears current provider error.
-  ///
-  /// Used by screens before starting operations.
+  /// Clears current error message.
+
   void clearError() {
     if (_errorMessage == null) {
       return;
@@ -730,11 +745,16 @@ final class NotesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ===========================================================================
-  // Internal State Helpers
-  // ===========================================================================
+  /// Internal error setter.
+
+  void _setError(String message) {
+    _errorMessage = message;
+
+    notifyListeners();
+  }
 
   /// Updates loading state.
+
   void _setLoading(bool value) {
     if (_isLoading == value) {
       return;
@@ -745,43 +765,27 @@ final class NotesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Updates error state.
-  void _setError(String message) {
-    _errorMessage = message;
-
-    notifyListeners();
-  }
-
-  /// Internal error clear.
-  ///
-  /// Used inside provider operations.
-  void _clearError() {
-    if (_errorMessage == null) {
-      return;
-    }
-
-    _errorMessage = null;
-  }
-
   // ===========================================================================
   // Refresh
   // ===========================================================================
 
-  /// Refreshes notes list.
+  /// Refreshes notes from first page.
+
   Future<void> refreshNotes() async {
     await loadNotes(refresh: true);
   }
 
   // ===========================================================================
-  // Reset
+  // Reset Provider State
   // ===========================================================================
 
   /// Clears complete provider state.
   ///
-  /// Used:
+  /// Used during:
   /// - logout
-  /// - user switch
+  /// - user switching
   /// - session reset
+
   void reset() {
     _allNotes.clear();
 
@@ -804,6 +808,8 @@ final class NotesProvider extends ChangeNotifier {
     _isLoadingMore = false;
 
     notifyListeners();
+
+    LoggerService.info('NotesProvider state reset.');
   }
 
   // ===========================================================================
@@ -815,6 +821,8 @@ final class NotesProvider extends ChangeNotifier {
     _allNotes.clear();
 
     _notes.clear();
+
+    LoggerService.info('NotesProvider disposed.');
 
     super.dispose();
   }
