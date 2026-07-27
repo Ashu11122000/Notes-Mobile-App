@@ -37,22 +37,16 @@ import '../models/update_note_request.dart';
 /// ============================================================================
 
 abstract interface class NotesRemoteDataSource {
-  /// Retrieves paginated notes.
-  Future<List<NoteModel>> getNotes({int page = 1, int limit = 10});
+  Future<List<NoteModel>> getNotes({int page, int limit});
 
-  /// Retrieves note by id.
   Future<NoteModel> getNoteById(int noteId);
 
-  /// Creates note.
   Future<NoteModel> createNote(CreateNoteRequest request);
 
-  /// Updates note using PUT.
   Future<NoteModel> updateNote(int noteId, UpdateNoteRequest request);
 
-  /// Updates note partially using PATCH.
   Future<NoteModel> patchNote(int noteId, UpdateNoteRequest request);
 
-  /// Deletes note.
   Future<void> deleteNote(int noteId);
 }
 
@@ -97,22 +91,6 @@ final class NotesRemoteDataSourceImpl implements NotesRemoteDataSource {
     throw const FormatException('Expected JSON list.');
   }
 
-  /// Supports:
-  ///
-  /// Response:
-  ///
-  /// [
-  ///   {...},
-  ///   {...}
-  /// ]
-  ///
-  /// AND
-  ///
-  /// {
-  ///   "items":[...],
-  ///   "total":100
-  /// }
-  ///
   static List<NoteModel> _parseNotes(dynamic response) {
     dynamic data = response;
 
@@ -153,14 +131,22 @@ final class NotesRemoteDataSourceImpl implements NotesRemoteDataSource {
     }
   }
 
+  // ===========================================================================
+  // Logging Helpers
+  // ===========================================================================
+
   void _logRequest({
     required String operation,
     required String method,
     required String endpoint,
     Map<String, dynamic>? queryParameters,
+    Object? body,
   }) {
     LoggerService.info('''
-$operation started.
+==================== NOTES REQUEST ====================
+
+Operation:
+$operation
 
 Method:
 $method
@@ -170,18 +156,31 @@ $endpoint
 
 Query:
 ${queryParameters ?? 'none'}
+
+Body:
+${_preview(body)}
+
+=======================================================
 ''');
   }
 
   void _logResponse({required String operation, required Response response}) {
     LoggerService.info('''
-$operation successful.
+==================== NOTES RESPONSE ===================
+
+Operation:
+$operation
 
 Status:
 ${response.statusCode}
 
+Endpoint:
+${response.requestOptions.uri}
+
 Response:
 ${_preview(response.data)}
+
+=======================================================
 ''');
   }
 
@@ -193,18 +192,8 @@ ${_preview(response.data)}
     );
   }
 
-  Options get _jsonOptions {
-    return Options(
-      headers: <String, String>{
-        ApiConstants.contentTypeHeader: ApiConstants.applicationJson,
-
-        ApiConstants.acceptHeader: ApiConstants.applicationJson,
-      },
-    );
-  }
-
   // ===========================================================================
-  // Get Notes
+  // GET NOTES
   // ===========================================================================
 
   @override
@@ -243,7 +232,7 @@ ${_preview(response.data)}
   }
 
   // ===========================================================================
-  // Get Note By ID
+  // GET NOTE BY ID
   // ===========================================================================
 
   @override
@@ -276,7 +265,7 @@ ${_preview(response.data)}
   }
 
   // ===========================================================================
-  // Create Note
+  // CREATE NOTE
   // ===========================================================================
 
   @override
@@ -288,14 +277,12 @@ ${_preview(response.data)}
         operation: operation,
         method: 'POST',
         endpoint: ApiConstants.notes,
+        body: request.toJson(),
       );
 
       final Response<dynamic> response = await _dio.post<dynamic>(
         ApiConstants.notes,
-
         data: request.toJson(),
-
-        options: _jsonOptions,
       );
 
       _logResponse(operation: operation, response: response);
@@ -317,7 +304,7 @@ ${_preview(response.data)}
   }
 
   // ===========================================================================
-  // Update Note PUT
+  // UPDATE NOTE (PUT)
   // ===========================================================================
 
   @override
@@ -327,14 +314,16 @@ ${_preview(response.data)}
     try {
       final String endpoint = _noteEndpoint(noteId);
 
-      _logRequest(operation: operation, method: 'PUT', endpoint: endpoint);
+      _logRequest(
+        operation: operation,
+        method: 'PUT',
+        endpoint: endpoint,
+        body: request.toJson(),
+      );
 
       final Response<dynamic> response = await _dio.put<dynamic>(
         endpoint,
-
         data: request.toJson(),
-
-        options: _jsonOptions,
       );
 
       _logResponse(operation: operation, response: response);
@@ -356,7 +345,7 @@ ${_preview(response.data)}
   }
 
   // ===========================================================================
-  // Patch Note PATCH
+  // PATCH NOTE
   // ===========================================================================
 
   @override
@@ -366,12 +355,16 @@ ${_preview(response.data)}
     try {
       final String endpoint = _noteEndpoint(noteId);
 
-      _logRequest(operation: operation, method: 'PATCH', endpoint: endpoint);
+      _logRequest(
+        operation: operation,
+        method: 'PATCH',
+        endpoint: endpoint,
+        body: request.toJson(),
+      );
 
       final Response<dynamic> response = await _dio.patch<dynamic>(
         endpoint,
         data: request.toJson(),
-        options: _jsonOptions,
       );
 
       _logResponse(operation: operation, response: response);
@@ -393,7 +386,7 @@ ${_preview(response.data)}
   }
 
   // ===========================================================================
-  // Delete Note
+  // DELETE NOTE
   // ===========================================================================
 
   @override
