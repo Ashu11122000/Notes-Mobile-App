@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../config/app_config.dart';
 import '../constants/api_constants.dart';
+import '../services/logger_service.dart';
 import '../storage/session_manager.dart';
 import 'dio_interceptor.dart';
 
@@ -17,11 +18,21 @@ import 'dio_interceptor.dart';
 /// • Provides singleton Dio instance.
 /// • Configures HTTP client.
 /// • Applies global headers.
-/// • Registers interceptors.
-/// • Handles debug logging.
+/// • Registers global interceptors.
+/// • Shares one Dio instance across the application.
+/// • Provides production-ready networking configuration.
 ///
-/// Base URL comes from AppConfig.
-/// Endpoint paths come from ApiConstants.
+/// Architecture
+/// ----------------------------------------------------------------------------
+/// UI
+///      ↓
+/// Repository
+///      ↓
+/// DioClient
+///      ↓
+/// DioInterceptor
+///      ↓
+/// FastAPI
 ///
 /// ============================================================================
 
@@ -30,13 +41,20 @@ final class DioClient {
     _dio = Dio(_baseOptions());
 
     _registerInterceptors();
+
+    if (kDebugMode) {
+      LoggerService.info(
+        'Dio initialized successfully.\n'
+        'Base URL : ${AppConfig.baseUrl}',
+      );
+    }
   }
 
   static final DioClient _instance = DioClient._internal();
 
   late final Dio _dio;
 
-  /// Shared Dio instance.
+  /// Shared singleton instance.
   static Dio get instance => _instance._dio;
 
   // ===========================================================================
@@ -45,11 +63,6 @@ final class DioClient {
 
   static BaseOptions _baseOptions() {
     return BaseOptions(
-      // IMPORTANT:
-      // Do NOT use AppConfig.apiBaseUrl here.
-      //
-      // ApiConstants already contains /api/v1.
-      //
       baseUrl: AppConfig.baseUrl,
 
       connectTimeout: AppConfig.connectTimeout,
@@ -62,18 +75,19 @@ final class DioClient {
 
       contentType: ApiConstants.applicationJson,
 
-      headers: const <String, String>{
+      followRedirects: false,
+
+      persistentConnection: true,
+
+      validateStatus: (status) =>
+          status != null && status >= 200 && status < 300,
+
+      headers: const <String, dynamic>{
         ApiConstants.acceptHeader: ApiConstants.applicationJson,
-
         ApiConstants.contentTypeHeader: ApiConstants.applicationJson,
-
         ApiConstants.userAgentHeader: 'NotesApp/1.0',
-      },
-
-      followRedirects: true,
-
-      validateStatus: (status) {
-        return status != null && status >= 200 && status < 300;
+        'Accept-Encoding': 'gzip',
+        'Connection': 'keep-alive',
       },
     );
   }
@@ -83,14 +97,21 @@ final class DioClient {
   // ===========================================================================
 
   void _registerInterceptors() {
-    if (_dio.interceptors.isNotEmpty) {
-      return;
-    }
+    _dio.interceptors.clear();
 
     _dio.interceptors.add(
       DioInterceptor(
         tokenProvider: () async {
-          return SessionManager.getAccessToken();
+          final token = SessionManager.getAccessToken();
+
+          if (kDebugMode) {
+            LoggerService.info(
+              'SessionManager returned token: '
+              '${token == null ? "NULL" : "Length ${token.length}"}',
+            );
+          }
+
+          return token;
         },
       ),
     );
@@ -99,22 +120,18 @@ final class DioClient {
       _dio.interceptors.add(
         LogInterceptor(
           request: true,
-
           requestHeader: true,
-
           requestBody: true,
-
           responseHeader: false,
-
           responseBody: true,
-
           error: true,
-
           logPrint: (Object object) {
             debugPrint(object.toString());
           },
         ),
       );
+
+      LoggerService.info('Dio interceptors registered successfully.');
     }
   }
 }

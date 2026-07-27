@@ -11,18 +11,13 @@ Responsibilities
 - JWT access token generation.
 - JWT decoding and validation.
 - Centralized security helpers for authentication.
+- Detailed JWT diagnostics (development only).
 
-Security
-----------------------------------------------------------------------------
-- Passwords are hashed using bcrypt via Passlib.
-- JWT tokens are signed using the configured secret key.
-- Token expiration is configurable through environment variables.
-- Compatible with FastAPI dependency injection.
-- Uses UTC timestamps and standard JWT claims.
-
-Author
-----------------------------------------------------------------------------
-Team Productivity Platform
+Compatible with:
+- FastAPI
+- python-jose
+- Passlib
+===============================================================================
 """
 
 from datetime import datetime, timedelta, timezone
@@ -41,7 +36,7 @@ __all__ = (
 )
 
 # =============================================================================
-# Password Hashing Configuration
+# Password Hashing
 # =============================================================================
 
 pwd_context = CryptContext(
@@ -55,26 +50,18 @@ pwd_context = CryptContext(
 
 _SECRET_KEY = settings.SECRET_KEY.get_secret_value()
 _ALGORITHM = settings.ALGORITHM
+
 _DEFAULT_TOKEN_EXPIRY = timedelta(
     minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
 )
 
 # =============================================================================
-# Password Utilities
+# Password Helpers
 # =============================================================================
 
 
 def hash_password(password: str) -> str:
-    """
-    Hash a plain-text password using bcrypt.
-
-    Args:
-        password: User's plain-text password.
-
-    Returns:
-        Secure bcrypt hashed password.
-    """
-
+    """Hash a plain-text password."""
     return pwd_context.hash(password)
 
 
@@ -82,17 +69,7 @@ def verify_password(
     plain_password: str,
     hashed_password: str,
 ) -> bool:
-    """
-    Verify a plain-text password against a bcrypt hash.
-
-    Args:
-        plain_password: Password provided by the user.
-        hashed_password: Stored bcrypt hash.
-
-    Returns:
-        True if the password is valid; otherwise False.
-    """
-
+    """Verify a password."""
     return pwd_context.verify(
         plain_password,
         hashed_password,
@@ -100,7 +77,7 @@ def verify_password(
 
 
 # =============================================================================
-# JWT Utilities
+# JWT Helpers
 # =============================================================================
 
 
@@ -110,19 +87,14 @@ def create_access_token(
 ) -> str:
     """
     Create a signed JWT access token.
-
-    Args:
-        data: Claims to include in the token payload.
-        expires_delta: Optional custom token lifetime.
-
-    Returns:
-        Encoded JWT access token.
     """
 
     now = datetime.now(timezone.utc)
+
     expire = now + (expires_delta or _DEFAULT_TOKEN_EXPIRY)
 
     payload = dict(data)
+
     payload.update(
         {
             "iat": now,
@@ -131,11 +103,25 @@ def create_access_token(
         }
     )
 
-    return jwt.encode(
+    token = jwt.encode(
         payload,
         _SECRET_KEY,
         algorithm=_ALGORITHM,
     )
+
+    # -------------------------------------------------------------------------
+    # Development diagnostics
+    # -------------------------------------------------------------------------
+
+    if settings.DEBUG:
+        print("\n================ JWT CREATED ================")
+        print("Algorithm :", _ALGORITHM)
+        print("Expires   :", expire.isoformat())
+        print("Claims    :", payload)
+        print("Token     :", token)
+        print("=============================================\n")
+
+    return token
 
 
 def decode_access_token(
@@ -144,20 +130,42 @@ def decode_access_token(
     """
     Decode and validate a JWT access token.
 
-    Args:
-        token: Encoded JWT access token.
-
     Returns:
-        The decoded JWT payload if the token is valid;
-        otherwise None.
+        Decoded payload if valid, otherwise None.
     """
 
+    if settings.DEBUG:
+        print("\n================ JWT DECODE =================")
+        print("Algorithm :", _ALGORITHM)
+        print("Secret Len:", len(_SECRET_KEY))
+        print("Token     :", token)
+
     try:
-        return jwt.decode(
+        payload = jwt.decode(
             token,
             _SECRET_KEY,
             algorithms=[_ALGORITHM],
         )
 
-    except JWTError:
+        if settings.DEBUG:
+            print("Status    : SUCCESS")
+            print("Payload   :", payload)
+            print("=============================================\n")
+
+        return payload
+
+    except JWTError as exception:
+        if settings.DEBUG:
+            print("Status    : FAILED")
+            print("Error     :", repr(exception))
+            print("=============================================\n")
+
+        return None
+
+    except Exception as exception:
+        if settings.DEBUG:
+            print("Status    : FAILED")
+            print("Unexpected:", repr(exception))
+            print("=============================================\n")
+
         return None

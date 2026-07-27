@@ -8,23 +8,16 @@ import 'shared_preferences_service.dart';
 /// File: session_manager.dart
 /// ============================================================================
 ///
-/// Manages the user's local authentication session.
+/// Enterprise Session Manager
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Persists authentication data.
-/// • Retrieves authentication data.
-/// • Clears current session.
-/// • Exposes lightweight authentication helpers.
-///
-/// This class does NOT:
-/// • Authenticate users.
-/// • Perform API requests.
-/// • Refresh tokens.
-/// • Navigate screens.
-///
-/// All storage operations are handled through SharedPreferencesService.
-///
+/// • Stores authentication session.
+/// • Retrieves authentication session.
+/// • Clears authentication session.
+/// • Provides authentication helpers.
+/// • Produces detailed debug logs.
+/// • Verifies persistence after every write.
 /// ============================================================================
 
 @immutable
@@ -35,117 +28,117 @@ final class SessionManager {
   // Access Token
   // ===========================================================================
 
-  /// Saves JWT access token locally.
-  ///
-  /// Token is trimmed before storage to prevent invalid Authorization headers.
   static Future<bool> saveAccessToken(String token) async {
     final String cleanToken = token.trim();
 
     if (cleanToken.isEmpty) {
-      LoggerService.warning('Attempted to save empty access token.');
-
+      LoggerService.warning('Attempted to save an empty access token.');
       return false;
     }
 
-    await SharedPreferencesService.setBool(StorageConstants.isLoggedIn, true);
+    try {
+      await SharedPreferencesService.setBool(StorageConstants.isLoggedIn, true);
 
-    final bool saved = await SharedPreferencesService.setString(
-      StorageConstants.accessToken,
-      cleanToken,
-    );
+      final bool saved = await SharedPreferencesService.setString(
+        StorageConstants.accessToken,
+        cleanToken,
+      );
 
-    if (saved) {
-      LoggerService.info('Access token saved successfully.');
+      if (!saved) {
+        LoggerService.error('SharedPreferences failed to save access token.');
+        return false;
+      }
+
+      final String? storedToken = SharedPreferencesService.getString(
+        StorageConstants.accessToken,
+      );
+
+      if (storedToken == null || storedToken != cleanToken) {
+        LoggerService.error('Token verification failed after saving.');
+        return false;
+      }
+
+      LoggerService.info('''
+================ SESSION SAVED ================
+
+Access Token Saved : YES
+
+Length             : ${cleanToken.length}
+
+Preview            :
+${cleanToken.substring(0, cleanToken.length > 25 ? 25 : cleanToken.length)}...
+
+Logged In Flag     :
+${SharedPreferencesService.getBool(StorageConstants.isLoggedIn)}
+
+==============================================
+''');
+
+      return true;
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to save access token.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
+      return false;
     }
-
-    return saved;
   }
 
-  /// Returns stored JWT access token.
   static String? getAccessToken() {
-    final String? token = SharedPreferencesService.getString(
-      StorageConstants.accessToken,
-    );
+    try {
+      final String? token = SharedPreferencesService.getString(
+        StorageConstants.accessToken,
+      );
 
-    return token?.trim();
+      if (kDebugMode) {
+        LoggerService.info('''
+================ TOKEN READ ===================
+
+Token Exists :
+${token != null}
+
+Length :
+${token?.length ?? 0}
+
+Preview :
+${token == null ? 'NULL' : '${token.substring(0, token.length > 25 ? 25 : token.length)}...'}
+
+==============================================
+''');
+      }
+
+      return token?.trim();
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to read access token.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
+      return null;
+    }
   }
 
-  /// Returns true if a valid access token exists.
   static bool get hasAccessToken {
     final String? token = getAccessToken();
 
     return token != null && token.isNotEmpty;
   }
 
-  /// Removes access token.
-  static Future<bool> removeAccessToken() {
-    return SharedPreferencesService.remove(StorageConstants.accessToken);
-  }
-
-  // ===========================================================================
-  // Refresh Token
-  // ===========================================================================
-
-  /// Saves refresh token.
-  ///
-  /// Reserved for future backend refresh-token support.
-  static Future<bool> saveRefreshToken(String token) {
-    return SharedPreferencesService.setString(
-      StorageConstants.refreshToken,
-      token.trim(),
-    );
-  }
-
-  /// Returns refresh token.
-  static String? getRefreshToken() {
-    return SharedPreferencesService.getString(StorageConstants.refreshToken);
-  }
-
-  /// Removes refresh token.
-  static Future<bool> removeRefreshToken() {
-    return SharedPreferencesService.remove(StorageConstants.refreshToken);
-  }
-
-  // ===========================================================================
-  // Authentication State
-  // ===========================================================================
-
-  /// Returns whether user session is valid.
-  ///
-  /// Token presence is the source of truth.
-  /// We do not trust the stored boolean flag alone.
-  static bool isLoggedIn() {
-    return hasAccessToken;
-  }
-
-  /// Updates login flag.
-  ///
-  /// Mainly kept for compatibility.
-  static Future<bool> setLoggedIn(bool value) {
-    return SharedPreferencesService.setBool(StorageConstants.isLoggedIn, value);
-  }
-
-  // ===========================================================================
-  // Session Management
-  // ===========================================================================
-
-  /// Clears complete user session.
-  static Future<bool> clearSession() async {
+  static Future<bool> removeAccessToken() async {
     try {
-      await Future.wait([
-        SharedPreferencesService.remove(StorageConstants.accessToken),
+      final bool removed = await SharedPreferencesService.remove(
+        StorageConstants.accessToken,
+      );
 
-        SharedPreferencesService.remove(StorageConstants.refreshToken),
+      LoggerService.info('Access token removed: $removed');
 
-        SharedPreferencesService.remove(StorageConstants.isLoggedIn),
-      ]);
-
-      LoggerService.info('User session cleared successfully.');
-
-      return true;
+      return removed;
     } catch (exception, stackTrace) {
       LoggerService.error(
-        'Failed to clear user session.',
+        'Failed to remove access token.',
         error: exception,
         stackTrace: stackTrace,
       );
@@ -155,10 +148,96 @@ final class SessionManager {
   }
 
   // ===========================================================================
-  // Debug Helpers
+  // Refresh Token
   // ===========================================================================
 
-  /// Prints current session status.
+  static Future<bool> saveRefreshToken(String token) async {
+    try {
+      return await SharedPreferencesService.setString(
+        StorageConstants.refreshToken,
+        token.trim(),
+      );
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to save refresh token.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
+      return false;
+    }
+  }
+
+  static String? getRefreshToken() {
+    try {
+      return SharedPreferencesService.getString(StorageConstants.refreshToken);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<bool> removeRefreshToken() async {
+    try {
+      return await SharedPreferencesService.remove(
+        StorageConstants.refreshToken,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ===========================================================================
+  // Authentication
+  // ===========================================================================
+
+  static bool isLoggedIn() {
+    return hasAccessToken;
+  }
+
+  static Future<bool> setLoggedIn(bool value) {
+    return SharedPreferencesService.setBool(StorageConstants.isLoggedIn, value);
+  }
+
+  // ===========================================================================
+  // Session
+  // ===========================================================================
+
+  static Future<bool> clearSession() async {
+    try {
+      await Future.wait([
+        SharedPreferencesService.remove(StorageConstants.accessToken),
+        SharedPreferencesService.remove(StorageConstants.refreshToken),
+        SharedPreferencesService.remove(StorageConstants.isLoggedIn),
+      ]);
+
+      LoggerService.warning('''
+================ SESSION CLEARED ==============
+
+Access Token : REMOVED
+
+Refresh Token : REMOVED
+
+Logged In Flag : REMOVED
+
+==============================================
+''');
+
+      return true;
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to clear session.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
+      return false;
+    }
+  }
+
+  // ===========================================================================
+  // Debug
+  // ===========================================================================
+
   static void debugSession() {
     if (!kDebugMode) {
       return;
@@ -166,19 +245,25 @@ final class SessionManager {
 
     final String? token = getAccessToken();
 
-    debugPrint('''
-================ Session Debug ================
+    LoggerService.info('''
+================ SESSION DEBUG ================
 
 Has Token:
 ${token != null && token.isNotEmpty}
 
+Token Length:
+${token?.length ?? 0}
+
 Token Preview:
-${token == null ? 'null' : '${token.substring(0, token.length > 20 ? 20 : token.length)}...'}
+${token == null ? 'NULL' : '${token.substring(0, token.length > 30 ? 30 : token.length)}...'}
 
 Logged In:
 ${isLoggedIn()}
 
-===============================================
+Stored Keys:
+${SharedPreferencesService.getKeys()}
+
+==============================================
 ''');
   }
 }
