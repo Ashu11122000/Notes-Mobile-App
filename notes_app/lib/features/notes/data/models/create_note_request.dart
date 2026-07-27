@@ -4,17 +4,17 @@ import 'package:flutter/foundation.dart';
 /// File: create_note_request.dart
 /// ============================================================================
 ///
-/// Request model used when creating a new note.
+/// Request model for creating a new note.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Serialize request body for the Create Note API.
-/// - Immutable and strongly typed.
-/// - Provide validation helpers.
-/// - Match the FastAPI request schema.
+/// • Represents the Create Note request body.
+/// • Provides lightweight validation.
+/// • Serializes data for the FastAPI backend.
+/// • Remains immutable and strongly typed.
 ///
-/// Example JSON:
-///
+/// Example JSON
+/// ----------------------------------------------------------------------------
 /// {
 ///   "title": "Shopping List",
 ///   "content": "Buy milk and eggs."
@@ -23,24 +23,57 @@ import 'package:flutter/foundation.dart';
 /// ============================================================================
 
 @immutable
-class CreateNoteRequest {
+final class CreateNoteRequest {
   const CreateNoteRequest({required this.title, this.content});
 
-  /// Title of the note.
+  /// Note title.
   final String title;
 
   /// Optional note content.
   final String? content;
 
-  /// Returns true if the request contains a valid title.
-  bool get isValid => title.trim().isNotEmpty;
+  // ===========================================================================
+  // Computed Properties
+  // ===========================================================================
 
-  /// Converts this request into JSON.
-  Map<String, dynamic> toJson() {
-    return {'title': title.trim(), 'content': content?.trim()};
+  /// Normalized title.
+  String get normalizedTitle => title.trim();
+
+  /// Normalized content.
+  ///
+  /// Returns null when the content is empty after trimming.
+  String? get normalizedContent {
+    final String? value = content?.trim();
+
+    if (value == null || value.isEmpty) {
+      return null;
+    }
+
+    return value;
   }
 
-  /// Creates a copy with updated values.
+  /// Returns true when the title is valid.
+  bool get isValid => normalizedTitle.isNotEmpty;
+
+  /// Returns true when content exists.
+  bool get hasContent => normalizedContent != null;
+
+  // ===========================================================================
+  // Serialization
+  // ===========================================================================
+
+  /// Converts this request into the JSON format expected by FastAPI.
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'title': normalizedTitle,
+      'content': normalizedContent,
+    };
+  }
+
+  // ===========================================================================
+  // Copy
+  // ===========================================================================
+
   CreateNoteRequest copyWith({String? title, String? content}) {
     return CreateNoteRequest(
       title: title ?? this.title,
@@ -48,17 +81,24 @@ class CreateNoteRequest {
     );
   }
 
+  // ===========================================================================
+  // Equality
+  // ===========================================================================
+
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         other is CreateNoteRequest &&
-            runtimeType == other.runtimeType &&
             title == other.title &&
             content == other.content;
   }
 
   @override
   int get hashCode => Object.hash(title, content);
+
+  // ===========================================================================
+  // Debugging
+  // ===========================================================================
 
   @override
   String toString() {

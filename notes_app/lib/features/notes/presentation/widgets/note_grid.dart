@@ -12,10 +12,10 @@ import 'pagination_loader.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Displays notes in a responsive grid layout.
-/// - Supports pagination.
-/// - Delegates user interactions through callbacks.
-/// - Contains no business logic.
+/// • Displays notes in a responsive grid.
+/// • Handles pagination footer rendering.
+/// • Delegates user actions through callbacks.
+/// • Contains no business logic.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -27,7 +27,7 @@ import 'pagination_loader.dart';
 ///
 /// ============================================================================
 
-class NoteGrid extends StatelessWidget {
+final class NoteGrid extends StatelessWidget {
   const NoteGrid({
     super.key,
     required this.notes,
@@ -43,19 +43,19 @@ class NoteGrid extends StatelessWidget {
     this.onDelete,
   });
 
-  /// Notes to display.
+  /// Notes collection.
   final List<Note> notes;
 
   /// Optional scroll controller.
   final ScrollController? controller;
 
-  /// Indicates whether another page is loading.
+  /// Shows pagination loader.
   final bool isLoadingMore;
 
-  /// Grid columns.
+  /// Number of grid columns.
   final int crossAxisCount;
 
-  /// Aspect ratio of each card.
+  /// Card aspect ratio.
   final double childAspectRatio;
 
   /// Horizontal spacing.
@@ -64,43 +64,64 @@ class NoteGrid extends StatelessWidget {
   /// Vertical spacing.
   final double mainAxisSpacing;
 
-  /// Outer padding.
+  /// Grid padding.
   final EdgeInsetsGeometry padding;
 
-  /// Called when a note is tapped.
+  /// Note click callback.
   final ValueChanged<Note>? onNoteTap;
 
-  /// Called when edit is selected.
+  /// Edit callback.
   final ValueChanged<Note>? onEdit;
 
-  /// Called when delete is selected.
+  /// Delete callback.
   final ValueChanged<Note>? onDelete;
+
+  // ===========================================================================
+  // Constants
+  // ===========================================================================
+
+  static const double _cacheExtent = 800;
 
   @override
   Widget build(BuildContext context) {
+    final int columns = crossAxisCount < 1 ? 1 : crossAxisCount;
+
     return GridView.builder(
       controller: controller,
+
+      cacheExtent: _cacheExtent,
+
       padding: padding,
+
       physics: const AlwaysScrollableScrollPhysics(),
+
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
+        crossAxisCount: columns,
+
         childAspectRatio: childAspectRatio,
+
         crossAxisSpacing: crossAxisSpacing,
+
         mainAxisSpacing: mainAxisSpacing,
       ),
+
       itemCount: notes.length + (isLoadingMore ? 1 : 0),
-      itemBuilder: (context, index) {
+
+      itemBuilder: (BuildContext context, int index) {
         if (index >= notes.length) {
           return const PaginationLoader(message: '', padding: EdgeInsets.zero);
         }
 
-        final note = notes[index];
+        final Note note = notes[index];
 
         return NoteCard(
           note: note,
-          onTap: () => onNoteTap?.call(note),
-          onEdit: () => onEdit?.call(note),
-          onDelete: () => onDelete?.call(note),
+
+          onTap: onNoteTap == null ? null : () => onNoteTap!(note),
+
+          onEdit: onEdit == null ? null : () => onEdit!(note),
+
+          onDelete: onDelete == null ? null : () => onDelete!(note),
         );
       },
     );

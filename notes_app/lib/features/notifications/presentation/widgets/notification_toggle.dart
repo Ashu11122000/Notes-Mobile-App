@@ -11,9 +11,10 @@ import '../providers/notification_provider.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Displays the notification enable/disable switch.
+/// • Displays notification preference switch.
 /// • Reads state from NotificationProvider.
-/// • Delegates state updates to NotificationProvider.
+/// • Updates notification preference.
+/// • Handles loading state.
 /// • Contains no business logic.
 ///
 /// Architecture
@@ -35,16 +36,54 @@ final class NotificationToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<NotificationProvider>(
       builder: (context, provider, child) {
+        final bool isEnabled = provider.notificationsEnabled;
+
         return Card(
           clipBehavior: Clip.antiAlias,
+
           child: SwitchListTile(
-            secondary: const Icon(Icons.notifications_active_outlined),
+            // ===============================================================
+            // Icon
+            // ===============================================================
+            secondary: Tooltip(
+              message: isEnabled
+                  ? 'Notifications enabled'
+                  : 'Notifications disabled',
+
+              child: Icon(
+                isEnabled
+                    ? Icons.notifications_active_outlined
+                    : Icons.notifications_off_outlined,
+              ),
+            ),
+
+            // ===============================================================
+            // Title
+            // ===============================================================
             title: const Text('Enable Notifications'),
-            subtitle: const Text('Receive reminders for your notes.'),
-            value: provider.notificationsEnabled,
-            onChanged: (value) async {
-              await provider.setNotificationsEnabled(value);
-            },
+
+            // ===============================================================
+            // Description
+            // ===============================================================
+            subtitle: Text(
+              isEnabled
+                  ? 'Receive reminders for your notes.'
+                  : 'Notifications are disabled.',
+            ),
+
+            // ===============================================================
+            // Value
+            // ===============================================================
+            value: isEnabled,
+
+            // ===============================================================
+            // Action
+            // ===============================================================
+            onChanged: provider.isLoading
+                ? null
+                : (bool value) async {
+                    await provider.setNotificationsEnabled(value);
+                  },
           ),
         );
       },

@@ -8,9 +8,9 @@ import 'package:flutter/foundation.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Represents the core business object for the Notes feature.
-/// - Independent of API, JSON serialization, Dio, and database.
-/// - Used throughout the domain and presentation layers.
+/// • Represents the core business object of the Notes feature.
+/// • Independent from API, JSON, Dio, database, and Flutter infrastructure.
+/// • Used by domain and presentation layers.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -38,7 +38,7 @@ class Note {
   /// Unique note identifier.
   final int id;
 
-  /// Owner (User) identifier.
+  /// User identifier who owns this note.
   final int ownerId;
 
   /// Note title.
@@ -50,10 +50,48 @@ class Note {
   /// Creation timestamp.
   final DateTime createdAt;
 
-  /// Last update timestamp.
+  /// Last modification timestamp.
   final DateTime updatedAt;
 
-  /// Creates a copy of this entity with updated values.
+  // ===========================================================================
+  // Computed Properties
+  // ===========================================================================
+
+  /// Returns true when this note contains content.
+  bool get hasContent {
+    final String? value = content?.trim();
+
+    return value != null && value.isNotEmpty;
+  }
+
+  /// Returns true when the note has no meaningful text.
+  bool get isEmpty {
+    return title.trim().isEmpty && !hasContent;
+  }
+
+  /// Returns true when the note contains useful data.
+  bool get isNotEmpty => !isEmpty;
+
+  /// Returns a shortened title preview.
+  ///
+  /// Useful for list cards and compact UI components.
+  String get titlePreview {
+    const int maxLength = 40;
+
+    final String value = title.trim();
+
+    if (value.length <= maxLength) {
+      return value;
+    }
+
+    return '${value.substring(0, maxLength)}...';
+  }
+
+  // ===========================================================================
+  // Copy
+  // ===========================================================================
+
+  /// Creates a copy with updated values.
   Note copyWith({
     int? id,
     int? ownerId,
@@ -72,6 +110,10 @@ class Note {
     );
   }
 
+  // ===========================================================================
+  // Equality
+  // ===========================================================================
+
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
@@ -86,8 +128,13 @@ class Note {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, ownerId, title, content, createdAt, updatedAt);
+  int get hashCode {
+    return Object.hash(id, ownerId, title, content, createdAt, updatedAt);
+  }
+
+  // ===========================================================================
+  // Debug
+  // ===========================================================================
 
   @override
   String toString() {

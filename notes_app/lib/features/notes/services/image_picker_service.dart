@@ -8,22 +8,24 @@ import '../../../core/services/logger_service.dart';
 /// File: image_picker_service.dart
 /// ============================================================================
 ///
-/// Image Picker Service
+/// Image Picker Service.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Wraps the image_picker package.
-/// - Picks images from gallery.
-/// - Picks images from camera.
-/// - Returns selected image as a File.
-/// - Logs all operations.
-/// - Handles exceptions gracefully.
-/// - Contains no UI logic.
-/// - Contains no business logic.
+/// • Wraps the image_picker package.
+/// • Picks images from gallery.
+/// • Picks images from camera.
+/// • Converts XFile into File.
+/// • Handles picker exceptions.
+/// • Provides image validation helpers.
+/// • Contains no UI logic.
+/// • Contains no business logic.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
 /// UI
+///     ↓
+/// NotesProvider
 ///     ↓
 /// ImagePickerService
 ///     ↓
@@ -38,74 +40,88 @@ final class ImagePickerService {
   final ImagePicker _imagePicker;
 
   // ===========================================================================
+  // Configuration
+  // ===========================================================================
+
+  static const int _imageQuality = 85;
+
+  static const double _maxWidth = 1920;
+
+  static const double _maxHeight = 1080;
+
+  static const int _maxFileSizeMb = 10;
+
+  static const List<String> _allowedExtensions = <String>[
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+  ];
+
+  // ===========================================================================
   // Gallery
   // ===========================================================================
 
-  /// Opens the device gallery and returns the selected image.
+  /// Picks an image from the device gallery.
   ///
-  /// Returns `null` if:
-  /// - the user cancels the picker
-  /// - an error occurs
+  /// Returns:
+  /// - Selected image file
+  /// - null when cancelled or failed
   Future<File?> pickFromGallery() async {
-    try {
-      LoggerService.info('Opening gallery...');
-
-      final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-      );
-
-      if (image == null) {
-        LoggerService.info('Gallery picker cancelled.');
-        return null;
-      }
-
-      LoggerService.info('Image selected from gallery: ${image.path}');
-
-      return File(image.path);
-    } catch (exception, stackTrace) {
-      LoggerService.error(
-        'Failed to pick image from gallery.',
-        error: exception,
-        stackTrace: stackTrace,
-      );
-
-      return null;
-    }
+    return _pickImage(source: ImageSource.gallery, operation: 'Gallery');
   }
 
   // ===========================================================================
   // Camera
   // ===========================================================================
 
-  /// Opens the device camera and returns the captured image.
+  /// Captures an image using the camera.
   ///
-  /// Returns `null` if:
-  /// - the user cancels
-  /// - an error occurs
-  ///
-  /// This method is not currently used by the Notes feature,
-  /// but is provided for future extensibility.
+  /// Returns:
+  /// - Captured image file
+  /// - null when cancelled or failed
   Future<File?> pickFromCamera() async {
-    try {
-      LoggerService.info('Opening camera...');
+    return _pickImage(source: ImageSource.camera, operation: 'Camera');
+  }
 
-      final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
+  // ===========================================================================
+  // Internal Picker
+  // ===========================================================================
+
+  Future<File?> _pickImage({
+    required ImageSource source,
+    required String operation,
+  }) async {
+    try {
+      LoggerService.info('$operation image picker opened.');
+
+      final XFile? pickedImage = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: _imageQuality,
+        maxWidth: _maxWidth,
+        maxHeight: _maxHeight,
       );
 
-      if (image == null) {
-        LoggerService.info('Camera capture cancelled.');
+      if (pickedImage == null) {
+        LoggerService.info('$operation image selection cancelled.');
+
         return null;
       }
 
-      LoggerService.info('Image captured: ${image.path}');
+      final File file = File(pickedImage.path);
 
-      return File(image.path);
+      if (!_isValidImage(file)) {
+        LoggerService.warning('Invalid image selected.');
+
+        return null;
+      }
+
+      LoggerService.info('$operation image selected successfully.');
+
+      return file;
     } catch (exception, stackTrace) {
       LoggerService.error(
-        'Failed to capture image.',
+        'Failed during $operation image selection.',
         error: exception,
         stackTrace: stackTrace,
       );
@@ -115,29 +131,60 @@ final class ImagePickerService {
   }
 
   // ===========================================================================
-  // Utilities
+  // Validation
   // ===========================================================================
 
-  /// Returns whether the supplied file exists.
-  bool exists(File? file) {
-    if (file == null) {
+  /// Checks whether the image is acceptable.
+  bool _isValidImage(File file) {
+    if (!exists(file)) {
       return false;
     }
 
-    return file.existsSync();
+    if (!_isAllowedExtension(file)) {
+      return false;
+    }
+
+    if (!_isWithinSizeLimit(file)) {
+      return false;
+    }
+
+    return true;
   }
 
-  /// Returns the absolute image path.
+  bool _isAllowedExtension(File file) {
+    final String extension = file.path.split('.').last.toLowerCase();
+
+    return _allowedExtensions.contains(extension);
+  }
+
+  bool _isWithinSizeLimit(File file) {
+    final int sizeInBytes = file.lengthSync();
+
+    final double sizeInMb = sizeInBytes / (1024 * 1024);
+
+    return sizeInMb <= _maxFileSizeMb;
+  }
+
+  // ===========================================================================
+  // Utilities
+  // ===========================================================================
+
+  /// Checks whether a file exists.
+  bool exists(File? file) {
+    return file != null && file.existsSync();
+  }
+
+  /// Returns the file path.
   String? getPath(File? file) {
     return file?.path;
   }
 
-  /// Clears the selected image.
+  /// Clears selected image reference.
   ///
-  /// The actual file is **not** deleted because it may belong to
-  /// the user's gallery. The caller should simply discard its reference.
+  /// Does not delete the physical file because
+  /// it may belong to the user's device storage.
   File? removeImage() {
-    LoggerService.info('Selected image removed.');
+    LoggerService.info('Selected image reference cleared.');
 
     return null;
   }

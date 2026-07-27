@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../shared/enums/snackbar_type.dart';
+import '../../../../shared/widgets/custom_snackbar.dart';
 import '../../../notifications/models/reminder_model.dart';
+import '../../data/models/update_note_request.dart';
 import '../../domain/entities/note.dart';
 import '../providers/notes_provider.dart';
 import '../widgets/note_form.dart';
@@ -11,37 +14,21 @@ import '../widgets/note_form.dart';
 /// File: edit_note_screen.dart
 /// ============================================================================
 ///
-/// Edit Note Screen
+/// Edit Note Screen.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Displays a pre-filled form for editing a note.
-/// • Delegates note updates to NotesProvider.
-/// • Passes reminder information.
-/// • Shows loading state.
-/// • Displays success and error feedback.
-/// • Clears temporary image selection.
-/// • Navigates back after a successful update.
+/// • Displays pre-filled note form.
+/// • Creates UpdateNoteRequest.
+/// • Delegates update to NotesProvider.
+/// • Handles navigation after success.
+/// • Shows user feedback.
 ///
-/// Architecture
+/// Does NOT:
 /// ----------------------------------------------------------------------------
-/// UI
-///     ↓
-/// NotesProvider
-///     ↓
-/// NotesRepository
-///     ↓
-/// FastAPI
-///
-/// Reminder Flow
-/// ----------------------------------------------------------------------------
-/// UI
-///     ↓
-/// NotesProvider
-///     ↓
-/// ReminderManager
-///     ↓
-/// NotificationService
+/// • Call API.
+/// • Access repository.
+/// • Handle business rules.
 ///
 /// ============================================================================
 
@@ -53,42 +40,41 @@ final class EditNoteScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<NotesProvider>(
-      builder: (context, provider, child) {
-        return PopScope(
-          onPopInvokedWithResult: (_, __) {
-            provider.clearSelectedImage();
-          },
-          child: Scaffold(
-            appBar: AppBar(title: const Text('Edit Note'), centerTitle: true),
-            body: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: NoteForm(
-                  initialTitle: note.title,
-                  initialContent: note.content ?? '',
-                  submitLabel: 'Update Note',
-                  isLoading: provider.isLoading,
-                  onSubmit:
-                      (
-                        String title,
-                        String? content,
-                        ReminderModel? reminder,
-                      ) async {
-                        await _updateNote(
-                          context,
-                          provider,
-                          title,
-                          content,
-                          reminder,
-                        );
-                      },
-                ),
-              ),
+    final NotesProvider provider = context.watch<NotesProvider>();
+
+    return PopScope(
+      onPopInvokedWithResult: (_, __) {
+        context.read<NotesProvider>().clearSelectedImage();
+      },
+
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Edit Note'), centerTitle: true),
+
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+
+            child: NoteForm(
+              initialTitle: note.title,
+
+              initialContent: note.content ?? '',
+
+              submitLabel: 'Update Note',
+
+              isLoading: provider.isLoading,
+
+              onSubmit:
+                  (
+                    String title,
+                    String? content,
+                    ReminderModel? reminder,
+                  ) async {
+                    await _updateNote(context, title, content, reminder);
+                  },
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -98,59 +84,59 @@ final class EditNoteScreen extends StatelessWidget {
 
   Future<void> _updateNote(
     BuildContext context,
-    NotesProvider provider,
     String title,
     String? content,
     ReminderModel? reminder,
   ) async {
+    final NotesProvider provider = context.read<NotesProvider>();
+
+    // Clear previous error state.
     provider.clearError();
 
-    await provider.updateNote(
-      noteId: note.id,
-      title: title,
-      content: content,
-      reminder: reminder,
+    final Note? updatedNote = await provider.updateNote(
+      note.id,
+
+      UpdateNoteRequest(title: title, content: content),
     );
 
     if (!context.mounted) {
       return;
     }
 
-    if (provider.hasError) {
-      _showErrorSnackBar(
+    if (updatedNote == null) {
+      CustomSnackBar.show(
         context,
-        provider.errorMessage ?? 'Failed to update note.',
+
+        message: provider.errorMessage ?? 'Failed to update note.',
+
+        type: SnackbarType.error,
       );
+
       return;
+    }
+
+    // ===============================================================
+    // Reminder Handling
+    // ===============================================================
+
+    if (reminder != null) {
+      await provider.scheduleNoteReminder(
+        note: updatedNote,
+
+        reminderTime: reminder.scheduledAt,
+      );
     }
 
     provider.clearSelectedImage();
 
-    _showSuccessSnackBar(context);
+    CustomSnackBar.show(
+      context,
+
+      message: 'Note updated successfully.',
+
+      type: SnackbarType.success,
+    );
 
     context.pop();
-  }
-
-  // ===========================================================================
-  // SnackBars
-  // ===========================================================================
-
-  void _showSuccessSnackBar(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Note updated successfully.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _showErrorSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Theme.of(context).colorScheme.error,
-      ),
-    );
   }
 }

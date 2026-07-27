@@ -6,64 +6,62 @@ import '../config/app_config.dart';
 /// File: api_constants.dart
 /// ============================================================================
 ///
-/// Centralized API constants.
+/// Centralized API endpoint constants.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Defines REST API endpoints.
-/// • Defines standard HTTP headers.
+/// • Defines backend REST endpoints.
+/// • Defines HTTP headers.
 /// • Defines MIME types.
-/// • Provides helper methods for dynamic endpoints.
-/// • Centralizes HTTP-related constants.
+/// • Provides endpoint helpers.
+/// • Keeps API paths separated from environment configuration.
 ///
-/// This class intentionally does **not** contain environment configuration
-/// (base URL, build environment, or network timeouts). Those belong in
-/// [AppConfig] to ensure a single source of truth.
+/// Base URL belongs to AppConfig.
+/// Endpoints belong here.
 ///
-/// Keeping endpoints separate from runtime configuration improves
-/// maintainability, testability, and scalability while preserving compatibility
-/// with the existing FastAPI backend.
+/// Architecture
+/// ----------------------------------------------------------------------------
+/// DioClient
+///      ↓
+/// AppConfig (Base URL)
+///      ↓
+/// ApiConstants (Paths)
+///      ↓
+/// FastAPI
+///
 /// ============================================================================
+
 @immutable
 final class ApiConstants {
   const ApiConstants._();
 
   // ===========================================================================
-  // API
+  // API VERSION
   // ===========================================================================
 
-  /// REST API version.
+  /// API version prefix.
   ///
-  /// Delegated to [AppConfig] so configuration exists in one place.
+  /// Example:
+  /// /api/v1
+  ///
   static const String apiVersion = AppConfig.apiVersion;
 
   // ===========================================================================
-  // HTTP Headers
+  // HTTP HEADERS
   // ===========================================================================
 
-  /// Authorization header.
   static const String authorizationHeader = 'Authorization';
 
-  /// Content-Type header.
   static const String contentTypeHeader = 'Content-Type';
 
-  /// Accept header.
   static const String acceptHeader = 'Accept';
 
-  /// User-Agent header.
   static const String userAgentHeader = 'User-Agent';
 
-  /// Cache-Control header.
   static const String cacheControlHeader = 'Cache-Control';
 
-  /// ETag header.
-  static const String eTagHeader = 'ETag';
-
-  /// If-None-Match header.
-  static const String ifNoneMatchHeader = 'If-None-Match';
-
   // ===========================================================================
-  // MIME Types
+  // MIME TYPES
   // ===========================================================================
 
   static const String applicationJson = 'application/json';
@@ -73,61 +71,70 @@ final class ApiConstants {
   static const String textPlain = 'text/plain';
 
   // ===========================================================================
-  // Authorization
+  // AUTHORIZATION
   // ===========================================================================
 
   static const String bearerPrefix = 'Bearer';
 
   static const String bearerTokenPrefix = '$bearerPrefix ';
 
-  // ===========================================================================
-  // Authentication Endpoints
-  // ===========================================================================
-
-  /// User registration.
-  static const String register = '$apiVersion/auth/register';
-
-  /// User login.
-  static const String login = '$apiVersion/auth/login';
-
-  /// Current authenticated user.
-  static const String currentUser = '$apiVersion/auth/me';
+  static String bearerToken(String token) {
+    return '$bearerTokenPrefix$token';
+  }
 
   // ===========================================================================
-  // Notes Endpoints
+  // AUTHENTICATION ENDPOINTS
+  // ===========================================================================
+  //
+  // FastAPI:
+  //
+  // /api/v1/auth/register
+  // /api/v1/auth/login
+  // /api/v1/auth/me
+  //
   // ===========================================================================
 
-  /// Notes collection.
+  static const String auth = '$apiVersion/auth';
+
+  /// Register user.
+  static const String register = '$auth/register';
+
+  /// Login user.
+  static const String login = '$auth/login';
+
+  /// Current logged-in user.
+  static const String currentUser = '$auth/me';
+
+  // ===========================================================================
+  // NOTES ENDPOINTS
+  // ===========================================================================
+  //
+  // FastAPI:
+  //
+  // GET    /api/v1/notes
+  // POST   /api/v1/notes
+  // PUT    /api/v1/notes/{id}
+  // PATCH  /api/v1/notes/{id}
+  // DELETE /api/v1/notes/{id}
+  //
+  // ===========================================================================
+
   static const String notes = '$apiVersion/notes';
 
-  /// Returns the endpoint for a specific note.
-  static String noteById(int noteId) => '$notes/$noteId';
+  static String noteById(int noteId) {
+    return '$notes/$noteId';
+  }
 
   // ===========================================================================
-  // Health
+  // HEALTH CHECK
   // ===========================================================================
 
-  /// Backend health endpoint.
   static const String health = '/health';
 
   // ===========================================================================
-  // Helpers
+  // ENDPOINT SECURITY HELPERS
   // ===========================================================================
 
-  /// Creates a bearer authorization value.
-  ///
-  /// Example:
-  ///
-  /// ```dart
-  /// headers[ApiConstants.authorizationHeader] =
-  ///     ApiConstants.bearerToken(accessToken);
-  /// ```
-  static String bearerToken(String token) => '$bearerTokenPrefix$token';
-
-  /// Returns whether the endpoint requires authentication.
-  ///
-  /// This helper can be expanded in the future if public endpoints
-  /// are introduced.
   static bool requiresAuthentication(String endpoint) {
     switch (endpoint) {
       case register:
@@ -138,5 +145,17 @@ final class ApiConstants {
       default:
         return true;
     }
+  }
+
+  // ===========================================================================
+  // DEBUG HELPERS
+  // ===========================================================================
+
+  static String fullEndpoint(String endpoint) {
+    if (endpoint.startsWith('/')) {
+      return endpoint;
+    }
+
+    return '/$endpoint';
   }
 }

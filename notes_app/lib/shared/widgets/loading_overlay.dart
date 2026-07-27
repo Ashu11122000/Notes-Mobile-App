@@ -11,40 +11,19 @@ import 'loading_indicator.dart';
 /// Displays a modal loading indicator above its child while preventing user
 /// interaction.
 ///
-/// This widget is intended for screen-level or section-level loading during
-/// asynchronous operations such as:
-///
-/// • Login
-/// • Registration
-/// • Fetching notes
-/// • Creating notes
-/// • Updating notes
-/// • Deleting notes
-/// • Synchronization
-///
 /// Features:
 ///
-/// • Material 3
+/// • Material 3 compatible
 /// • Theme aware
 /// • Accessible
 /// • Responsive
-/// • Lightweight
 /// • Smooth fade animation
 /// • Prevents user interaction
 ///
-/// Example:
-///
-/// ```dart
-/// LoadingOverlay(
-///   isLoading: provider.isLoading,
-///   message: 'Signing in...',
-///   child: const LoginScreen(),
-/// )
-/// ```
 /// ============================================================================
+
 @immutable
 final class LoadingOverlay extends StatelessWidget {
-  /// Creates a loading overlay.
   const LoadingOverlay({
     super.key,
     required this.isLoading,
@@ -56,10 +35,10 @@ final class LoadingOverlay extends StatelessWidget {
     this.barrierColor,
   });
 
-  /// Whether the loading overlay should be displayed.
+  /// Whether loading overlay is visible.
   final bool isLoading;
 
-  /// Widget displayed beneath the overlay.
+  /// Main screen content.
   final Widget child;
 
   /// Optional loading message.
@@ -71,47 +50,53 @@ final class LoadingOverlay extends StatelessWidget {
   /// Fade animation duration.
   final Duration animationDuration;
 
-  /// Alignment of the loading indicator.
+  /// Loading indicator alignment.
   final Alignment alignment;
 
-  /// Optional custom barrier color.
-  ///
-  /// When null, a theme-aware scrim color is used.
+  /// Custom overlay color.
   final Color? barrierColor;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final ThemeData theme = Theme.of(context);
 
-    final overlayColor =
+    final Color overlayColor =
         barrierColor ?? theme.colorScheme.scrim.withValues(alpha: opacity);
 
     return Stack(
       fit: StackFit.expand,
+
       children: [
+        // ---------------------------------------------------------------------
+        // Screen Content
+        // ---------------------------------------------------------------------
         child,
 
-        AnimatedSwitcher(
-          duration: animationDuration,
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          child: isLoading
-              ? Positioned.fill(
-                  key: const ValueKey('loading_overlay'),
-                  child: RepaintBoundary(
-                    child: AbsorbPointer(
-                      absorbing: true,
-                      child: ColoredBox(
-                        color: overlayColor,
-                        child: Align(
-                          alignment: alignment,
-                          child: LoadingIndicator(message: message),
-                        ),
-                      ),
-                    ),
-                  ),
-                )
-              : const SizedBox.shrink(key: ValueKey('loading_overlay_hidden')),
+        // ---------------------------------------------------------------------
+        // Loading Layer
+        // ---------------------------------------------------------------------
+        IgnorePointer(
+          ignoring: !isLoading,
+
+          child: AnimatedOpacity(
+            duration: animationDuration,
+
+            curve: Curves.easeOutCubic,
+
+            opacity: isLoading ? 1 : 0,
+
+            child: RepaintBoundary(
+              child: ColoredBox(
+                color: overlayColor,
+
+                child: Align(
+                  alignment: alignment,
+
+                  child: LoadingIndicator(message: message),
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );

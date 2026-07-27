@@ -19,21 +19,33 @@ import 'package:notes_app/features/settings/presentation/providers/settings_prov
 /// File: app_providers.dart
 /// ============================================================================
 ///
-/// Registers all application-wide dependencies.
+/// Application Dependency Injection Container
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Register remote data sources.
-/// - Register repositories.
-/// - Register ChangeNotifier providers.
-/// - Serve as the application's dependency injection container.
+/// • Registers application dependencies.
+/// • Provides repositories.
+/// • Provides feature state managers.
+/// • Controls dependency lifecycle.
+///
+/// Architecture
+/// ----------------------------------------------------------------------------
+///
+/// UI
+///  ↓
+/// Providers
+///  ↓
+/// Repositories
+///  ↓
+/// Data Sources
+///  ↓
+/// APIs
 ///
 /// ============================================================================
 
 final class AppProviders extends StatelessWidget {
   const AppProviders({super.key, required this.child});
 
-  /// Widget subtree that receives all registered providers.
   final Widget child;
 
   @override
@@ -41,52 +53,75 @@ final class AppProviders extends StatelessWidget {
     return MultiProvider(
       providers: <SingleChildWidget>[
         // =====================================================================
-        // Remote Data Sources
+        // DATA SOURCES
         // =====================================================================
         Provider<AuthRemoteDataSource>(
+          lazy: true,
+
           create: (_) => AuthRemoteDataSourceImpl(),
         ),
 
         Provider<NotesRemoteDataSource>(
+          lazy: true,
+
           create: (_) => NotesRemoteDataSourceImpl(),
         ),
 
         // =====================================================================
-        // Repositories
+        // REPOSITORIES
         // =====================================================================
-        Provider<AuthRepository>(
-          create: (context) => AuthRepositoryImpl(
-            remoteDataSource: context.read<AuthRemoteDataSource>(),
-          ),
+        ProxyProvider<AuthRemoteDataSource, AuthRepository>(
+          lazy: true,
+
+          update: (context, remoteDataSource, previous) {
+            return AuthRepositoryImpl(remoteDataSource: remoteDataSource);
+          },
         ),
 
-        Provider<NotesRepository>(
-          create: (context) => NotesRepositoryImpl(
-            remoteDataSource: context.read<NotesRemoteDataSource>(),
-          ),
+        ProxyProvider<NotesRemoteDataSource, NotesRepository>(
+          lazy: true,
+
+          update: (context, remoteDataSource, previous) {
+            return NotesRepositoryImpl(remoteDataSource: remoteDataSource);
+          },
         ),
 
         // =====================================================================
-        // ChangeNotifier Providers
+        // FEATURE PROVIDERS
         // =====================================================================
         ChangeNotifierProvider<AuthProvider>(
-          create: (context) =>
-              AuthProvider(repository: context.read<AuthRepository>()),
+          lazy: true,
+
+          create: (context) {
+            return AuthProvider(repository: context.read<AuthRepository>());
+          },
         ),
 
         ChangeNotifierProvider<NotesProvider>(
-          create: (context) =>
-              NotesProvider(repository: context.read<NotesRepository>()),
+          lazy: true,
+
+          create: (context) {
+            return NotesProvider(repository: context.read<NotesRepository>());
+          },
         ),
 
         ChangeNotifierProvider<NotificationProvider>(
-          create: (_) => NotificationProvider(),
+          lazy: false,
+
+          create: (_) {
+            return NotificationProvider();
+          },
         ),
 
         ChangeNotifierProvider<SettingsProvider>(
-          create: (_) => SettingsProvider(),
+          lazy: false,
+
+          create: (_) {
+            return SettingsProvider();
+          },
         ),
       ],
+
       child: child,
     );
   }

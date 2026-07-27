@@ -13,24 +13,12 @@ import 'timezone_service.dart';
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Initializes flutter_local_notifications.
-/// • Requests notification permissions.
-/// • Creates Android notification channel.
+/// • Handles notification permissions.
+/// • Creates notification channels.
 /// • Shows instant notifications.
-/// • Schedules one-time notifications.
-/// • Schedules recurring notifications.
+/// • Schedules reminders.
 /// • Cancels notifications.
-/// • Returns pending notifications.
 /// • Contains no UI/business logic.
-///
-/// Architecture
-/// ----------------------------------------------------------------------------
-/// UI
-///      ↓
-/// ReminderManager
-///      ↓
-/// NotificationService
-///      ↓
-/// flutter_local_notifications
 ///
 /// ============================================================================
 
@@ -68,8 +56,16 @@ final class NotificationService {
       const AndroidInitializationSettings androidSettings =
           AndroidInitializationSettings('@mipmap/ic_launcher');
 
+      const DarwinInitializationSettings iosSettings =
+          DarwinInitializationSettings(
+            requestAlertPermission: false,
+            requestBadgePermission: false,
+            requestSoundPermission: false,
+          );
+
       const InitializationSettings settings = InitializationSettings(
         android: androidSettings,
+        iOS: iosSettings,
       );
 
       await _plugin.initialize(
@@ -84,17 +80,83 @@ final class NotificationService {
 
       await androidPlugin?.createNotificationChannel(_channel);
 
-      await androidPlugin?.requestNotificationsPermission();
+      await requestPermission();
 
       _initialized = true;
 
       LoggerService.info('NotificationService initialized successfully.');
     } catch (exception, stackTrace) {
       LoggerService.error(
-        'Failed to initialize NotificationService.',
+        'Notification initialization failed.',
         error: exception,
         stackTrace: stackTrace,
       );
+    }
+  }
+
+  // ===========================================================================
+  // Permission Handling
+  // ===========================================================================
+
+  Future<bool> requestPermission() async {
+    try {
+      bool granted = true;
+
+      final AndroidFlutterLocalNotificationsPlugin? androidPlugin = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+
+      final bool? androidResult = await androidPlugin
+          ?.requestNotificationsPermission();
+
+      if (androidResult != null) {
+        granted = granted && androidResult;
+      }
+
+      final IOSFlutterLocalNotificationsPlugin? iosPlugin = _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
+
+      final bool? iosResult = await iosPlugin?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      if (iosResult != null) {
+        granted = granted && iosResult;
+      }
+
+      return granted;
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Notification permission request failed.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
+      return false;
+    }
+  }
+
+  Future<bool> areNotificationsEnabled() async {
+    try {
+      final AndroidFlutterLocalNotificationsPlugin? androidPlugin = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+
+      return await androidPlugin?.areNotificationsEnabled() ?? true;
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed checking notification status.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
+      return false;
     }
   }
 
@@ -111,6 +173,8 @@ final class NotificationService {
         importance: Importance.high,
         priority: Priority.high,
       ),
+
+      iOS: DarwinNotificationDetails(),
     );
   }
 
@@ -133,7 +197,10 @@ final class NotificationService {
         payload: payload,
       );
 
-      LoggerService.info('Notification shown successfully. (id: $id)');
+      LoggerService.info(
+        'Notification shown successfully. '
+        '(id: $id)',
+      );
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to show notification.',
@@ -169,7 +236,10 @@ final class NotificationService {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
 
-      LoggerService.info('Notification scheduled successfully. (id: $id)');
+      LoggerService.info(
+        'Notification scheduled successfully. '
+        '(id: $id)',
+      );
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to schedule notification.',
@@ -180,7 +250,7 @@ final class NotificationService {
   }
 
   // ===========================================================================
-  // Schedule Daily Notification (Stretch Goal)
+  // Schedule Daily Notification
   // ===========================================================================
 
   Future<void> scheduleDaily({
@@ -206,7 +276,10 @@ final class NotificationService {
         matchDateTimeComponents: DateTimeComponents.time,
       );
 
-      LoggerService.info('Daily notification scheduled. (id: $id)');
+      LoggerService.info(
+        'Daily notification scheduled successfully. '
+        '(id: $id)',
+      );
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to schedule daily notification.',
@@ -235,14 +308,17 @@ final class NotificationService {
   }
 
   // ===========================================================================
-  // Cancel Notification
+  // Cancel Single Notification
   // ===========================================================================
 
   Future<void> cancel(int id) async {
     try {
       await _plugin.cancel(id: id);
 
-      LoggerService.info('Notification cancelled successfully. (id: $id)');
+      LoggerService.info(
+        'Notification cancelled successfully. '
+        '(id: $id)',
+      );
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to cancel notification.',

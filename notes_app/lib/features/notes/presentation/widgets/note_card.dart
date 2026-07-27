@@ -11,15 +11,25 @@ import '../../domain/entities/note.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Displays a single note.
-/// - Handles note interactions.
-/// - Supports edit and delete actions.
-/// - Displays last updated date.
-/// - Uses a layout safe for ListView.
+/// • Displays a single note.
+/// • Handles user interactions through callbacks.
+/// • Displays note metadata.
+/// • Contains no business logic.
+/// • Safe for ListView / SliverList usage.
 ///
-//// ============================================================================
+/// Architecture
+/// ----------------------------------------------------------------------------
+/// UI
+///  ↓
+/// NoteCard
+///  ↓
+/// Callback
+///  ↓
+/// NotesProvider
+///
+/// ============================================================================
 
-class NoteCard extends StatelessWidget {
+final class NoteCard extends StatelessWidget {
   const NoteCard({
     super.key,
     required this.note,
@@ -28,134 +38,211 @@ class NoteCard extends StatelessWidget {
     this.onDelete,
   });
 
-  /// Note to display.
+  /// Note entity.
   final Note note;
 
-  /// Called when the card is tapped.
+  /// Called when card is tapped.
   final VoidCallback? onTap;
 
-  /// Called when Edit is selected.
+  /// Called when edit is selected.
   final VoidCallback? onEdit;
 
-  /// Called when Delete is selected.
+  /// Called when delete is selected.
   final VoidCallback? onDelete;
+
+  static const double _cardRadius = 20;
+
+  static const double _padding = 16;
+
+  static const double _verticalMargin = 6;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final ThemeData theme = Theme.of(context);
 
-    final String date = DateFormat.yMMMd().add_jm().format(note.updatedAt);
+    return Semantics(
+      label: 'Note titled ${note.title}',
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: _verticalMargin),
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      elevation: 1,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              //----------------------------------------------------------------
-              // Header
-              //----------------------------------------------------------------
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      note.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  PopupMenuButton<_NoteCardAction>(
-                    onSelected: (action) {
-                      switch (action) {
-                        case _NoteCardAction.edit:
-                          onEdit?.call();
-                          break;
+        elevation: 0,
 
-                        case _NoteCardAction.delete:
-                          onDelete?.call();
-                          break;
-                      }
-                    },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(
-                        value: _NoteCardAction.edit,
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit_outlined),
-                            SizedBox(width: 12),
-                            Text('Edit'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: _NoteCardAction.delete,
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline),
-                            SizedBox(width: 12),
-                            Text('Delete'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_cardRadius),
+        ),
 
-              const SizedBox(height: 12),
+        clipBehavior: Clip.antiAlias,
 
-              //----------------------------------------------------------------
-              // Content
-              //----------------------------------------------------------------
-              Text(
-                (note.content?.trim().isNotEmpty ?? false)
-                    ? note.content!
-                    : 'No content',
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium,
-              ),
+        child: InkWell(
+          onTap: onTap,
 
-              const SizedBox(height: 16),
+          child: Padding(
+            padding: const EdgeInsets.all(_padding),
 
-              const Divider(height: 1),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
 
-              const SizedBox(height: 12),
+              mainAxisSize: MainAxisSize.min,
 
-              //----------------------------------------------------------------
-              // Footer
-              //----------------------------------------------------------------
-              Row(
-                children: [
-                  Icon(
-                    Icons.schedule_outlined,
-                    size: 16,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      date,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              children: <Widget>[
+                _buildHeader(context),
+
+                const SizedBox(height: 12),
+
+                _buildContent(theme),
+
+                const SizedBox(height: 16),
+
+                const Divider(height: 1),
+
+                const SizedBox(height: 12),
+
+                _buildFooter(theme),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  // ===========================================================================
+  // Header
+  // ===========================================================================
+
+  Widget _buildHeader(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: Text(
+            note.title,
+
+            maxLines: 1,
+
+            overflow: TextOverflow.ellipsis,
+
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+
+        _buildMenu(context),
+      ],
+    );
+  }
+
+  Widget _buildMenu(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return PopupMenuButton<_NoteCardAction>(
+      tooltip: 'Note actions',
+
+      icon: const Icon(Icons.more_vert_rounded),
+
+      onSelected: _handleAction,
+
+      itemBuilder: (BuildContext context) {
+        return <PopupMenuEntry<_NoteCardAction>>[
+          const PopupMenuItem(
+            value: _NoteCardAction.edit,
+
+            child: Row(
+              children: <Widget>[
+                Icon(Icons.edit_outlined),
+
+                SizedBox(width: 12),
+
+                Text('Edit'),
+              ],
+            ),
+          ),
+
+          PopupMenuItem(
+            value: _NoteCardAction.delete,
+
+            child: Row(
+              children: <Widget>[
+                Icon(
+                  Icons.delete_outline_rounded,
+                  color: theme.colorScheme.error,
+                ),
+
+                const SizedBox(width: 12),
+
+                Text('Delete'),
+              ],
+            ),
+          ),
+        ];
+      },
+    );
+  }
+
+  void _handleAction(_NoteCardAction action) {
+    switch (action) {
+      case _NoteCardAction.edit:
+        onEdit?.call();
+
+      case _NoteCardAction.delete:
+        onDelete?.call();
+    }
+  }
+
+  // ===========================================================================
+  // Content
+  // ===========================================================================
+
+  Widget _buildContent(ThemeData theme) {
+    final String content = note.content?.trim() ?? '';
+
+    return Text(
+      content.isEmpty ? 'No content' : content,
+
+      maxLines: 3,
+
+      overflow: TextOverflow.ellipsis,
+
+      style: theme.textTheme.bodyMedium?.copyWith(
+        color: content.isEmpty ? theme.colorScheme.onSurfaceVariant : null,
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Footer
+  // ===========================================================================
+
+  Widget _buildFooter(ThemeData theme) {
+    return Row(
+      children: <Widget>[
+        Icon(
+          Icons.schedule_outlined,
+
+          size: 16,
+
+          color: theme.colorScheme.primary,
+        ),
+
+        const SizedBox(width: 6),
+
+        Expanded(
+          child: Text(
+            _formattedDate(),
+
+            overflow: TextOverflow.ellipsis,
+
+            style: theme.textTheme.bodySmall,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formattedDate() {
+    return DateFormat.yMMMd().add_jm().format(note.updatedAt);
   }
 }
 

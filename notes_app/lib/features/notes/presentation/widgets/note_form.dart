@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../notifications/models/reminder_model.dart';
-import '../../../notifications/utils/reminder_manager.dart';
 import '../providers/notes_provider.dart';
 import 'note_content_field.dart';
 import 'note_title_field.dart';
@@ -13,26 +12,32 @@ import 'note_title_field.dart';
 /// File: note_form.dart
 /// ============================================================================
 ///
-/// Reusable Note Form
+/// Reusable Note Form.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Shared form for creating and editing notes.
 /// • Handles validation.
+/// • Handles local UI state.
 /// • Supports image attachment.
-/// • Supports local reminders.
-/// • Produces a ReminderModel.
-/// • Contains no business logic.
+/// • Supports reminder selection.
+/// • Emits final data through callbacks.
+///
+/// Does NOT:
+/// ----------------------------------------------------------------------------
+/// • Call repositories.
+/// • Call APIs.
+/// • Manage business logic.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
-/// Add/Edit Screen
-///         │
-///         ▼
-///     NoteForm
-///         │
-///         ▼
-///   onSubmit(...)
+/// Screen
+///    ↓
+/// NoteForm
+///    ↓
+/// onSubmit(...)
+///    ↓
+/// NotesProvider
 ///
 /// ============================================================================
 
@@ -46,14 +51,19 @@ final class NoteForm extends StatefulWidget {
     required this.onSubmit,
   });
 
+  /// Initial note title.
   final String initialTitle;
 
+  /// Initial note content.
   final String initialContent;
 
+  /// Submit button label.
   final String submitLabel;
 
+  /// Controls loading state.
   final bool isLoading;
 
+  /// Called when form is successfully submitted.
   final Future<void> Function(
     String title,
     String? content,
@@ -65,7 +75,17 @@ final class NoteForm extends StatefulWidget {
   State<NoteForm> createState() => _NoteFormState();
 }
 
+/// ============================================================================
+/// Form State
+/// ============================================================================
+
 final class _NoteFormState extends State<NoteForm> {
+  // ===========================================================================
+  // Constants
+  // ===========================================================================
+
+  static const int _maxReminderYears = 5;
+
   // ===========================================================================
   // Form
   // ===========================================================================
@@ -106,9 +126,11 @@ final class _NoteFormState extends State<NoteForm> {
   @override
   void dispose() {
     _titleController.dispose();
+
     _contentController.dispose();
 
     _titleFocusNode.dispose();
+
     _contentFocusNode.dispose();
 
     super.dispose();
@@ -123,8 +145,11 @@ final class _NoteFormState extends State<NoteForm> {
 
     final DateTime? pickedDate = await showDatePicker(
       context: context,
+
       firstDate: now,
-      lastDate: DateTime(now.year + 5),
+
+      lastDate: DateTime(now.year + _maxReminderYears),
+
       initialDate: _selectedDate ?? now,
     );
 
@@ -140,6 +165,7 @@ final class _NoteFormState extends State<NoteForm> {
   Future<void> _pickReminderTime() async {
     final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
+
       initialTime: _selectedTime ?? TimeOfDay.now(),
     );
 
@@ -149,6 +175,17 @@ final class _NoteFormState extends State<NoteForm> {
 
     setState(() {
       _selectedTime = pickedTime;
+    });
+  }
+
+  void _toggleReminder(bool enabled) {
+    setState(() {
+      _reminderEnabled = enabled;
+
+      if (!enabled) {
+        _selectedDate = null;
+        _selectedTime = null;
+      }
     });
   }
 
@@ -217,25 +254,144 @@ final class _NoteFormState extends State<NoteForm> {
       }
 
       reminder = ReminderModel(
-        notificationId: await ReminderManager.instance.nextNotificationId(),
+        notificationId: DateTime.now().millisecondsSinceEpoch,
+
         noteId: 0,
+
         title: _titleController.text.trim(),
+
         body: _contentController.text.trim().isEmpty
             ? 'Reminder for your note'
             : _contentController.text.trim(),
+
         scheduledAt: scheduledAt,
+
         payload: null,
       );
     }
 
     await widget.onSubmit(
       _titleController.text.trim(),
+
       _contentController.text.trim().isEmpty
           ? null
           : _contentController.text.trim(),
+
       reminder,
     );
   }
+
+  // ===========================================================================
+  // Widgets
+  // ===========================================================================
+
+  Widget _AttachmentCard({
+    required NotesProvider provider,
+    required bool enabled,
+  }) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: <Widget>[
+            Icon(
+              Icons.attach_file_outlined,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                enabled ? 'Attachment support available' : 'Attachment unavailable while saving',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _ReminderCard({
+    required bool enabled,
+    required bool reminderEnabled,
+    required DateTime? selectedDate,
+    required TimeOfDay? selectedTime,
+    required bool hasValidReminder,
+    required void Function(bool) onToggle,
+    required VoidCallback onPickDate,
+    required VoidCallback onPickTime,
+    required VoidCallback onClear,
+  }) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: reminderEnabled,
+              onChanged: enabled ? onToggle : null,
+              title: const Text('Reminder'),
+              subtitle: const Text('Set a reminder for this note'),
+            ),
+            if (reminderEnabled) ...<Widget>[
+              const SizedBox(height: 4),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: enabled ? onPickDate : null,
+                      icon: const Icon(Icons.calendar_today_outlined),
+                      label: Text(
+                        selectedDate == null
+                            ? 'Pick date'
+                            : '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: enabled ? onPickTime : null,
+                      icon: const Icon(Icons.access_time),
+                      label: Text(
+                        selectedTime == null
+                            ? 'Pick time'
+                            : selectedTime.format(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: <Widget>[
+                  Text(
+                    hasValidReminder
+                        ? 'Reminder is ready'
+                        : 'Select a future date and time',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: enabled ? onClear : null,
+                    child: const Text('Clear'),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Build
+  // ===========================================================================
 
   @override
   Widget build(BuildContext context) {
@@ -243,16 +399,21 @@ final class _NoteFormState extends State<NoteForm> {
 
     return Form(
       key: _formKey,
+
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ===============================================================
+
+        children: <Widget>[
+          // ===================================================================
           // Title
-          // ===============================================================
+          // ===================================================================
           NoteTitleField(
             controller: _titleController,
+
             focusNode: _titleFocusNode,
+
             enabled: !widget.isLoading,
+
             onSubmitted: (_) {
               _contentFocusNode.requestFocus();
             },
@@ -260,256 +421,70 @@ final class _NoteFormState extends State<NoteForm> {
 
           const SizedBox(height: 16),
 
-          // ===============================================================
+          // ===================================================================
           // Content
-          // ===============================================================
+          // ===================================================================
           Expanded(
             child: NoteContentField(
               controller: _contentController,
+
               focusNode: _contentFocusNode,
+
               enabled: !widget.isLoading,
             ),
           ),
 
           const SizedBox(height: 20),
 
-          // ===============================================================
+          // ===================================================================
           // Image Attachment
-          // ===============================================================
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Attachment',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  OutlinedButton.icon(
-                    onPressed: widget.isLoading
-                        ? null
-                        : provider.pickImageFromGallery,
-                    icon: const Icon(Icons.photo_library_outlined),
-                    label: Text(
-                      provider.hasSelectedImage
-                          ? 'Change Image'
-                          : 'Attach Image',
-                    ),
-                  ),
-
-                  if (provider.hasSelectedImage) ...[
-                    const SizedBox(height: 16),
-
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.file(
-                        File(provider.selectedImagePath!),
-                        height: 220,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    Text(
-                      provider.selectedImagePath!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: FilledButton.tonalIcon(
-                        onPressed: widget.isLoading
-                            ? null
-                            : provider.removeSelectedImage,
-                        icon: const Icon(Icons.delete_outline),
-                        label: const Text('Remove Image'),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
+          // ===================================================================
+          _AttachmentCard(provider: provider, enabled: !widget.isLoading),
 
           const SizedBox(height: 20),
 
-          // ===============================================================
+          // ===================================================================
           // Reminder
-          // ===============================================================
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SwitchListTile(
-                    value: _reminderEnabled,
-                    contentPadding: EdgeInsets.zero,
-                    secondary: const Icon(Icons.notifications_active_outlined),
-                    title: const Text('Reminder'),
-                    subtitle: const Text(
-                      'Receive a local notification for this note.',
-                    ),
-                    onChanged: widget.isLoading
-                        ? null
-                        : (value) {
-                            setState(() {
-                              _reminderEnabled = value;
+          // ===================================================================
+          _ReminderCard(
+            enabled: !widget.isLoading,
 
-                              if (!value) {
-                                _selectedDate = null;
-                                _selectedTime = null;
-                              }
-                            });
-                          },
-                  ),
+            reminderEnabled: _reminderEnabled,
 
-                  if (_reminderEnabled) ...[
-                    const Divider(height: 24),
+            selectedDate: _selectedDate,
 
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.calendar_today_outlined),
-                      title: const Text('Reminder Date'),
-                      subtitle: Text(
-                        _selectedDate == null
-                            ? 'Select reminder date'
-                            : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: widget.isLoading ? null : _pickReminderDate,
-                    ),
+            selectedTime: _selectedTime,
 
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.access_time_outlined),
-                      title: const Text('Reminder Time'),
-                      subtitle: Text(
-                        _selectedTime == null
-                            ? 'Select reminder time'
-                            : _selectedTime!.format(context),
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: widget.isLoading ? null : _pickReminderTime,
-                    ),
+            hasValidReminder: _hasValidReminder,
 
-                    if (_hasValidReminder) ...[
-                      const SizedBox(height: 12),
+            onToggle: _toggleReminder,
 
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              Icons.notifications_active,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+            onPickDate: _pickReminderDate,
 
-                            const SizedBox(width: 12),
+            onPickTime: _pickReminderTime,
 
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Reminder Scheduled',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleSmall,
-                                  ),
-
-                                  const SizedBox(height: 4),
-
-                                  Text(
-                                    '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'
-                                    ' at ${_selectedTime!.format(context)}',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodyMedium,
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            IconButton(
-                              tooltip: 'Remove Reminder',
-                              onPressed: widget.isLoading
-                                  ? null
-                                  : _clearReminder,
-                              icon: const Icon(Icons.close),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ] else if (_selectedDate != null ||
-                        _selectedTime != null) ...[
-                      const SizedBox(height: 12),
-
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.errorContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.warning_amber_rounded,
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-
-                            const SizedBox(width: 12),
-
-                            const Expanded(
-                              child: Text(
-                                'Please select a future date and time.',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ],
-              ),
-            ),
+            onClear: _clearReminder,
           ),
 
           const SizedBox(height: 24),
 
-          // ===============================================================
+          // ===================================================================
           // Submit Button
-          // ===============================================================
+          // ===================================================================
           SizedBox(
             width: double.infinity,
+
             child: FilledButton.icon(
               onPressed: widget.isLoading ? null : _submit,
+
               icon: widget.isLoading
                   ? const SizedBox(
-                      width: 18,
                       height: 18,
+                      width: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.save_outlined),
+
               label: Text(widget.submitLabel),
             ),
           ),

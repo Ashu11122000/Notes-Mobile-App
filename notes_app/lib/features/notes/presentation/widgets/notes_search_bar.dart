@@ -6,28 +6,28 @@ import 'package:flutter/material.dart';
 /// File: notes_search_bar.dart
 /// ============================================================================
 ///
-/// Notes Search Bar
+/// Notes Search Bar.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Provides a reusable search input for the Notes feature.
-/// - Debounces user input to reduce unnecessary search operations.
-/// - Contains no business logic.
-/// - Supports local or remote search through callbacks.
+/// • Provides reusable Notes search input.
+/// • Debounces user input.
+/// • Emits search callbacks.
+/// • Contains no business logic.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
 /// UI
-///     ↓
+///  ↓
 /// NotesSearchBar
-///     ↓
+///  ↓
 /// Callback
-///     ↓
+///  ↓
 /// Provider / Screen
 ///
 /// ============================================================================
 
-class NotesSearchBar extends StatefulWidget {
+final class NotesSearchBar extends StatefulWidget {
   const NotesSearchBar({
     super.key,
     this.controller,
@@ -36,36 +36,54 @@ class NotesSearchBar extends StatefulWidget {
     this.onChanged,
     this.onSubmitted,
     this.onClear,
+    this.autofocus = false,
+    this.enabled = true,
+    this.readOnly = false,
   });
 
-  /// Optional external controller.
+  /// External controller.
   final TextEditingController? controller;
 
-  /// Placeholder text.
+  /// Search hint.
   final String hintText;
 
   /// Debounce duration.
   final Duration debounce;
 
-  /// Called after the debounce duration.
+  /// Called after debounce.
   final ValueChanged<String>? onChanged;
 
-  /// Called when the keyboard search action is pressed.
+  /// Called when search submitted.
   final ValueChanged<String>? onSubmitted;
 
-  /// Called when the search field is cleared.
+  /// Called when cleared.
   final VoidCallback? onClear;
+
+  /// Autofocus search.
+  final bool autofocus;
+
+  /// Enables field.
+  final bool enabled;
+
+  /// Read-only state.
+  final bool readOnly;
 
   @override
   State<NotesSearchBar> createState() => _NotesSearchBarState();
 }
 
-class _NotesSearchBarState extends State<NotesSearchBar> {
+final class _NotesSearchBarState extends State<NotesSearchBar> {
   late final TextEditingController _controller;
 
   Timer? _debounce;
 
   bool _ownsController = false;
+
+  final ValueNotifier<bool> _hasText = ValueNotifier<bool>(false);
+
+  // ===========================================================================
+  // Lifecycle
+  // ===========================================================================
 
   @override
   void initState() {
@@ -73,15 +91,24 @@ class _NotesSearchBarState extends State<NotesSearchBar> {
 
     if (widget.controller == null) {
       _controller = TextEditingController();
+
       _ownsController = true;
     } else {
       _controller = widget.controller!;
     }
+
+    _hasText.value = _controller.text.isNotEmpty;
+
+    _controller.addListener(_updateTextState);
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+
+    _controller.removeListener(_updateTextState);
+
+    _hasText.dispose();
 
     if (_ownsController) {
       _controller.dispose();
@@ -90,15 +117,20 @@ class _NotesSearchBarState extends State<NotesSearchBar> {
     super.dispose();
   }
 
+  // ===========================================================================
+  // Search Handling
+  // ===========================================================================
+
+  void _updateTextState() {
+    _hasText.value = _controller.text.isNotEmpty;
+  }
+
   void _onTextChanged(String value) {
     _debounce?.cancel();
 
-    _debounce = Timer(
-      widget.debounce,
-      () => widget.onChanged?.call(value.trim()),
-    );
-
-    setState(() {});
+    _debounce = Timer(widget.debounce, () {
+      widget.onChanged?.call(value.trim());
+    });
   }
 
   void _clear() {
@@ -109,27 +141,58 @@ class _NotesSearchBarState extends State<NotesSearchBar> {
     widget.onClear?.call();
 
     widget.onChanged?.call('');
-
-    setState(() {});
   }
+
+  void _submit(String value) {
+    widget.onSubmitted?.call(value.trim());
+  }
+
+  // ===========================================================================
+  // Build
+  // ===========================================================================
 
   @override
   Widget build(BuildContext context) {
-    return SearchBar(
-      controller: _controller,
-      hintText: widget.hintText,
-      leading: const Icon(Icons.search),
-      trailing: [
-        if (_controller.text.isNotEmpty)
-          IconButton(
-            tooltip: 'Clear',
-            onPressed: _clear,
-            icon: const Icon(Icons.close),
-          ),
-      ],
-      textInputAction: TextInputAction.search,
-      onChanged: _onTextChanged,
-      onSubmitted: (value) => widget.onSubmitted?.call(value.trim()),
+    return Semantics(
+      label: 'Search notes',
+
+      child: ValueListenableBuilder<bool>(
+        valueListenable: _hasText,
+
+        builder: (BuildContext context, bool hasText, Widget? child) {
+          return SearchBar(
+            controller: _controller,
+
+            enabled: widget.enabled,
+
+            readOnly: widget.readOnly,
+
+            autoFocus: widget.autofocus,
+
+            hintText: widget.hintText,
+
+            leading: const Icon(Icons.search_rounded),
+
+            trailing: hasText
+                ? <Widget>[
+                    IconButton(
+                      tooltip: 'Clear search',
+
+                      onPressed: _clear,
+
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ]
+                : null,
+
+            textInputAction: TextInputAction.search,
+
+            onChanged: _onTextChanged,
+
+            onSubmitted: _submit,
+          );
+        },
+      ),
     );
   }
 }

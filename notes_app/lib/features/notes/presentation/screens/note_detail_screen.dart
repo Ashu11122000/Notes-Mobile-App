@@ -12,97 +12,86 @@ import '../widgets/delete_note_dialog.dart';
 /// File: note_detail_screen.dart
 /// ============================================================================
 ///
-/// Note Detail Screen
+/// Note Detail Screen.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Displays complete information about a note.
+/// • Displays complete note information.
 /// • Allows editing.
 /// • Allows deleting.
-/// • Delegates all CRUD operations to NotesProvider.
-/// • Reminder cleanup is handled automatically by NotesProvider.
-/// • Contains no business logic.
+/// • Delegates operations to NotesProvider.
 ///
-/// Architecture
+/// Does NOT:
 /// ----------------------------------------------------------------------------
-/// UI
-///     ↓
-/// NotesProvider
-///     ↓
-/// NotesRepository
-///     ↓
-/// FastAPI
-///
-/// Reminder Flow
-/// ----------------------------------------------------------------------------
-/// Delete Note
-///      ↓
-/// NotesProvider
-///      ↓
-/// ReminderManager
-///      ↓
-/// NotificationService
+/// • Call API.
+/// • Access repository.
+/// • Handle business rules.
 ///
 /// ============================================================================
 
 final class NoteDetailScreen extends StatelessWidget {
   const NoteDetailScreen({super.key, required this.note});
 
-  /// Note to display.
   final Note note;
 
   @override
   Widget build(BuildContext context) {
     return Consumer<NotesProvider>(
-      builder: (context, provider, child) {
+      builder: (context, provider, _) {
         return Scaffold(
           appBar: AppBar(
             title: const Text('Note Details'),
+
             centerTitle: true,
+
             actions: [
               IconButton(
                 tooltip: 'Edit',
+
                 icon: const Icon(Icons.edit_outlined),
+
                 onPressed: provider.isLoading
                     ? null
                     : () {
                         context.push(AppRoutes.editNote, extra: note);
                       },
               ),
+
               IconButton(
                 tooltip: 'Delete',
+
                 icon: const Icon(Icons.delete_outline),
+
                 onPressed: provider.isLoading
                     ? null
                     : () => _deleteNote(context, provider),
               ),
             ],
           ),
+
           body: Stack(
             children: [
               SafeArea(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
+
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+
                     children: [
-                      // =========================================================
-                      // Title
-                      // =========================================================
                       Text(
                         note.title,
+
                         style: Theme.of(context).textTheme.headlineMedium,
                       ),
 
                       const SizedBox(height: 24),
 
-                      // =========================================================
-                      // Content
-                      // =========================================================
                       SelectableText(
                         note.content?.trim().isNotEmpty == true
                             ? note.content!
                             : 'No content available.',
+
                         style: Theme.of(context).textTheme.bodyLarge,
                       ),
 
@@ -112,12 +101,11 @@ final class NoteDetailScreen extends StatelessWidget {
 
                       const SizedBox(height: 16),
 
-                      // =========================================================
-                      // Metadata
-                      // =========================================================
                       _InfoTile(
                         icon: Icons.calendar_today_outlined,
+
                         title: 'Created',
+
                         value: _formatDate(note.createdAt),
                       ),
 
@@ -125,7 +113,9 @@ final class NoteDetailScreen extends StatelessWidget {
 
                       _InfoTile(
                         icon: Icons.update_outlined,
+
                         title: 'Last Updated',
+
                         value: _formatDate(note.updatedAt),
                       ),
                     ],
@@ -136,6 +126,7 @@ final class NoteDetailScreen extends StatelessWidget {
               if (provider.isLoading)
                 const ColoredBox(
                   color: Color(0x33000000),
+
                   child: Center(child: CircularProgressIndicator()),
                 ),
             ],
@@ -152,6 +143,7 @@ final class NoteDetailScreen extends StatelessWidget {
   Future<void> _deleteNote(BuildContext context, NotesProvider provider) async {
     final bool? confirmed = await DeleteNoteDialog.show(
       context,
+
       noteTitle: note.title,
     );
 
@@ -165,17 +157,19 @@ final class NoteDetailScreen extends StatelessWidget {
 
     provider.clearError();
 
-    await provider.deleteNote(note.id);
+    final bool deleted = await provider.deleteNote(note.id);
 
     if (!context.mounted) {
       return;
     }
 
-    if (provider.hasError) {
+    if (!deleted) {
       _showErrorSnackBar(
         context,
+
         provider.errorMessage ?? 'Failed to delete note.',
       );
+
       return;
     }
 
@@ -196,6 +190,7 @@ final class NoteDetailScreen extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Note deleted successfully.'),
+
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -205,16 +200,18 @@ final class NoteDetailScreen extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
+
         behavior: SnackBarBehavior.floating,
+
         backgroundColor: Theme.of(context).colorScheme.error,
       ),
     );
   }
 }
 
-/// ============================================================================
-/// Note Metadata Tile
-/// ============================================================================
+// ============================================================================
+// Note Metadata Tile
+// ============================================================================
 
 final class _InfoTile extends StatelessWidget {
   const _InfoTile({
@@ -224,7 +221,9 @@ final class _InfoTile extends StatelessWidget {
   });
 
   final IconData icon;
+
   final String title;
+
   final String value;
 
   @override
@@ -233,15 +232,21 @@ final class _InfoTile extends StatelessWidget {
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
+
       children: [
         Icon(icon, size: 20, color: theme.colorScheme.primary),
+
         const SizedBox(width: 12),
+
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+
             children: [
               Text(title, style: theme.textTheme.labelMedium),
+
               const SizedBox(height: 4),
+
               Text(value, style: theme.textTheme.bodyMedium),
             ],
           ),

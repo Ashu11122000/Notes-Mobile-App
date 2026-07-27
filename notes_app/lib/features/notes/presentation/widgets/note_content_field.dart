@@ -6,17 +6,28 @@ import '../../constants/notes_constants.dart';
 /// File: note_content_field.dart
 /// ============================================================================
 ///
-/// Note Content Field
+/// Note Content Field.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Reusable content input field for Notes.
-/// - Used by both Create Note and Edit Note screens.
-/// - Contains no business logic.
-/// - Supports validation and customization.
+/// • Reusable note content input.
+/// • Used by create and edit note screens.
+/// • Handles only presentation logic.
+/// • Supports validation and customization.
+///
+/// Architecture
+/// ----------------------------------------------------------------------------
+/// UI
+///  ↓
+/// NoteContentField
+///  ↓
+/// Form Controller
+///  ↓
+/// NotesProvider
 ///
 /// ============================================================================
-class NoteContentField extends StatelessWidget {
+
+final class NoteContentField extends StatelessWidget {
   const NoteContentField({
     super.key,
     required this.controller,
@@ -27,77 +38,119 @@ class NoteContentField extends StatelessWidget {
     this.autofocus = false,
     this.readOnly = false,
     this.validator,
-    this.minLines = 8,
-    this.maxLines = 12,
+    this.minLines = _defaultMinLines,
+    this.maxLines = _defaultMaxLines,
   });
 
-  /// Controller for the content field.
+  /// Text controller.
   final TextEditingController controller;
 
   /// Optional focus node.
   final FocusNode? focusNode;
 
-  /// Called whenever the value changes.
+  /// Called when text changes.
   final ValueChanged<String>? onChanged;
 
-  /// Called when the user submits the field.
+  /// Called when user submits.
   final ValueChanged<String>? onSubmitted;
 
-  /// Whether the field is enabled.
+  /// Enables/disables field.
   final bool enabled;
 
-  /// Whether the field should autofocus.
+  /// Automatically focuses field.
   final bool autofocus;
 
-  /// Whether the field is read-only.
+  /// Makes field read-only.
   final bool readOnly;
 
-  /// Optional custom validator.
+  /// Custom validator.
   final FormFieldValidator<String>? validator;
 
-  /// Minimum number of visible lines.
+  /// Minimum visible lines.
   final int minLines;
 
-  /// Maximum number of visible lines.
+  /// Maximum visible lines.
   final int maxLines;
+
+  // ===========================================================================
+  // Constants
+  // ===========================================================================
+
+  static const int _defaultMinLines = 8;
+
+  static const int _defaultMaxLines = 12;
+
+  static const double _iconBottomPadding = 120;
+
+  // ===========================================================================
+  // Build
+  // ===========================================================================
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+
       focusNode: focusNode,
+
       enabled: enabled,
+
       autofocus: autofocus,
+
       readOnly: readOnly,
+
       keyboardType: TextInputType.multiline,
+
       textInputAction: TextInputAction.newline,
+
       textCapitalization: TextCapitalization.sentences,
+
+      enableSuggestions: true,
+
+      autocorrect: true,
+
       minLines: minLines,
+
       maxLines: maxLines,
+
       maxLength: NotesConstants.maxContentLength,
+
+      scrollPadding: const EdgeInsets.only(bottom: 120),
+
       decoration: const InputDecoration(
         labelText: 'Content',
+
         hintText: 'Write your note here...',
+
         alignLabelWithHint: true,
+
         prefixIcon: Padding(
-          padding: EdgeInsets.only(bottom: 120),
+          padding: EdgeInsets.only(bottom: _iconBottomPadding),
+
           child: Icon(Icons.notes_outlined),
         ),
       ),
-      validator:
-          validator ??
-          (value) {
-            final text = value?.trim();
 
-            if (text != null && text.length > NotesConstants.maxContentLength) {
-              return 'Content cannot exceed '
-                  '${NotesConstants.maxContentLength} characters.';
-            }
+      validator: validator ?? _defaultValidator,
 
-            return null;
-          },
       onChanged: onChanged,
+
       onFieldSubmitted: onSubmitted,
     );
+  }
+
+  // ===========================================================================
+  // Validation
+  // ===========================================================================
+
+  static String? _defaultValidator(String? value) {
+    final String text = value?.trim() ?? '';
+
+    if (text.length > NotesConstants.maxContentLength) {
+      return 'Content cannot exceed '
+          '${NotesConstants.maxContentLength} characters.';
+    }
+
+    return null;
   }
 }

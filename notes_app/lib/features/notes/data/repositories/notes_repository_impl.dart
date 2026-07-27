@@ -2,21 +2,22 @@ import '../../domain/entities/note.dart';
 import '../../domain/repositories/notes_repository.dart';
 import '../datasources/notes_remote_data_source.dart';
 import '../models/create_note_request.dart';
+import '../models/note_model.dart';
 import '../models/update_note_request.dart';
 
 /// ============================================================================
 /// File: notes_repository_impl.dart
 /// ============================================================================
 ///
-/// Notes Repository Implementation
+/// Notes Repository Implementation.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// - Implements the [NotesRepository] contract.
-/// - Coordinates communication with the remote data source.
-/// - Contains business logic (if required).
-/// - Maps data models to domain entities.
-/// - Keeps the presentation layer independent of networking.
+/// • Implements the domain [NotesRepository] contract.
+/// • Coordinates data source communication.
+/// • Converts data models into domain entities.
+/// • Keeps presentation independent from networking.
+/// • Contains only data-layer logic.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -39,14 +40,29 @@ final class NotesRepositoryImpl implements NotesRepository {
   final NotesRemoteDataSource _remoteDataSource;
 
   // ===========================================================================
+  // Private Helpers
+  // ===========================================================================
+
+  Note _mapModelToEntity(NoteModel model) {
+    return model.toEntity();
+  }
+
+  List<Note> _mapModelsToEntities(List<NoteModel> models) {
+    return models.map(_mapModelToEntity).toList(growable: false);
+  }
+
+  // ===========================================================================
   // Get Notes
   // ===========================================================================
 
   @override
   Future<List<Note>> getNotes({int page = 1, int limit = 10}) async {
-    final models = await _remoteDataSource.getNotes(page: page, limit: limit);
+    final List<NoteModel> models = await _remoteDataSource.getNotes(
+      page: page,
+      limit: limit,
+    );
 
-    return models.map((model) => model.toEntity()).toList(growable: false);
+    return _mapModelsToEntities(models);
   }
 
   // ===========================================================================
@@ -55,9 +71,9 @@ final class NotesRepositoryImpl implements NotesRepository {
 
   @override
   Future<Note> getNoteById(int noteId) async {
-    final model = await _remoteDataSource.getNoteById(noteId);
+    final NoteModel model = await _remoteDataSource.getNoteById(noteId);
 
-    return model.toEntity();
+    return _mapModelToEntity(model);
   }
 
   // ===========================================================================
@@ -66,9 +82,9 @@ final class NotesRepositoryImpl implements NotesRepository {
 
   @override
   Future<Note> createNote(CreateNoteRequest request) async {
-    final model = await _remoteDataSource.createNote(request);
+    final NoteModel model = await _remoteDataSource.createNote(request);
 
-    return model.toEntity();
+    return _mapModelToEntity(model);
   }
 
   // ===========================================================================
@@ -77,9 +93,9 @@ final class NotesRepositoryImpl implements NotesRepository {
 
   @override
   Future<Note> updateNote(int noteId, UpdateNoteRequest request) async {
-    final model = await _remoteDataSource.updateNote(noteId, request);
+    final NoteModel model = await _remoteDataSource.updateNote(noteId, request);
 
-    return model.toEntity();
+    return _mapModelToEntity(model);
   }
 
   // ===========================================================================
@@ -88,9 +104,9 @@ final class NotesRepositoryImpl implements NotesRepository {
 
   @override
   Future<Note> patchNote(int noteId, UpdateNoteRequest request) async {
-    final model = await _remoteDataSource.patchNote(noteId, request);
+    final NoteModel model = await _remoteDataSource.patchNote(noteId, request);
 
-    return model.toEntity();
+    return _mapModelToEntity(model);
   }
 
   // ===========================================================================

@@ -13,10 +13,15 @@ import '../../../../core/services/logger_service.dart';
 /// ----------------------------------------------------------------------------
 /// • Manages application settings.
 /// • Persists theme preference locally.
-/// • Exposes current theme mode.
+/// • Exposes current ThemeMode.
+/// • Handles settings initialization.
 /// • Contains no UI logic.
-/// • Does NOT manage authentication.
-/// • Does NOT manage notifications.
+///
+/// Does NOT:
+/// ----------------------------------------------------------------------------
+/// • Manage authentication.
+/// • Manage notifications.
+/// • Access widgets.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -31,11 +36,21 @@ import '../../../../core/services/logger_service.dart';
 final class SettingsProvider extends ChangeNotifier {
   SettingsProvider();
 
+  // ===========================================================================
+  // Storage Keys
+  // ===========================================================================
+
   static const String _themeModeKey = 'theme_mode';
+
+  // ===========================================================================
+  // State
+  // ===========================================================================
 
   ThemeMode _themeMode = ThemeMode.system;
 
   bool _initialized = false;
+
+  bool _isLoading = false;
 
   // ===========================================================================
   // Getters
@@ -44,6 +59,8 @@ final class SettingsProvider extends ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
 
   bool get initialized => _initialized;
+
+  bool get isLoading => _isLoading;
 
   bool get isDarkMode => _themeMode == ThemeMode.dark;
 
@@ -60,32 +77,32 @@ final class SettingsProvider extends ChangeNotifier {
       return;
     }
 
-    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    try {
+      _setLoading(true);
 
-    final String? value = preferences.getString(_themeModeKey);
+      final SharedPreferences preferences =
+          await SharedPreferences.getInstance();
 
-    switch (value) {
-      case 'light':
-        _themeMode = ThemeMode.light;
-        break;
+      final String? storedMode = preferences.getString(_themeModeKey);
 
-      case 'dark':
-        _themeMode = ThemeMode.dark;
-        break;
+      _themeMode = _fromStorageValue(storedMode);
 
-      default:
-        _themeMode = ThemeMode.system;
+      _initialized = true;
+
+      LoggerService.info('SettingsProvider initialized.');
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to initialize settings.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      _setLoading(false);
     }
-
-    _initialized = true;
-
-    notifyListeners();
-
-    LoggerService.info('SettingsProvider initialized.');
   }
 
   // ===========================================================================
-  // Theme
+  // Theme Update
   // ===========================================================================
 
   Future<void> setThemeMode(ThemeMode mode) async {
@@ -93,46 +110,108 @@ final class SettingsProvider extends ChangeNotifier {
       return;
     }
 
-    _themeMode = mode;
+    try {
+      _setLoading(true);
 
-    notifyListeners();
+      _themeMode = mode;
 
-    final SharedPreferences preferences = await SharedPreferences.getInstance();
+      notifyListeners();
 
-    String value = 'system';
+      final SharedPreferences preferences =
+          await SharedPreferences.getInstance();
 
-    switch (mode) {
-      case ThemeMode.light:
-        value = 'light';
-        break;
+      await preferences.setString(_themeModeKey, _toStorageValue(mode));
 
-      case ThemeMode.dark:
-        value = 'dark';
-        break;
-
-      case ThemeMode.system:
-        value = 'system';
-        break;
+      LoggerService.info('Theme changed: ${mode.name}');
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to update theme mode.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      _setLoading(false);
     }
-
-    await preferences.setString(_themeModeKey, value);
-
-    LoggerService.info('Theme changed to $value.');
   }
 
   // ===========================================================================
-  // Reset
+  // Reset Settings
   // ===========================================================================
 
   Future<void> reset() async {
-    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    try {
+      final SharedPreferences preferences =
+          await SharedPreferences.getInstance();
 
-    await preferences.remove(_themeModeKey);
+      await preferences.remove(_themeModeKey);
 
-    _themeMode = ThemeMode.system;
+      _themeMode = ThemeMode.system;
+
+      notifyListeners();
+
+      LoggerService.info('Settings reset successfully.');
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to reset settings.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  // ===========================================================================
+  // Serialization Helpers
+  // ===========================================================================
+
+  String _toStorageValue(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return 'light';
+
+      case ThemeMode.dark:
+        return 'dark';
+
+      case ThemeMode.system:
+        return 'system';
+    }
+  }
+
+  ThemeMode _fromStorageValue(String? value) {
+    switch (value) {
+      case 'light':
+        return ThemeMode.light;
+
+      case 'dark':
+        return ThemeMode.dark;
+
+      case 'system':
+      default:
+        return ThemeMode.system;
+    }
+  }
+
+  // ===========================================================================
+  // Loading Helper
+  // ===========================================================================
+
+  void _setLoading(bool value) {
+    if (_isLoading == value) {
+      return;
+    }
+
+    _isLoading = value;
 
     notifyListeners();
+  }
 
-    LoggerService.info('Settings reset.');
+  // ===========================================================================
+  // Dispose
+  // ===========================================================================
+
+  @override
+  void dispose() {
+    LoggerService.info('SettingsProvider disposed.');
+
+    super.dispose();
   }
 }
