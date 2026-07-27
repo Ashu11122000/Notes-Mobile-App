@@ -1,23 +1,26 @@
+from __future__ import annotations
+
 """
 ===============================================================================
 File: note.py
 ===============================================================================
 
-Note Schemas
+Enterprise Note Schemas
 
 Responsibilities
-----------------------------------------------------------------------------
-- Define request and response models for Notes.
-- Validate incoming API payloads.
-- Serialize database models into API responses.
-- Provide OpenAPI documentation for Swagger UI.
-- Support Create, Update, Partial Update and Response models.
+-------------------------------------------------------------------------------
+- Request validation
+- Response serialization
+- OpenAPI documentation
+- Create / Update / Response models
+- Pydantic V2 compatible
 
-Notes
-----------------------------------------------------------------------------
-- Compatible with Pydantic V2.
-- Used by FastAPI request validation.
-- Used by FastAPI automatic documentation.
+Compatible With
+-------------------------------------------------------------------------------
+- FastAPI
+- SQLAlchemy 2.x
+- Pydantic V2
+===============================================================================
 """
 
 from datetime import datetime
@@ -40,8 +43,10 @@ __all__ = (
 # Constants
 # =============================================================================
 
-_TITLE_MIN_LENGTH = 1
-_TITLE_MAX_LENGTH = 255
+TITLE_MIN_LENGTH = 1
+TITLE_MAX_LENGTH = 255
+
+CONTENT_MAX_LENGTH = 50_000
 
 
 # =============================================================================
@@ -51,89 +56,107 @@ _TITLE_MAX_LENGTH = 255
 
 class NoteBase(BaseModel):
     """
-    Base schema shared by all note models.
+    Shared note schema.
     """
 
     model_config = ConfigDict(
+        from_attributes=True,
         str_strip_whitespace=True,
         validate_assignment=True,
+        extra="forbid",
     )
 
     title: str = Field(
-        ...,
-        min_length=_TITLE_MIN_LENGTH,
-        max_length=_TITLE_MAX_LENGTH,
+        min_length=TITLE_MIN_LENGTH,
+        max_length=TITLE_MAX_LENGTH,
         description="Title of the note.",
         examples=["Shopping List"],
     )
 
     content: str | None = Field(
         default=None,
-        description="Content/body of the note.",
-        examples=["Buy milk, bread and eggs."],
+        max_length=CONTENT_MAX_LENGTH,
+        description="Content of the note.",
+        examples=["Buy milk, eggs and bread."],
     )
 
     @field_validator("title")
     @classmethod
     def validate_title(cls, value: str) -> str:
         """
-        Ensure the title is not empty after trimming whitespace.
+        Validate note title.
         """
 
-        if not value.strip():
+        title = value.strip()
+
+        if not title:
             raise ValueError("Title cannot be empty.")
 
-        return value
+        return title
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, value: str | None) -> str | None:
+        """
+        Normalize note content.
+        """
+
+        if value is None:
+            return None
+
+        content = value.strip()
+
+        return content or None
 
 
 # =============================================================================
-# Create Schema
+# Create
 # =============================================================================
 
 
 class NoteCreate(NoteBase):
     """
-    Schema used when creating a new note.
+    Create note request.
     """
 
     pass
 
 
 # =============================================================================
-# Update Schema (PUT / PATCH)
+# Update
 # =============================================================================
 
 
 class NoteUpdate(BaseModel):
     """
-    Schema used for updating an existing note.
+    Update note request.
 
-    Supports both PUT and PATCH operations.
+    Supports PUT and PATCH.
 
-    For PATCH requests, use:
+    For PATCH use:
 
         model_dump(exclude_unset=True)
-
-    so that only explicitly supplied fields are updated.
     """
 
     model_config = ConfigDict(
         str_strip_whitespace=True,
         validate_assignment=True,
+        extra="forbid",
     )
 
     title: str | None = Field(
         default=None,
-        min_length=_TITLE_MIN_LENGTH,
-        max_length=_TITLE_MAX_LENGTH,
-        description="Updated note title.",
-        examples=["Work Tasks"],
+        min_length=TITLE_MIN_LENGTH,
+        max_length=TITLE_MAX_LENGTH,
+        description="Updated title.",
+        examples=["Meeting Notes"],
     )
 
     content: str | None = Field(
         default=None,
-        description="Updated note content.",
-        examples=["Finish quarterly report."],
+        max_length=CONTENT_MAX_LENGTH,
+        description="Updated content.",
+        examples=["Discuss quarterly roadmap."],
     )
 
     @field_validator("title")
@@ -142,49 +165,56 @@ class NoteUpdate(BaseModel):
         cls,
         value: str | None,
     ) -> str | None:
-        """
-        Validate title only when it is supplied.
-        """
 
         if value is None:
-            return value
+            return None
 
-        if not value.strip():
+        title = value.strip()
+
+        if not title:
             raise ValueError("Title cannot be empty.")
 
-        return value
+        return title
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(
+        cls,
+        value: str | None,
+    ) -> str |None:
+
+        if value is None:
+            return None
+
+        content = value.strip()
+
+        return content or None
 
 
 # =============================================================================
-# Response Schema
+# Response
 # =============================================================================
 
 
 class NoteResponse(NoteBase):
     """
-    Response model returned by the Notes API.
+    Public note response.
     """
 
     id: int = Field(
-        description="Unique identifier of the note.",
+        description="Note identifier.",
         examples=[1],
     )
 
     owner_id: int = Field(
-        description="Identifier of the note owner.",
+        description="Owner identifier.",
         examples=[5],
     )
 
     created_at: datetime = Field(
-        description="UTC timestamp when the note was created.",
+        description="Creation timestamp (UTC).",
     )
 
-    updated_at: datetime | None = Field(
-        default=None,
-        description="UTC timestamp of the last update.",
-    )
-
-    model_config = ConfigDict(
-        from_attributes=True,
-        str_strip_whitespace=True,
+    updated_at: datetime = Field(
+        description="Last update timestamp (UTC).",
     )

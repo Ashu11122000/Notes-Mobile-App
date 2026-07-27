@@ -1,23 +1,28 @@
+from __future__ import annotations
+
 """
 ===============================================================================
 File: user.py
 ===============================================================================
 
-User Schemas
+Enterprise User Schemas
 
 Responsibilities
-----------------------------------------------------------------------------
-- Define request and response schemas for user authentication.
-- Validate incoming user data.
-- Serialize ORM models into API responses.
-- Provide automatic OpenAPI (Swagger) documentation.
+-------------------------------------------------------------------------------
+- Request validation
+- Response serialization
+- OpenAPI documentation
+- Authentication schema definitions
+- Pydantic V2 compatible
 
-Notes
-----------------------------------------------------------------------------
-- Compatible with Pydantic V2.
-- Used by FastAPI request validation.
-- Used for authentication endpoints.
+Compatible With
+-------------------------------------------------------------------------------
+- FastAPI
+- Pydantic V2
+===============================================================================
 """
+
+import re
 
 from pydantic import (
     BaseModel,
@@ -37,8 +42,12 @@ __all__ = (
 # Constants
 # =============================================================================
 
-_PASSWORD_MIN_LENGTH = 8
-_PASSWORD_MAX_LENGTH = 128
+PASSWORD_MIN_LENGTH = 8
+PASSWORD_MAX_LENGTH = 128
+
+PASSWORD_REGEX = re.compile(
+    r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$"
+)
 
 
 # =============================================================================
@@ -48,25 +57,24 @@ _PASSWORD_MAX_LENGTH = 128
 
 class UserAuthBase(BaseModel):
     """
-    Shared authentication schema used for user registration
-    and login requests.
+    Shared authentication schema.
     """
 
     model_config = ConfigDict(
+        from_attributes=True,
         str_strip_whitespace=True,
         validate_assignment=True,
+        extra="forbid",
     )
 
     email: EmailStr = Field(
-        ...,
-        description="User email address.",
+        description="Registered email address.",
         examples=["ashish@example.com"],
     )
 
     password: str = Field(
-        ...,
-        min_length=_PASSWORD_MIN_LENGTH,
-        max_length=_PASSWORD_MAX_LENGTH,
+        min_length=PASSWORD_MIN_LENGTH,
+        max_length=PASSWORD_MAX_LENGTH,
         description="User password.",
         examples=["Password@123"],
     )
@@ -75,86 +83,81 @@ class UserAuthBase(BaseModel):
     @classmethod
     def validate_password(cls, value: str) -> str:
         """
-        Ensure the password is not empty after trimming
-        whitespace.
+        Validate password quality.
         """
 
-        if not value.strip():
+        password = value.strip()
+
+        if not password:
             raise ValueError("Password cannot be empty.")
 
-        return value
+        if not PASSWORD_REGEX.match(password):
+            raise ValueError(
+                "Password must contain at least one uppercase letter, "
+                "one lowercase letter, and one digit."
+            )
+
+        return password
 
 
 # =============================================================================
-# User Registration Schema
+# Registration
 # =============================================================================
 
 
 class UserCreate(UserAuthBase):
     """
-    Schema used to register a new user.
+    User registration request.
     """
 
-    password: str = Field(
-        ...,
-        min_length=_PASSWORD_MIN_LENGTH,
-        max_length=_PASSWORD_MAX_LENGTH,
-        description="User password (minimum 8 characters).",
-        examples=["Password@123"],
-    )
+    pass
 
 
 # =============================================================================
-# User Login Schema
+# Login
 # =============================================================================
 
 
 class UserLogin(UserAuthBase):
     """
-    Schema used for user login.
+    User login request.
     """
 
-    password: str = Field(
-        ...,
-        min_length=_PASSWORD_MIN_LENGTH,
-        max_length=_PASSWORD_MAX_LENGTH,
-        description="Registered user password.",
-        examples=["Password@123"],
-    )
+    pass
 
 
 # =============================================================================
-# User Response Schema
+# Response
 # =============================================================================
 
 
 class UserResponse(BaseModel):
     """
-    Response returned after successful authentication
-    or when fetching the authenticated user.
+    Public user response.
     """
 
     model_config = ConfigDict(
         from_attributes=True,
         validate_assignment=True,
+        extra="ignore",
     )
 
     id: int = Field(
-        description="Unique identifier of the user.",
+        description="User identifier.",
         examples=[1],
     )
 
     email: EmailStr = Field(
-        description="Registered email address.",
+        description="Registered email.",
         examples=["ashish@example.com"],
     )
 
     role: str = Field(
-        description="Role assigned to the user.",
+        description="Assigned role.",
         examples=["user"],
     )
 
     is_active: bool = Field(
-        description="Indicates whether the user account is active.",
+        description="Account status.",
         examples=[True],
     )
