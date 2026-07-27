@@ -1,23 +1,71 @@
 [project]
-name = "notes"
-version = "0.1.0"
-description = "Add your description here"
+name = "notes-backend"
+version = "1.0.0"
+description = "Production-ready Notes REST API built with FastAPI, SQLAlchemy, PostgreSQL, and JWT Authentication."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
+
+authors = [
+    { name = "Ashish Sharma" }
+]
+
+license = { text = "MIT" }
+
+keywords = [
+    "fastapi",
+    "notes",
+    "rest-api",
+    "jwt",
+    "postgresql",
+    "sqlalchemy",
+    "docker",
+]
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: FastAPI",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+
 dependencies = [
-    "alembic>=1.18.4",
-    "authlib>=1.7.0",
-    "email-validator>=2.3.0",
+    # ==========================
+    # FastAPI
+    # ==========================
     "fastapi>=0.136.1",
-    "fastapi-pagination>=0.15.12",
-    "httpx>=0.28.1",
-    "passlib[bcrypt]>=1.7.4",
+    "uvicorn[standard]>=0.46.0",
+
+    # ==========================
+    # Database
+    # ==========================
+    "sqlalchemy>=2.0.49",
     "psycopg2-binary>=2.9.12",
+    "alembic>=1.18.4",
+
+    # ==========================
+    # Authentication
+    # ==========================
+    "python-jose[cryptography]>=3.5.0",
+    "passlib[bcrypt]>=1.7.4",
+    "authlib>=1.7.0",
+
+    # ==========================
+    # Validation
+    # ==========================
     "pydantic>=2.13.3",
     "pydantic-settings>=2.14.0",
-    "pytest>=9.0.3",
+    "email-validator>=2.3.0",
+
+    # ==========================
+    # Utilities
+    # ==========================
     "python-dotenv>=1.2.2",
-    "python-jose[cryptography]>=3.5.0",
-    "sqlalchemy>=2.0.49",
-    "uvicorn>=0.46.0",
+    "httpx>=0.28.1",
+    "fastapi-pagination>=0.15.12",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
 ]
