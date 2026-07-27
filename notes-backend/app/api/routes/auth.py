@@ -15,13 +15,16 @@ Responsibilities
 
 Compatible With
 -------------------------------------------------------------------------------
-- FastAPI
+- FastAPI 0.136+
 - SQLAlchemy 2.x
+- Pydantic V2
 - JWT Authentication
 ===============================================================================
 """
 
 from __future__ import annotations
+
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -37,10 +40,27 @@ from app.services.user_service import (
     get_user_by_email,
 )
 
+__all__ = ("router",)
+
+# =============================================================================
+# Dependency Aliases
+# =============================================================================
+
+DBSession = Annotated[Session, Depends(get_db)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+# =============================================================================
+# Router
+# =============================================================================
+
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
 )
+
+# =============================================================================
+# Constants
+# =============================================================================
 
 _AUTH_HEADERS = {
     "WWW-Authenticate": "Bearer",
@@ -50,20 +70,21 @@ _INVALID_CREDENTIALS = "Invalid email or password."
 _USER_INACTIVE = "User account is inactive."
 _REGISTER_SUCCESS = "User registered successfully."
 
-
 # =============================================================================
 # Register
 # =============================================================================
 
+
 @router.post(
     "/register",
     status_code=status.HTTP_201_CREATED,
-    summary="Register User",
     response_model=dict[str, str | int],
+    summary="Register User",
+    description="Register a new user account.",
 )
 def register(
     user: UserCreate,
-    db: Session = Depends(get_db),
+    db: DBSession,
 ) -> dict[str, str | int]:
     """
     Register a new user.
@@ -92,17 +113,19 @@ def register(
 # Login
 # =============================================================================
 
+
 @router.post(
     "/login",
-    summary="Login User",
     response_model=dict[str, str],
+    summary="Login User",
+    description="Authenticate a user and return a JWT access token.",
 )
 def login(
     user: UserLogin,
-    db: Session = Depends(get_db),
+    db: DBSession,
 ) -> dict[str, str]:
     """
-    Authenticate user and issue JWT.
+    Authenticate a user and return a JWT access token.
     """
 
     db_user = get_user_by_email(
@@ -146,13 +169,15 @@ def login(
 # Current User
 # =============================================================================
 
+
 @router.get(
     "/me",
     response_model=UserResponse,
     summary="Current User",
+    description="Return the authenticated user's profile.",
 )
 def get_me(
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser,
 ) -> User:
     """
     Return the authenticated user.

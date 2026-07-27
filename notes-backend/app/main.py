@@ -16,25 +16,9 @@ Responsibilities
 - Expose health endpoints.
 - Configure OpenAPI documentation.
 
-Architecture
--------------------------------------------------------------------------------
-Flutter
-    │
-    ▼
-FastAPI
-    │
-    ▼
-Service Layer
-    │
-    ▼
-SQLAlchemy
-    │
-    ▼
-PostgreSQL
-
 Compatible With
 -------------------------------------------------------------------------------
-- FastAPI
+- FastAPI 0.136+
 - SQLAlchemy 2.x
 - Alembic
 - Docker
@@ -47,7 +31,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -62,16 +46,19 @@ __all__ = ("app",)
 # =============================================================================
 
 API_PREFIX = "/api/v1"
-API_VERSION = "1.0.0"
 
 OPENAPI_TAGS = [
     {
         "name": "Authentication",
-        "description": "Authentication endpoints.",
+        "description": "Authentication and user management endpoints.",
     },
     {
         "name": "Notes",
         "description": "Notes CRUD operations.",
+    },
+    {
+        "name": "System",
+        "description": "System and health endpoints.",
     },
 ]
 
@@ -87,13 +74,13 @@ async def lifespan(_: FastAPI):
     """
     Application startup/shutdown.
 
-    Database schema management should be performed using Alembic,
-    not Base.metadata.create_all().
+    Database schema should be managed through Alembic migrations.
     """
 
     logger.info(
-        "Starting %s (%s)",
+        "Starting %s v%s (%s)",
         settings.APP_NAME,
+        settings.APP_VERSION,
         settings.ENVIRONMENT,
     )
 
@@ -108,7 +95,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
-    version=API_VERSION,
+    version=settings.APP_VERSION,
     description="""
 Production-ready RESTful backend.
 
@@ -137,10 +124,7 @@ Features
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -158,12 +142,12 @@ app.add_middleware(
 )
 def root() -> dict[str, Any]:
     """
-    Root endpoint.
+    API root endpoint.
     """
 
     return {
         "service": settings.APP_NAME,
-        "version": API_VERSION,
+        "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
         "status": "running",
         "docs": "/docs" if settings.IS_DEVELOPMENT else None,
@@ -175,14 +159,15 @@ def root() -> dict[str, Any]:
 # =============================================================================
 
 
-@app.get(
+@app.api_route(
     "/health",
+    methods=["GET", "HEAD"],
     tags=["System"],
     summary="Health Check",
 )
-def health() -> dict[str, str]:
+def health() -> dict[str, str] | Response:
     """
-    Health endpoint used by Docker.
+    Health endpoint used by Docker and load balancers.
     """
 
     database_status = "healthy"
@@ -197,7 +182,7 @@ def health() -> dict[str, str]:
         "status": "healthy",
         "database": database_status,
         "environment": settings.ENVIRONMENT,
-        "version": API_VERSION,
+        "version": settings.APP_VERSION,
     }
 
 
