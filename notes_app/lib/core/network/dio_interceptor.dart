@@ -32,13 +32,15 @@ import '../services/logger_service.dart';
 /// DioInterceptor
 ///      ↓
 /// FastAPI
+///
 /// ============================================================================
+
 @immutable
 final class DioInterceptor extends Interceptor {
-  const DioInterceptor({this.tokenProvider});
+  const DioInterceptor({required this.tokenProvider});
 
   /// Provides the latest JWT access token.
-  final Future<String?> Function()? tokenProvider;
+  final Future<String?> Function() tokenProvider;
 
   static const String _requestStartKey = '_request_start_time';
 
@@ -47,7 +49,7 @@ final class DioInterceptor extends Interceptor {
   static const int _maxLogLength = 2000;
 
   // ===========================================================================
-  // Request
+  // Request Interceptor
   // ===========================================================================
 
   @override
@@ -56,6 +58,10 @@ final class DioInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     try {
+      // -----------------------------------------------------------------------
+      // Common Headers
+      // -----------------------------------------------------------------------
+
       options.headers.putIfAbsent(
         ApiConstants.acceptHeader,
         () => ApiConstants.applicationJson,
@@ -66,26 +72,47 @@ final class DioInterceptor extends Interceptor {
         () => ApiConstants.applicationJson,
       );
 
-      if (tokenProvider != null) {
-        final token = await tokenProvider!();
+      // -----------------------------------------------------------------------
+      // JWT Authentication
+      // -----------------------------------------------------------------------
 
-        if (token != null && token.isNotEmpty) {
-          options.headers[ApiConstants.authorizationHeader] =
-              ApiConstants.bearerToken(token);
+      final String? token = await tokenProvider();
+
+      if (token != null && token.trim().isNotEmpty) {
+        options.headers[ApiConstants.authorizationHeader] =
+            ApiConstants.bearerToken(token);
+
+        if (kDebugMode) {
+          LoggerService.info('JWT token attached successfully.');
+        }
+      } else {
+        if (kDebugMode) {
+          LoggerService.warning(
+            'No JWT token found. Sending unauthenticated request.',
+          );
         }
       }
 
+      // -----------------------------------------------------------------------
+      // Request Metadata
+      // -----------------------------------------------------------------------
+
+      final String requestId = DateTime.now().microsecondsSinceEpoch.toString();
+
       options.extra[_requestStartKey] = DateTime.now();
 
-      options.extra[_requestIdKey] = DateTime.now().microsecondsSinceEpoch
-          .toString();
+      options.extra[_requestIdKey] = requestId;
+
+      // -----------------------------------------------------------------------
+      // Logging
+      // -----------------------------------------------------------------------
 
       _logRequest(options);
 
       handler.next(options);
     } catch (exception, stackTrace) {
       LoggerService.error(
-        'Failed during request interception.',
+        'Request interceptor failed.',
         error: exception,
         stackTrace: stackTrace,
       );
@@ -95,7 +122,7 @@ final class DioInterceptor extends Interceptor {
   }
 
   // ===========================================================================
-  // Response
+  // Response Interceptor
   // ===========================================================================
 
   @override
@@ -106,7 +133,7 @@ final class DioInterceptor extends Interceptor {
   }
 
   // ===========================================================================
-  // Error
+  // Error Interceptor
   // ===========================================================================
 
   @override
@@ -117,11 +144,13 @@ final class DioInterceptor extends Interceptor {
   }
 
   // ===========================================================================
-  // Logging
+  // Request Logging
   // ===========================================================================
 
   void _logRequest(RequestOptions options) {
-    if (!kDebugMode) return;
+    if (!kDebugMode) {
+      return;
+    }
 
     LoggerService.info('''
 ==================== HTTP REQUEST ====================
@@ -130,23 +159,29 @@ ID      : ${options.extra[_requestIdKey]}
 Method  : ${options.method}
 URL     : ${options.uri}
 
-Headers :
+Headers:
 ${_sanitizeHeaders(options.headers)}
 
-Body :
+Body:
 ${_truncate(options.data)}
 
 ======================================================
 ''');
   }
 
-  void _logResponse(Response response) {
-    if (!kDebugMode) return;
+  // ===========================================================================
+  // Response Logging
+  // ===========================================================================
 
-    final started =
+  void _logResponse(Response response) {
+    if (!kDebugMode) {
+      return;
+    }
+
+    final DateTime? started =
         response.requestOptions.extra[_requestStartKey] as DateTime?;
 
-    final elapsed = started == null
+    final String elapsed = started == null
         ? '-'
         : '${DateTime.now().difference(started).inMilliseconds} ms';
 
@@ -159,20 +194,26 @@ Method  : ${response.requestOptions.method}
 URL     : ${response.requestOptions.uri}
 Elapsed : $elapsed
 
-Response :
+Response:
 ${_truncate(response.data)}
 
 ======================================================
 ''');
   }
 
-  void _logError(DioException exception) {
-    if (!kDebugMode) return;
+  // ===========================================================================
+  // Error Logging
+  // ===========================================================================
 
-    final started =
+  void _logError(DioException exception) {
+    if (!kDebugMode) {
+      return;
+    }
+
+    final DateTime? started =
         exception.requestOptions.extra[_requestStartKey] as DateTime?;
 
-    final elapsed = started == null
+    final String elapsed = started == null
         ? '-'
         : '${DateTime.now().difference(started).inMilliseconds} ms';
 
@@ -183,14 +224,16 @@ ${_truncate(response.data)}
 ID      : ${exception.requestOptions.extra[_requestIdKey]}
 Type    : ${exception.type}
 Status  : ${exception.response?.statusCode}
+
 Method  : ${exception.requestOptions.method}
 URL     : ${exception.requestOptions.uri}
+
 Elapsed : $elapsed
 
-Message :
+Message:
 ${exception.message}
 
-Response :
+Response:
 ${_truncate(exception.response?.data)}
 
 ======================================================
@@ -205,7 +248,7 @@ ${_truncate(exception.response?.data)}
   // ===========================================================================
 
   Map<String, dynamic> _sanitizeHeaders(Map<String, dynamic> headers) {
-    final sanitized = Map<String, dynamic>.from(headers);
+    final Map<String, dynamic> sanitized = Map<String, dynamic>.from(headers);
 
     if (sanitized.containsKey(ApiConstants.authorizationHeader)) {
       sanitized[ApiConstants.authorizationHeader] = 'Bearer ********';
@@ -219,7 +262,7 @@ ${_truncate(exception.response?.data)}
       return 'null';
     }
 
-    final text = value.toString();
+    final String text = value.toString();
 
     if (text.length <= _maxLogLength) {
       return text;

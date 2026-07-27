@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/services/logger_service.dart';
+
 import '../models/create_note_request.dart';
 import '../models/note_model.dart';
 import '../models/update_note_request.dart';
@@ -19,11 +20,9 @@ import '../models/update_note_request.dart';
 /// ----------------------------------------------------------------------------
 /// • Communicates with FastAPI Notes endpoints.
 /// • Converts JSON responses into strongly typed models.
-/// • Contains no UI or business logic.
-/// • Uses the centralized DioClient.
-/// • Performs lightweight response validation.
-/// • Provides consistent request logging.
-/// • Keeps backend contracts unchanged.
+/// • Uses centralized DioClient.
+/// • Handles API response validation.
+/// • Contains no UI/business logic.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -38,56 +37,43 @@ import '../models/update_note_request.dart';
 /// ============================================================================
 
 abstract interface class NotesRemoteDataSource {
-  /// Retrieves a paginated list of notes.
-  Future<List<NoteModel>> getNotes({
-    int page = 1,
-    int limit = 10,
-  });
+  /// Retrieves paginated notes.
+  Future<List<NoteModel>> getNotes({int page = 1, int limit = 10});
 
-  /// Retrieves a note by its identifier.
+  /// Retrieves note by id.
   Future<NoteModel> getNoteById(int noteId);
 
-  /// Creates a new note.
-  Future<NoteModel> createNote(
-    CreateNoteRequest request,
-  );
+  /// Creates note.
+  Future<NoteModel> createNote(CreateNoteRequest request);
 
-  /// Replaces an existing note.
-  Future<NoteModel> updateNote(
-    int noteId,
-    UpdateNoteRequest request,
-  );
+  /// Updates note using PUT.
+  Future<NoteModel> updateNote(int noteId, UpdateNoteRequest request);
 
-  /// Partially updates an existing note.
-  Future<NoteModel> patchNote(
-    int noteId,
-    UpdateNoteRequest request,
-  );
+  /// Updates note partially using PATCH.
+  Future<NoteModel> patchNote(int noteId, UpdateNoteRequest request);
 
-  /// Deletes a note.
-  Future<void> deleteNote(
-    int noteId,
-  );
+  /// Deletes note.
+  Future<void> deleteNote(int noteId);
 }
 
-final class NotesRemoteDataSourceImpl
-    implements NotesRemoteDataSource {
-  NotesRemoteDataSourceImpl({
-    Dio? dio,
-  }) : _dio = dio ?? DioClient.instance;
+/// ============================================================================
+/// Implementation
+/// ============================================================================
+
+final class NotesRemoteDataSourceImpl implements NotesRemoteDataSource {
+  NotesRemoteDataSourceImpl({Dio? dio}) : _dio = dio ?? DioClient.instance;
 
   final Dio _dio;
 
   // ===========================================================================
-  // Private Helpers
+  // Helpers
   // ===========================================================================
 
-  static String _noteEndpoint(int noteId) =>
-      '${ApiConstants.notes}/$noteId';
+  static String _noteEndpoint(int noteId) {
+    return ApiConstants.noteById(noteId);
+  }
 
-  static Map<String, dynamic> _asJsonMap(
-    dynamic value,
-  ) {
+  static Map<String, dynamic> _toJsonMap(dynamic value) {
     if (value is Map<String, dynamic>) {
       return value;
     }
@@ -96,14 +82,10 @@ final class NotesRemoteDataSourceImpl
       return Map<String, dynamic>.from(value);
     }
 
-    throw const FormatException(
-      'Expected a JSON object.',
-    );
+    throw const FormatException('Expected JSON object.');
   }
 
-  static List<dynamic> _asJsonList(
-    dynamic value,
-  ) {
+  static List<dynamic> _toJsonList(dynamic value) {
     if (value is List<dynamic>) {
       return value;
     }
@@ -112,44 +94,60 @@ final class NotesRemoteDataSourceImpl
       return List<dynamic>.from(value);
     }
 
-    throw const FormatException(
-      'Expected a JSON array.',
-    );
+    throw const FormatException('Expected JSON list.');
   }
 
-  static NoteModel _parseNote(
-    dynamic value,
-  ) {
-    return NoteModel.fromJson(
-      _asJsonMap(value),
-    );
-  }
+  /// Supports:
+  ///
+  /// Response:
+  ///
+  /// [
+  ///   {...},
+  ///   {...}
+  /// ]
+  ///
+  /// AND
+  ///
+  /// {
+  ///   "items":[...],
+  ///   "total":100
+  /// }
+  ///
+  static List<NoteModel> _parseNotes(dynamic response) {
+    dynamic data = response;
 
-  static List<NoteModel> _parseNotes(
-    dynamic value,
-  ) {
-    final List<dynamic> list = _asJsonList(value);
+    if (data is Map) {
+      if (data.containsKey('items')) {
+        data = data['items'];
+      } else if (data.containsKey('data')) {
+        data = data['data'];
+      }
+    }
+
+    final List<dynamic> notes = _toJsonList(data);
 
     return List<NoteModel>.unmodifiable(
-      list.map(_parseNote),
+      notes.map((item) => NoteModel.fromJson(_toJsonMap(item))),
     );
   }
 
-  static String _safePreview(
-    Object? value,
-  ) {
+  static NoteModel _parseNote(dynamic response) {
+    return NoteModel.fromJson(_toJsonMap(response));
+  }
+
+  static String _preview(Object? value) {
     if (value == null) {
       return 'null';
     }
 
     try {
-      final String encoded = jsonEncode(value);
+      final String json = jsonEncode(value);
 
-      if (encoded.length <= 300) {
-        return encoded;
+      if (json.length <= 500) {
+        return json;
       }
 
-      return '${encoded.substring(0, 300)}...';
+      return '${json.substring(0, 500)}...';
     } catch (_) {
       return value.toString();
     }
@@ -161,33 +159,47 @@ final class NotesRemoteDataSourceImpl
     required String endpoint,
     Map<String, dynamic>? queryParameters,
   }) {
-    final String queryText = queryParameters == null
-        ? ''
-        : ' query=${jsonEncode(queryParameters)}';
+    LoggerService.info('''
+$operation started.
 
-    LoggerService.info(
-      '$operation started. method=$method endpoint=$endpoint$queryText',
-    );
+Method:
+$method
+
+Endpoint:
+$endpoint
+
+Query:
+${queryParameters ?? 'none'}
+''');
   }
 
-  void _logSuccess({
-    required String operation,
-    required Response<dynamic> response,
-  }) {
-    LoggerService.info(
-      '$operation completed successfully. statusCode=${response.statusCode}',
-    );
+  void _logResponse({required String operation, required Response response}) {
+    LoggerService.info('''
+$operation successful.
+
+Status:
+${response.statusCode}
+
+Response:
+${_preview(response.data)}
+''');
   }
 
-  void _logFailure({
-    required String operation,
-    required Object error,
-    required StackTrace stackTrace,
-  }) {
+  void _logError(String operation, Object error, StackTrace stackTrace) {
     LoggerService.error(
       '$operation failed.',
       error: error,
       stackTrace: stackTrace,
+    );
+  }
+
+  Options get _jsonOptions {
+    return Options(
+      headers: <String, String>{
+        ApiConstants.contentTypeHeader: ApiConstants.applicationJson,
+
+        ApiConstants.acceptHeader: ApiConstants.applicationJson,
+      },
     );
   }
 
@@ -196,10 +208,7 @@ final class NotesRemoteDataSourceImpl
   // ===========================================================================
 
   @override
-  Future<List<NoteModel>> getNotes({
-    int page = 1,
-    int limit = 10,
-  }) async {
+  Future<List<NoteModel>> getNotes({int page = 1, int limit = 10}) async {
     const String operation = 'Get Notes';
 
     try {
@@ -207,125 +216,60 @@ final class NotesRemoteDataSourceImpl
         operation: operation,
         method: 'GET',
         endpoint: ApiConstants.notes,
-        queryParameters: <String, dynamic>{
-          'page': page,
-          'limit': limit,
-        },
+        queryParameters: <String, dynamic>{'page': page, 'limit': limit},
       );
 
-      final Response<dynamic> response =
-          await _dio.get<dynamic>(
+      final Response<dynamic> response = await _dio.get<dynamic>(
         ApiConstants.notes,
-        queryParameters: <String, dynamic>{
-          'page': page,
-          'limit': limit,
-        },
+        queryParameters: <String, dynamic>{'page': page, 'limit': limit},
       );
 
-      _logSuccess(
-        operation: operation,
-        response: response,
-      );
+      _logResponse(operation: operation, response: response);
 
       return _parseNotes(response.data);
-    } on DioException catch (
-      exception,
-      stackTrace
-    ) {
-      _logFailure(
-        operation: operation,
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } on DioException catch (exception, stackTrace) {
+      _logError(operation, exception, stackTrace);
 
       rethrow;
-    } on FormatException catch (
-      exception,
-      stackTrace
-    ) {
-      LoggerService.error(
-        'Invalid notes response format.',
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } on FormatException catch (exception, stackTrace) {
+      _logError('Invalid notes response format', exception, stackTrace);
 
       rethrow;
-    } catch (
-      exception,
-      stackTrace
-    ) {
-      _logFailure(
-        operation: operation,
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } catch (exception, stackTrace) {
+      _logError(operation, exception, stackTrace);
 
       rethrow;
     }
   }
 
   // ===========================================================================
-  // Get Note By Id
+  // Get Note By ID
   // ===========================================================================
 
   @override
-  Future<NoteModel> getNoteById(
-    int noteId,
-  ) async {
+  Future<NoteModel> getNoteById(int noteId) async {
     const String operation = 'Get Note';
 
     try {
-      final String endpoint =
-          _noteEndpoint(noteId);
+      final String endpoint = _noteEndpoint(noteId);
 
-      _logRequest(
-        operation: operation,
-        method: 'GET',
-        endpoint: endpoint,
-      );
+      _logRequest(operation: operation, method: 'GET', endpoint: endpoint);
 
-      final Response<dynamic> response =
-          await _dio.get<dynamic>(
-        endpoint,
-      );
+      final Response<dynamic> response = await _dio.get<dynamic>(endpoint);
 
-      _logSuccess(
-        operation: operation,
-        response: response,
-      );
+      _logResponse(operation: operation, response: response);
 
       return _parseNote(response.data);
-    } on DioException catch (
-      exception,
-      stackTrace
-    ) {
-      _logFailure(
-        operation: operation,
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } on DioException catch (exception, stackTrace) {
+      _logError(operation, exception, stackTrace);
 
       rethrow;
-    } on FormatException catch (
-      exception,
-      stackTrace
-    ) {
-      LoggerService.error(
-        'Invalid note response format.',
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } on FormatException catch (exception, stackTrace) {
+      _logError('Invalid note response format', exception, stackTrace);
 
       rethrow;
-    } catch (
-      exception,
-      stackTrace
-    ) {
-      _logFailure(
-        operation: operation,
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } catch (exception, stackTrace) {
+      _logError(operation, exception, stackTrace);
 
       rethrow;
     }
@@ -334,10 +278,9 @@ final class NotesRemoteDataSourceImpl
   // ===========================================================================
   // Create Note
   // ===========================================================================
-    @override
-  Future<NoteModel> createNote(
-    CreateNoteRequest request,
-  ) async {
+
+  @override
+  Future<NoteModel> createNote(CreateNoteRequest request) async {
     const String operation = 'Create Note';
 
     try {
@@ -347,187 +290,103 @@ final class NotesRemoteDataSourceImpl
         endpoint: ApiConstants.notes,
       );
 
-      final Response<dynamic> response =
-          await _dio.post<dynamic>(
+      final Response<dynamic> response = await _dio.post<dynamic>(
         ApiConstants.notes,
+
         data: request.toJson(),
+
+        options: _jsonOptions,
       );
 
-      _logSuccess(
-        operation: operation,
-        response: response,
-      );
+      _logResponse(operation: operation, response: response);
 
       return _parseNote(response.data);
-    } on DioException catch (
-      exception,
-      stackTrace
-    ) {
-      _logFailure(
-        operation: operation,
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } on DioException catch (exception, stackTrace) {
+      _logError(operation, exception, stackTrace);
 
       rethrow;
-    } on FormatException catch (
-      exception,
-      stackTrace
-    ) {
-      LoggerService.error(
-        'Invalid create note response format.',
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } on FormatException catch (exception, stackTrace) {
+      _logError('Invalid create note response format', exception, stackTrace);
 
       rethrow;
-    } catch (
-      exception,
-      stackTrace
-    ) {
-      _logFailure(
-        operation: operation,
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } catch (exception, stackTrace) {
+      _logError(operation, exception, stackTrace);
 
       rethrow;
     }
   }
 
   // ===========================================================================
-  // Update Note (PUT)
+  // Update Note PUT
   // ===========================================================================
 
   @override
-  Future<NoteModel> updateNote(
-    int noteId,
-    UpdateNoteRequest request,
-  ) async {
+  Future<NoteModel> updateNote(int noteId, UpdateNoteRequest request) async {
     const String operation = 'Update Note';
 
     try {
-      final String endpoint =
-          _noteEndpoint(noteId);
+      final String endpoint = _noteEndpoint(noteId);
 
-      _logRequest(
-        operation: operation,
-        method: 'PUT',
-        endpoint: endpoint,
-      );
+      _logRequest(operation: operation, method: 'PUT', endpoint: endpoint);
 
-      final Response<dynamic> response =
-          await _dio.put<dynamic>(
+      final Response<dynamic> response = await _dio.put<dynamic>(
         endpoint,
+
         data: request.toJson(),
+
+        options: _jsonOptions,
       );
 
-      _logSuccess(
-        operation: operation,
-        response: response,
-      );
+      _logResponse(operation: operation, response: response);
 
       return _parseNote(response.data);
-    } on DioException catch (
-      exception,
-      stackTrace
-    ) {
-      _logFailure(
-        operation: operation,
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } on DioException catch (exception, stackTrace) {
+      _logError(operation, exception, stackTrace);
 
       rethrow;
-    } on FormatException catch (
-      exception,
-      stackTrace
-    ) {
-      LoggerService.error(
-        'Invalid update note response format.',
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } on FormatException catch (exception, stackTrace) {
+      _logError('Invalid update note response format', exception, stackTrace);
 
       rethrow;
-    } catch (
-      exception,
-      stackTrace
-    ) {
-      _logFailure(
-        operation: operation,
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } catch (exception, stackTrace) {
+      _logError(operation, exception, stackTrace);
 
       rethrow;
     }
   }
 
   // ===========================================================================
-  // Patch Note (PATCH)
+  // Patch Note PATCH
   // ===========================================================================
 
   @override
-  Future<NoteModel> patchNote(
-    int noteId,
-    UpdateNoteRequest request,
-  ) async {
+  Future<NoteModel> patchNote(int noteId, UpdateNoteRequest request) async {
     const String operation = 'Patch Note';
 
     try {
-      final String endpoint =
-          _noteEndpoint(noteId);
+      final String endpoint = _noteEndpoint(noteId);
 
-      _logRequest(
-        operation: operation,
-        method: 'PATCH',
-        endpoint: endpoint,
-      );
+      _logRequest(operation: operation, method: 'PATCH', endpoint: endpoint);
 
-      final Response<dynamic> response =
-          await _dio.patch<dynamic>(
+      final Response<dynamic> response = await _dio.patch<dynamic>(
         endpoint,
         data: request.toJson(),
+        options: _jsonOptions,
       );
 
-      _logSuccess(
-        operation: operation,
-        response: response,
-      );
+      _logResponse(operation: operation, response: response);
 
       return _parseNote(response.data);
-    } on DioException catch (
-      exception,
-      stackTrace
-    ) {
-      _logFailure(
-        operation: operation,
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } on DioException catch (exception, stackTrace) {
+      _logError(operation, exception, stackTrace);
 
       rethrow;
-    } on FormatException catch (
-      exception,
-      stackTrace
-    ) {
-      LoggerService.error(
-        'Invalid patch note response format.',
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } on FormatException catch (exception, stackTrace) {
+      _logError('Invalid patch note response format', exception, stackTrace);
 
       rethrow;
-    } catch (
-      exception,
-      stackTrace
-    ) {
-      _logFailure(
-        operation: operation,
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } catch (exception, stackTrace) {
+      _logError(operation, exception, stackTrace);
 
       rethrow;
     }
@@ -537,51 +396,24 @@ final class NotesRemoteDataSourceImpl
   // Delete Note
   // ===========================================================================
 
-    @override
-  Future<void> deleteNote(
-    int noteId,
-  ) async {
+  @override
+  Future<void> deleteNote(int noteId) async {
     const String operation = 'Delete Note';
 
     try {
-      final String endpoint =
-          _noteEndpoint(noteId);
+      final String endpoint = _noteEndpoint(noteId);
 
-      _logRequest(
-        operation: operation,
-        method: 'DELETE',
-        endpoint: endpoint,
-      );
+      _logRequest(operation: operation, method: 'DELETE', endpoint: endpoint);
 
-      final Response<dynamic> response =
-          await _dio.delete<dynamic>(
-        endpoint,
-      );
+      final Response<dynamic> response = await _dio.delete<dynamic>(endpoint);
 
-      _logSuccess(
-        operation: operation,
-        response: response,
-      );
-    } on DioException catch (
-      exception,
-      stackTrace
-    ) {
-      _logFailure(
-        operation: operation,
-        error: exception,
-        stackTrace: stackTrace,
-      );
+      _logResponse(operation: operation, response: response);
+    } on DioException catch (exception, stackTrace) {
+      _logError(operation, exception, stackTrace);
 
       rethrow;
-    } catch (
-      exception,
-      stackTrace
-    ) {
-      _logFailure(
-        operation: operation,
-        error: exception,
-        stackTrace: stackTrace,
-      );
+    } catch (exception, stackTrace) {
+      _logError(operation, exception, stackTrace);
 
       rethrow;
     }
