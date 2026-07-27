@@ -1,20 +1,6 @@
 /// ============================================================================
 /// File: test/unit/models/note_model_test.dart
 /// ============================================================================
-///
-/// Unit Tests
-///
-/// NoteModel
-///
-/// Tests:
-/// • JSON serialization
-/// • JSON deserialization
-/// • Entity conversion
-/// • copyWith
-/// • Computed properties
-/// • Content normalization
-///
-/// ============================================================================
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -25,9 +11,9 @@ import '../../helpers/test_constants.dart';
 
 void main() {
   group('NoteModel', () {
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
     // fromJson
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
 
     test('fromJson should parse JSON correctly', () {
       final note = NoteModel.fromJson(MockData.noteJson);
@@ -35,14 +21,17 @@ void main() {
       expect(note.id, TestConstants.noteId);
       expect(note.ownerId, TestConstants.userId);
       expect(note.title, TestConstants.noteTitle);
-      expect(note.content, TestConstants.noteContent);
+
+      // fromJson normalizes content.
+      expect(note.content, TestConstants.noteContent.trim());
+
       expect(note.createdAt, isA<DateTime>());
       expect(note.updatedAt, isA<DateTime>());
     });
 
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
     // toJson
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
 
     test('toJson should serialize correctly', () {
       final json = MockData.note.toJson();
@@ -50,14 +39,17 @@ void main() {
       expect(json['id'], TestConstants.noteId);
       expect(json['owner_id'], TestConstants.userId);
       expect(json['title'], TestConstants.noteTitle);
-      expect(json['content'], TestConstants.noteContent);
+
+      // toJson normalizes content.
+      expect(json['content'], TestConstants.noteContent.trim());
+
       expect(json['created_at'], isNotNull);
       expect(json['updated_at'], isNotNull);
     });
 
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
     // fromEntity
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
 
     test('fromEntity should create identical model', () {
       final entity = MockData.note.toEntity();
@@ -72,9 +64,9 @@ void main() {
       expect(model.updatedAt, entity.updatedAt);
     });
 
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
     // toEntity
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
 
     test('toEntity should convert model to domain entity', () {
       final entity = MockData.note.toEntity();
@@ -85,9 +77,9 @@ void main() {
       expect(entity.content, MockData.note.content);
     });
 
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
     // copyWith
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
 
     test('copyWith should replace provided values', () {
       final updated = MockData.note.copyWith(
@@ -96,10 +88,14 @@ void main() {
       );
 
       expect(updated.title, TestConstants.updatedNoteTitle);
+
+      // copyWith preserves the value exactly as provided.
       expect(updated.content, TestConstants.updatedNoteContent);
 
       expect(updated.id, MockData.note.id);
       expect(updated.ownerId, MockData.note.ownerId);
+      expect(updated.createdAt, MockData.note.createdAt);
+      expect(updated.updatedAt, MockData.note.updatedAt);
     });
 
     test('copyWith should keep original values when omitted', () {
@@ -113,23 +109,30 @@ void main() {
       expect(copied.updatedAt, MockData.note.updatedAt);
     });
 
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
     // hasContent
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
 
     test('hasContent returns true when content exists', () {
       expect(MockData.note.hasContent, isTrue);
     });
 
     test('hasContent returns false when content is null', () {
-      final note = MockData.note.copyWith(content: null);
+      final note = NoteModel(
+        id: 1,
+        ownerId: 1,
+        title: 'Title',
+        content: null,
+        createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+        updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+      );
 
       expect(note.hasContent, isFalse);
     });
 
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
     // isEmpty / isNotEmpty
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
 
     test('isEmpty returns false for valid note', () {
       expect(MockData.note.isEmpty, isFalse);
@@ -140,15 +143,22 @@ void main() {
     });
 
     test('empty title and content produce empty note', () {
-      final note = MockData.note.copyWith(title: '', content: '');
+      final note = NoteModel(
+        id: 1,
+        ownerId: 1,
+        title: '',
+        content: '',
+        createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+        updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+      );
 
       expect(note.isEmpty, isTrue);
       expect(note.isNotEmpty, isFalse);
     });
 
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
     // Content normalization
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
 
     test('fromJson should trim title', () {
       final json = Map<String, dynamic>.from(MockData.noteJson)
@@ -157,6 +167,15 @@ void main() {
       final note = NoteModel.fromJson(json);
 
       expect(note.title, 'Shopping List');
+    });
+
+    test('fromJson should trim content', () {
+      final json = Map<String, dynamic>.from(MockData.noteJson)
+        ..['content'] = '   Hello World   ';
+
+      final note = NoteModel.fromJson(json);
+
+      expect(note.content, 'Hello World');
     });
 
     test('fromJson should convert blank content to null', () {
@@ -168,12 +187,15 @@ void main() {
       expect(note.content, isNull);
     });
 
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
     // toString
-    //---------------------------------------------------------------------------
+    //----------------------------------------------------------------------
 
-    test('toString contains class name', () {
-      expect(MockData.note.toString(), contains('NoteModel'));
+    test('toString contains useful information', () {
+      final value = MockData.note.toString();
+
+      expect(value, contains('NoteModel'));
+      expect(value, contains(TestConstants.noteTitle));
     });
   });
 }

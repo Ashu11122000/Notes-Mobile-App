@@ -19,7 +19,6 @@ import 'shared_preferences_service.dart';
 /// • Produces detailed debug logs.
 /// • Verifies persistence after every write.
 /// ============================================================================
-
 @immutable
 final class SessionManager {
   const SessionManager._();
@@ -31,14 +30,17 @@ final class SessionManager {
   static Future<bool> saveAccessToken(String token) async {
     final String cleanToken = token.trim();
 
+    // Reject empty tokens and ensure no stale session remains.
     if (cleanToken.isEmpty) {
       LoggerService.warning('Attempted to save an empty access token.');
+
+      await SharedPreferencesService.remove(StorageConstants.accessToken);
+      await SharedPreferencesService.remove(StorageConstants.isLoggedIn);
+
       return false;
     }
 
     try {
-      await SharedPreferencesService.setBool(StorageConstants.isLoggedIn, true);
-
       final bool saved = await SharedPreferencesService.setString(
         StorageConstants.accessToken,
         cleanToken,
@@ -48,6 +50,8 @@ final class SessionManager {
         LoggerService.error('SharedPreferences failed to save access token.');
         return false;
       }
+
+      await SharedPreferencesService.setBool(StorageConstants.isLoggedIn, true);
 
       final String? storedToken = SharedPreferencesService.getString(
         StorageConstants.accessToken,
@@ -109,7 +113,13 @@ ${token == null ? 'NULL' : '${token.substring(0, token.length > 25 ? 25 : token.
 ''');
       }
 
-      return token?.trim();
+      final String? trimmed = token?.trim();
+
+      if (trimmed == null || trimmed.isEmpty) {
+        return null;
+      }
+
+      return trimmed;
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to read access token.',
@@ -123,19 +133,18 @@ ${token == null ? 'NULL' : '${token.substring(0, token.length > 25 ? 25 : token.
 
   static bool get hasAccessToken {
     final String? token = getAccessToken();
-
-    return token != null && token.isNotEmpty;
+    return token != null;
   }
 
   static Future<bool> removeAccessToken() async {
     try {
-      final bool removed = await SharedPreferencesService.remove(
-        StorageConstants.accessToken,
-      );
+      await SharedPreferencesService.remove(StorageConstants.accessToken);
 
-      LoggerService.info('Access token removed: $removed');
+      await SharedPreferencesService.remove(StorageConstants.isLoggedIn);
 
-      return removed;
+      LoggerService.info('Access token removed.');
+
+      return true;
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to remove access token.',
@@ -152,10 +161,17 @@ ${token == null ? 'NULL' : '${token.substring(0, token.length > 25 ? 25 : token.
   // ===========================================================================
 
   static Future<bool> saveRefreshToken(String token) async {
+    final String cleanToken = token.trim();
+
+    if (cleanToken.isEmpty) {
+      LoggerService.warning('Attempted to save an empty refresh token.');
+      return false;
+    }
+
     try {
       return await SharedPreferencesService.setString(
         StorageConstants.refreshToken,
-        token.trim(),
+        cleanToken,
       );
     } catch (exception, stackTrace) {
       LoggerService.error(
@@ -170,8 +186,24 @@ ${token == null ? 'NULL' : '${token.substring(0, token.length > 25 ? 25 : token.
 
   static String? getRefreshToken() {
     try {
-      return SharedPreferencesService.getString(StorageConstants.refreshToken);
-    } catch (_) {
+      final String? token = SharedPreferencesService.getString(
+        StorageConstants.refreshToken,
+      );
+
+      final String? trimmed = token?.trim();
+
+      if (trimmed == null || trimmed.isEmpty) {
+        return null;
+      }
+
+      return trimmed;
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to read refresh token.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
       return null;
     }
   }
@@ -181,7 +213,13 @@ ${token == null ? 'NULL' : '${token.substring(0, token.length > 25 ? 25 : token.
       return await SharedPreferencesService.remove(
         StorageConstants.refreshToken,
       );
-    } catch (_) {
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Failed to remove refresh token.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
       return false;
     }
   }
@@ -249,7 +287,7 @@ Logged In Flag : REMOVED
 ================ SESSION DEBUG ================
 
 Has Token:
-${token != null && token.isNotEmpty}
+${token != null}
 
 Token Length:
 ${token?.length ?? 0}

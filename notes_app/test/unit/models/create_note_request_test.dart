@@ -33,9 +33,14 @@ void main() {
     //---------------------------------------------------------------------------
 
     test('should create a valid request', () {
-      expect(MockData.createRequest.title, TestConstants.noteTitle);
+      expect(MockData.createRequest.title, equals(TestConstants.noteTitle));
 
-      expect(MockData.createRequest.content, TestConstants.noteContent);
+      expect(MockData.createRequest.content, equals(TestConstants.noteContent));
+
+      expect(
+        MockData.createRequest.normalizedContent,
+        equals(TestConstants.noteContent.trim()),
+      );
     });
 
     //---------------------------------------------------------------------------
@@ -109,12 +114,12 @@ void main() {
     // toJson
     //---------------------------------------------------------------------------
 
-    test('toJson should include title and content', () {
+    test('toJson should include normalized title and content', () {
       final json = MockData.createRequest.toJson();
 
-      expect(json['title'], TestConstants.noteTitle);
+      expect(json['title'], equals(TestConstants.noteTitle.trim()));
 
-      expect(json['content'], TestConstants.noteContent);
+      expect(json['content'], equals(TestConstants.noteContent.trim()));
     });
 
     test('toJson should omit null content', () {

@@ -139,9 +139,9 @@ void main() {
     test('toJson should include both title and content', () {
       final json = MockData.updateRequest.toJson();
 
-      expect(json['title'], TestConstants.updatedNoteTitle);
+      expect(json['title'], TestConstants.updatedNoteTitle.trim());
 
-      expect(json['content'], TestConstants.updatedNoteContent);
+      expect(json['content'], TestConstants.updatedNoteContent.trim());
     });
 
     test('toJson should omit null fields', () {
@@ -149,7 +149,7 @@ void main() {
 
       final json = request.toJson();
 
-      expect(json.isEmpty, isTrue);
+      expect(json, isEmpty);
     });
 
     test('toJson should include only title when content is null', () {
@@ -158,7 +158,6 @@ void main() {
       final json = request.toJson();
 
       expect(json['title'], 'Updated');
-
       expect(json.containsKey('content'), isFalse);
     });
 
@@ -168,7 +167,6 @@ void main() {
       final json = request.toJson();
 
       expect(json['content'], 'Updated');
-
       expect(json.containsKey('title'), isFalse);
     });
 
@@ -183,7 +181,6 @@ void main() {
       );
 
       expect(updated.title, 'Another Title');
-
       expect(updated.content, 'Another Content');
     });
 
@@ -233,7 +230,6 @@ void main() {
       final value = MockData.updateRequest.toString();
 
       expect(value, contains('UpdateNoteRequest'));
-
       expect(value, contains(TestConstants.updatedNoteTitle));
     });
   });
