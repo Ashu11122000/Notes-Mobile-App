@@ -17,6 +17,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// This service intentionally contains no business logic.
 ///
 /// Features should interact with local storage only through this service.
+///
+/// Testing
+/// ----------------------------------------------------------------------------
+/// • Provides [resetForTesting] to allow unit tests to reset the singleton.
+/// • Has no impact on production behavior.
 /// ============================================================================
 @immutable
 final class SharedPreferencesService {
@@ -42,7 +47,7 @@ final class SharedPreferencesService {
   ///
   /// Throws a descriptive error if initialization was forgotten.
   static SharedPreferences get instance {
-    final preferences = _preferences;
+    final SharedPreferences? preferences = _preferences;
 
     if (preferences == null) {
       throw StateError(
@@ -52,6 +57,20 @@ final class SharedPreferencesService {
     }
 
     return preferences;
+  }
+
+  // ===========================================================================
+  // Testing
+  // ===========================================================================
+
+  /// Resets the cached SharedPreferences instance.
+  ///
+  /// This method exists ONLY to support unit and widget tests.
+  ///
+  /// Production code should never call this method.
+  @visibleForTesting
+  static void resetForTesting() {
+    _preferences = null;
   }
 
   // ===========================================================================
