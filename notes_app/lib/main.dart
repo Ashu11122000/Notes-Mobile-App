@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import 'app/app.dart';
 import 'app/app_initializer.dart';
@@ -16,21 +16,13 @@ import 'core/services/logger_service.dart';
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Initializes Flutter.
-/// • Initializes global services.
-/// • Configures error handling.
-/// • Starts application.
-///
-/// Initialization Order
-/// ----------------------------------------------------------------------------
-///
-/// 1. Flutter Binding
-/// 2. Global Error Handlers
-/// 3. Application Services
-/// 4. Run App
+/// • Configures global error handling.
+/// • Initializes application services.
+/// • Launches application.
 ///
 /// ============================================================================
 
-Future<void> main() async {
+void main() {
   runZonedGuarded(
     () async {
       // =========================================================================
@@ -40,7 +32,7 @@ Future<void> main() async {
       WidgetsFlutterBinding.ensureInitialized();
 
       // =========================================================================
-      // Framework Error Handling
+      // Flutter Framework Errors
       // =========================================================================
 
       FlutterError.onError = (FlutterErrorDetails details) {
@@ -56,7 +48,7 @@ Future<void> main() async {
       };
 
       // =========================================================================
-      // Async / Platform Error Handling
+      // Platform Errors
       // =========================================================================
 
       PlatformDispatcher.instance.onError =
@@ -77,17 +69,15 @@ Future<void> main() async {
       // =========================================================================
 
       try {
-        LoggerService.initialize();
-
         LoggerService.info('Application startup started.');
 
         await AppInitializer.initialize();
 
         LoggerService.info('Application services initialized.');
 
-        // =========================================================================
+        // =======================================================================
         // Launch Application
-        // =========================================================================
+        // =======================================================================
 
         runApp(const NotesApp());
       } catch (exception, stackTrace) {
@@ -98,13 +88,6 @@ Future<void> main() async {
 
           stackTrace: stackTrace,
         );
-
-        // Keep application from silently failing.
-        //
-        // In production this can be replaced with:
-        // - Crashlytics reporting
-        // - Sentry reporting
-        // - Custom error screen
 
         runApp(const _StartupErrorApp());
       }
@@ -125,10 +108,6 @@ Future<void> main() async {
 // ============================================================================
 // Startup Error Screen
 // ============================================================================
-//
-// Displayed when application initialization fails.
-//
-// ============================================================================
 
 final class _StartupErrorApp extends StatelessWidget {
   const _StartupErrorApp({super.key});
@@ -146,7 +125,7 @@ final class _StartupErrorApp extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
 
-              children: [
+              children: <Widget>[
                 const Icon(
                   Icons.error_outline_rounded,
 

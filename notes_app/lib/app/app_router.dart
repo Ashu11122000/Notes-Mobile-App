@@ -26,11 +26,10 @@ import '../features/notifications/presentation/screens/notification_settings_scr
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Centralized route management.
-/// • Handles navigation.
-/// • Validates route arguments.
-/// • Handles unknown routes.
-/// • Ready for authentication guards.
+/// • Centralized navigation.
+/// • Route validation.
+/// • Unknown route handling.
+/// • Authentication guard ready.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -46,16 +45,8 @@ import '../features/notifications/presentation/screens/notification_settings_scr
 final class AppRouter {
   const AppRouter._();
 
-  // ===========================================================================
-  // Navigator Key
-  // ===========================================================================
-
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
-
-  // ===========================================================================
-  // Router Configuration
-  // ===========================================================================
 
   static final GoRouter router = GoRouter(
     navigatorKey: navigatorKey,
@@ -66,34 +57,34 @@ final class AppRouter {
 
     routes: <RouteBase>[
       // =======================================================================
-      // AUTHENTICATION
+      // AUTH
       // =======================================================================
       GoRoute(
-        name: 'splash',
+        name: AppRoutes.splashName,
 
         path: AppRoutes.splash,
 
-        builder: (context, state) {
+        builder: (_, __) {
           return const SplashScreen();
         },
       ),
 
       GoRoute(
-        name: 'login',
+        name: AppRoutes.loginName,
 
         path: AppRoutes.login,
 
-        builder: (context, state) {
+        builder: (_, __) {
           return const LoginScreen();
         },
       ),
 
       GoRoute(
-        name: 'register',
+        name: AppRoutes.registerName,
 
         path: AppRoutes.register,
 
-        builder: (context, state) {
+        builder: (_, __) {
           return const RegisterScreen();
         },
       ),
@@ -102,31 +93,31 @@ final class AppRouter {
       // NOTES
       // =======================================================================
       GoRoute(
-        name: 'notes',
+        name: AppRoutes.notesName,
 
         path: AppRoutes.notes,
 
-        builder: (context, state) {
+        builder: (_, __) {
           return const NotesScreen();
         },
       ),
 
       GoRoute(
-        name: 'add-note',
+        name: AppRoutes.addNoteName,
 
         path: AppRoutes.addNote,
 
-        builder: (context, state) {
+        builder: (_, __) {
           return const AddNoteScreen();
         },
       ),
 
       GoRoute(
-        name: 'edit-note',
+        name: AppRoutes.editNoteName,
 
         path: AppRoutes.editNote,
 
-        builder: (context, state) {
+        builder: (_, state) {
           final Object? extra = state.extra;
 
           if (extra is! Note) {
@@ -140,16 +131,16 @@ final class AppRouter {
       ),
 
       GoRoute(
-        name: 'note-detail',
+        name: AppRoutes.noteDetailName,
 
         path: AppRoutes.noteDetail,
 
-        builder: (context, state) {
+        builder: (_, state) {
           final Object? extra = state.extra;
 
           if (extra is! Note) {
             return const _InvalidNavigationScreen(
-              message: 'Unable to open note details.\nInvalid note data.',
+              message: 'Unable to open note.\nInvalid note data.',
             );
           }
 
@@ -161,79 +152,75 @@ final class AppRouter {
       // SETTINGS
       // =======================================================================
       GoRoute(
-        name: 'settings',
+        name: AppRoutes.settingsName,
 
         path: AppRoutes.settings,
 
-        builder: (context, state) {
+        builder: (_, __) {
           return const SettingsScreen();
         },
       ),
 
       GoRoute(
-        name: 'notification-settings',
+        name: AppRoutes.notificationSettingsName,
 
         path: AppRoutes.notificationSettings,
 
-        builder: (context, state) {
+        builder: (_, __) {
           return const NotificationSettingsScreen();
         },
       ),
     ],
 
-    // =========================================================================
-    // Future Authentication Guard
-    // =========================================================================
-    redirect: (context, state) {
+    // =======================================================================
+    // AUTH REDIRECT
+    // =======================================================================
+    redirect: (_, state) {
       /*
-        Future implementation:
+      
+      Future:
 
-        final authProvider =
-            context.read<AuthProvider>();
+      final auth =
+          context.read<AuthProvider>();
 
-        final loggedIn =
-            authProvider.isAuthenticated;
-
-
-        final goingToLogin =
-            state.matchedLocation ==
-            AppRoutes.login;
+      final loggedIn =
+          auth.isAuthenticated;
 
 
-
-        if (!loggedIn && !goingToLogin) {
-
-          return AppRoutes.login;
-
-        }
+      final location =
+          state.matchedLocation;
 
 
+      if (!loggedIn &&
+          location != AppRoutes.login) {
 
-        if (loggedIn && goingToLogin) {
-
-          return AppRoutes.notes;
-
-        }
+        return AppRoutes.login;
+      }
 
 
-        return null;
+      if (loggedIn &&
+          location == AppRoutes.login) {
+
+        return AppRoutes.notes;
+      }
+
 
       */
 
       return null;
     },
 
-    // =========================================================================
-    // Unknown Route
-    // =========================================================================
-    errorBuilder: (context, state) {
+    // =======================================================================
+    // ERROR HANDLING
+    // =======================================================================
+    errorBuilder: (_, __) {
       return const _RouteErrorScreen();
     },
   );
 }
 
 // ============================================================================
-// Invalid Navigation Screen
+// Invalid Navigation
 // ============================================================================
 
 final class _InvalidNavigationScreen extends StatelessWidget {
@@ -264,7 +251,7 @@ final class _InvalidNavigationScreen extends StatelessWidget {
 }
 
 // ============================================================================
-// 404 Screen
+// Route Error
 // ============================================================================
 
 final class _RouteErrorScreen extends StatelessWidget {
@@ -282,14 +269,13 @@ final class _RouteErrorScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
 
-            children: [
+            children: <Widget>[
               Icon(Icons.error_outline, size: 64),
 
               SizedBox(height: 16),
 
               Text(
                 '404\n\nThe requested page does not exist.',
-
                 textAlign: TextAlign.center,
               ),
             ],
