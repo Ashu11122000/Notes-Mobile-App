@@ -6,52 +6,25 @@ import 'package:flutter/material.dart';
 ///
 /// Enterprise Material 3 section header.
 ///
-/// A lightweight and reusable section header used throughout the application
-/// to separate logical groups of content.
+/// Lightweight reusable heading component for grouping application content.
 ///
-/// Typical use cases:
+/// Used across:
 ///
-/// • Notes
-/// • Dashboard
-/// • Settings
-/// • Profile
-/// • Analytics
-/// • Notifications
+/// - Notes
+/// - Dashboard
+/// - Settings
+/// - Profile
+/// - Analytics
 ///
 /// Features:
 ///
-/// • Material 3
-/// • Theme aware
-/// • Responsive
-/// • Accessible
-/// • Lightweight
-/// • Reusable
-///
-/// Example:
-///
-/// ```dart
-/// SectionHeader(
-///   title: 'Recent Notes',
-///   subtitle: '12 notes',
-///   trailing: TextButton(
-///     onPressed: () {},
-///     child: const Text('View All'),
-///   ),
-/// )
-/// ```
-///
-/// Example with icon:
-///
-/// ```dart
-/// SectionHeader(
-///   icon: Icons.note_alt_outlined,
-///   title: 'Notes',
-/// )
-/// ```
-/// ============================================================================
+/// - Material 3
+/// - Responsive
+/// - Accessible
+/// - Lightweight
+/// - Theme aware
 @immutable
 final class SectionHeader extends StatelessWidget {
-  /// Creates a reusable section header.
   const SectionHeader({
     super.key,
     required this.title,
@@ -61,90 +34,109 @@ final class SectionHeader extends StatelessWidget {
     this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     this.titleColor,
     this.subtitleColor,
+    this.iconColor,
     this.semanticLabel,
+    this.dense = false,
   });
 
-  /// Primary section title.
+  /// Section title.
   final String title;
 
-  /// Optional subtitle displayed below the title.
+  /// Optional subtitle.
   final String? subtitle;
 
-  /// Optional trailing widget.
-  ///
-  /// Examples:
-  ///
-  /// • TextButton
-  /// • IconButton
-  /// • PopupMenuButton
-  /// • Switch
+  /// Optional trailing action.
   final Widget? trailing;
 
   /// Optional leading icon.
   final IconData? icon;
 
-  /// Padding around the section header.
+  /// Outer padding.
   final EdgeInsetsGeometry padding;
 
-  /// Optional title color.
+  /// Title color.
   final Color? titleColor;
 
-  /// Optional subtitle color.
+  /// Subtitle color.
   final Color? subtitleColor;
 
-  /// Optional accessibility label.
+  /// Icon color.
+  final Color? iconColor;
+
+  /// Accessibility label.
   final String? semanticLabel;
+
+  /// Compact layout.
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
-    final colorScheme = theme.colorScheme;
+
+    final colors = theme.colorScheme;
+
+    final text = theme.textTheme;
+
+    final titleSpacing = dense ? 4.0 : 6.0;
 
     return Semantics(
       container: true,
+
       header: true,
+
       label: semanticLabel ?? title,
+
       child: Padding(
         padding: padding,
+
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
+
           children: [
             if (icon != null) ...[
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Icon(
-                  icon,
-                  size: 22,
-                  color: titleColor ?? colorScheme.primary,
-                ),
+
+                child: Icon(icon, size: 22, color: iconColor ?? colors.primary),
               ),
-              const SizedBox(width: 12),
+
+              SizedBox(width: dense ? 8 : 12),
             ],
 
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+
                 children: [
                   Text(
                     title,
+
                     maxLines: 2,
+
                     overflow: TextOverflow.ellipsis,
-                    style: textTheme.titleLarge?.copyWith(
+
+                    style: text.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
+
                       letterSpacing: -0.2,
+
                       color: titleColor,
                     ),
                   ),
 
                   if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
-                    const SizedBox(height: 6),
+                    SizedBox(height: titleSpacing),
+
                     Text(
                       subtitle!,
+
                       maxLines: 2,
+
                       overflow: TextOverflow.ellipsis,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: subtitleColor ?? colorScheme.onSurfaceVariant,
+
+                      style: text.bodyMedium?.copyWith(
+                        color: subtitleColor ?? colors.onSurfaceVariant,
+
                         height: 1.4,
                       ),
                     ),
@@ -154,8 +146,9 @@ final class SectionHeader extends StatelessWidget {
             ),
 
             if (trailing != null) ...[
-              const SizedBox(width: 16),
-              Flexible(flex: 0, child: trailing!),
+              SizedBox(width: dense ? 8 : 16),
+
+              trailing!,
             ],
           ],
         ),

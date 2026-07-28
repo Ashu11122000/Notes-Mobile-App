@@ -8,20 +8,24 @@ import 'loading_indicator.dart';
 ///
 /// Enterprise Material 3 loading overlay.
 ///
-/// Displays a modal loading indicator above its child while preventing user
-/// interaction.
+/// Displays a blocking loading layer above content while an operation
+/// is running.
+///
+/// Common usage:
+///
+/// - Authentication
+/// - Note creation
+/// - Note update
+/// - Delete operations
+/// - Synchronization
 ///
 /// Features:
 ///
-/// • Material 3 compatible
-/// • Theme aware
-/// • Accessible
-/// • Responsive
-/// • Smooth fade animation
-/// • Prevents user interaction
-///
-/// ============================================================================
-
+/// - Material 3
+/// - Theme aware
+/// - Accessible
+/// - Responsive
+/// - Optimized rendering
 @immutable
 final class LoadingOverlay extends StatelessWidget {
   const LoadingOverlay({
@@ -33,15 +37,16 @@ final class LoadingOverlay extends StatelessWidget {
     this.animationDuration = const Duration(milliseconds: 180),
     this.alignment = Alignment.center,
     this.barrierColor,
+    this.loadingIndicator,
   });
 
   /// Whether loading overlay is visible.
   final bool isLoading;
 
-  /// Main screen content.
+  /// Screen content.
   final Widget child;
 
-  /// Optional loading message.
+  /// Loading message.
   final String? message;
 
   /// Overlay opacity.
@@ -50,54 +55,58 @@ final class LoadingOverlay extends StatelessWidget {
   /// Fade animation duration.
   final Duration animationDuration;
 
-  /// Loading indicator alignment.
+  /// Indicator alignment.
   final Alignment alignment;
 
   /// Custom overlay color.
   final Color? barrierColor;
 
+  /// Optional custom loading widget.
+  final Widget? loadingIndicator;
+
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
+    final theme = Theme.of(context);
 
-    final Color overlayColor =
+    final overlayColor =
         barrierColor ?? theme.colorScheme.scrim.withValues(alpha: opacity);
 
     return Stack(
       fit: StackFit.expand,
 
       children: [
-        // ---------------------------------------------------------------------
-        // Screen Content
-        // ---------------------------------------------------------------------
         child,
 
-        // ---------------------------------------------------------------------
-        // Loading Layer
-        // ---------------------------------------------------------------------
-        IgnorePointer(
-          ignoring: !isLoading,
+        if (isLoading)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: 1,
 
-          child: AnimatedOpacity(
-            duration: animationDuration,
+                duration: animationDuration,
 
-            curve: Curves.easeOutCubic,
+                curve: Curves.easeOutCubic,
 
-            opacity: isLoading ? 1 : 0,
+                child: RepaintBoundary(
+                  child: ExcludeSemantics(
+                    excluding: !isLoading,
 
-            child: RepaintBoundary(
-              child: ColoredBox(
-                color: overlayColor,
+                    child: ColoredBox(
+                      color: overlayColor,
 
-                child: Align(
-                  alignment: alignment,
+                      child: Align(
+                        alignment: alignment,
 
-                  child: LoadingIndicator(message: message),
+                        child:
+                            loadingIndicator ??
+                            LoadingIndicator(message: message),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
       ],
     );
   }

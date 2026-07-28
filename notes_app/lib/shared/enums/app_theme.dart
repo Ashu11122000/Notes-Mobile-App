@@ -1,100 +1,98 @@
+import 'package:flutter/material.dart';
+
 /// =============================================================================
 /// File: app_theme.dart
 /// =============================================================================
 ///
 /// Defines the theme modes supported by the Notes App.
 ///
-/// This enum serves as the single source of truth for theme-related metadata.
-/// It is intentionally lightweight and designed to integrate seamlessly with
-/// Flutter's Material 3 theming and future Settings functionality.
+/// This enum acts as the single source of truth for persisted theme values
+/// and their integration with Flutter's [ThemeMode].
 ///
-/// Typical usage:
-///
-/// - Persisting the user's preferred theme.
-/// - Restoring the theme during app startup.
-/// - Displaying user-friendly names in the Settings screen.
-/// - Converting stored values into strongly typed enums.
+/// It is intentionally lightweight, strongly typed, and easy to extend.
 ///
 /// Example:
 /// ```dart
 /// final theme = AppTheme.fromValue('dark');
 ///
-/// print(theme.displayName);   // Dark
-/// print(theme.nameValue);     // dark
-/// print(theme.themeModeName); // dark
+/// print(theme.displayName); // Dark
+/// print(theme.nameValue);   // dark
+/// print(theme.themeMode);   // ThemeMode.dark
 /// ```
 enum AppTheme {
-  /// Follow the operating system's current theme.
+  /// Follow the operating system theme.
   system(nameValue: 'system', displayName: 'System'),
 
-  /// Always use the light appearance.
+  /// Always use the light theme.
   light(nameValue: 'light', displayName: 'Light'),
 
-  /// Always use the dark appearance.
+  /// Always use the dark theme.
   dark(nameValue: 'dark', displayName: 'Dark');
 
-  /// Creates an application theme.
   const AppTheme({required this.nameValue, required this.displayName});
 
   /// Value persisted in local storage.
-  ///
-  /// Examples:
-  /// - `system`
-  /// - `light`
-  /// - `dark`
   final String nameValue;
 
-  /// Human-readable theme name displayed in the UI.
+  /// User-visible theme name.
+  ///
+  /// Note: When localization is introduced, UI should provide localized
+  /// strings while this enum continues to expose stable identifiers.
   final String displayName;
 
-  /// Canonical theme identifier.
-  ///
-  /// This getter improves readability when integrating with future
-  /// theming or analytics services.
-  String get themeModeName => nameValue;
+  /// Corresponding Flutter [ThemeMode].
+  ThemeMode get themeMode => switch (this) {
+    AppTheme.system => ThemeMode.system,
+    AppTheme.light => ThemeMode.light,
+    AppTheme.dark => ThemeMode.dark,
+  };
 
-  /// Indicates whether the application should follow the device theme.
+  /// Whether this is the default application theme.
   bool get isDefault => this == AppTheme.system;
 
-  /// Converts a persisted string into an [AppTheme].
+  /// Converts a persisted value into an [AppTheme].
   ///
-  /// If the supplied value is:
+  /// Supported examples:
+  /// - system
+  /// - light
+  /// - dark
   ///
-  /// - `null`
-  /// - empty
-  /// - unsupported
-  ///
-  /// the default theme ([AppTheme.system]) is returned.
+  /// Returns [AppTheme.system] for null, empty, or unsupported values.
   static AppTheme fromValue(String? value) {
-    if (value == null || value.trim().isEmpty) {
+    final normalized = value?.trim().toLowerCase();
+
+    if (normalized == null || normalized.isEmpty) {
       return AppTheme.system;
     }
 
-    final normalizedValue = value.trim().toLowerCase();
-
-    return AppTheme.values.firstWhere(
-      (theme) => theme.nameValue == normalizedValue,
+    return values.firstWhere(
+      (theme) => theme.nameValue == normalized,
       orElse: () => AppTheme.system,
     );
   }
 
+  /// Converts Flutter's [ThemeMode] into an [AppTheme].
+  static AppTheme fromThemeMode(ThemeMode mode) => switch (mode) {
+    ThemeMode.system => AppTheme.system,
+    ThemeMode.light => AppTheme.light,
+    ThemeMode.dark => AppTheme.dark,
+  };
+
   /// Returns whether a persisted theme value is supported.
   static bool isSupported(String? value) {
-    if (value == null || value.trim().isEmpty) {
+    final normalized = value?.trim().toLowerCase();
+
+    if (normalized == null || normalized.isEmpty) {
       return false;
     }
 
-    final normalizedValue = value.trim().toLowerCase();
-
-    return AppTheme.values.any((theme) => theme.nameValue == normalizedValue);
+    return values.any((theme) => theme.nameValue == normalized);
   }
 
-  /// List of all supported persisted theme values.
-  ///
-  /// Useful for:
-  /// - validation
-  /// - Settings
-  /// - SharedPreferences
-  /// - analytics
-  static const List<String> supportedValues = ['system', 'light', 'dark'];
+  /// Returns the display name for a persisted value.
+  static String displayNameOf(String? value) => fromValue(value).displayName;
+
+  /// Supported persisted theme values.
+  static List<String> get supportedValues =>
+      values.map((e) => e.nameValue).toList(growable: false);
 }

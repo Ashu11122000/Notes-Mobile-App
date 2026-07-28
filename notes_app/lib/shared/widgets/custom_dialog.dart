@@ -6,10 +6,10 @@ import 'package:flutter/material.dart';
 ///
 /// Enterprise Material 3 dialog helper.
 ///
-/// This utility centralizes dialog presentation across the application,
-/// ensuring a consistent appearance, behavior, and accessibility.
+/// Centralizes dialog presentation across the application to ensure consistent
+/// appearance, accessibility, and behavior.
 ///
-/// Typical use cases include:
+/// Typical use cases:
 ///
 /// - Logout confirmation
 /// - Delete confirmation
@@ -18,16 +18,17 @@ import 'package:flutter/material.dart';
 /// - Session expiration
 /// - Informational messages
 ///
-/// The helper intentionally wraps Flutter's dialog APIs rather than replacing
-/// them, providing a lightweight and reusable abstraction.
+/// This helper wraps Flutter's native dialog APIs while keeping the application
+/// UI consistent and maintainable.
 ///
-/// All dialogs automatically:
+/// Features:
 ///
-/// - Follow Material 3
-/// - Respect the active theme
-/// - Remain responsive
-/// - Support accessibility
-/// - Scale well across phones and tablets
+/// - Material 3 compliant
+/// - Theme-aware
+/// - Responsive
+/// - Accessible
+/// - Tablet friendly
+/// - Lightweight
 abstract final class CustomDialog {
   static const double _maxWidth = 420;
 
@@ -44,27 +45,31 @@ abstract final class CustomDialog {
     String confirmText = 'Confirm',
     String cancelText = 'Cancel',
     bool barrierDismissible = true,
+    bool useRootNavigator = true,
+    bool requestFocus = true,
     IconData? icon,
     bool isDestructive = false,
-    bool useRootNavigator = true,
+    String? semanticLabel,
   }) async {
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: barrierDismissible,
       useRootNavigator: useRootNavigator,
+      requestFocus: requestFocus,
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
 
         return AlertDialog(
+          semanticLabel: semanticLabel,
+          constraints: const BoxConstraints(maxWidth: _maxWidth),
           icon: icon != null ? Icon(icon) : null,
           title: Text(title),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _maxWidth),
-            child: Text(message),
-          ),
+          content: Text(message),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
               child: Text(cancelText),
             ),
             FilledButton(
@@ -74,7 +79,9 @@ abstract final class CustomDialog {
                       foregroundColor: theme.colorScheme.onError,
                     )
                   : null,
-              onPressed: () => Navigator.of(dialogContext).pop(true),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
               child: Text(confirmText),
             ),
           ],
@@ -92,24 +99,28 @@ abstract final class CustomDialog {
     required String message,
     String buttonText = 'OK',
     bool barrierDismissible = true,
-    IconData? icon,
     bool useRootNavigator = true,
+    bool requestFocus = true,
+    IconData? icon,
+    String? semanticLabel,
   }) {
     return showDialog<void>(
       context: context,
       barrierDismissible: barrierDismissible,
       useRootNavigator: useRootNavigator,
+      requestFocus: requestFocus,
       builder: (dialogContext) {
         return AlertDialog(
+          semanticLabel: semanticLabel,
+          constraints: const BoxConstraints(maxWidth: _maxWidth),
           icon: icon != null ? Icon(icon) : null,
           title: Text(title),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _maxWidth),
-            child: Text(message),
-          ),
+          content: Text(message),
           actions: [
             FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
               child: Text(buttonText),
             ),
           ],

@@ -9,8 +9,7 @@ import 'package:flutter/material.dart';
 /// The logo is intentionally built using Material 3 widgets instead of image
 /// assets, making it lightweight, resolution-independent, and easy to brand.
 ///
-/// This widget is designed to be reused across:
-///
+/// Designed for:
 /// - Splash Screen
 /// - Login Screen
 /// - Register Screen
@@ -20,11 +19,12 @@ import 'package:flutter/material.dart';
 ///
 /// Features:
 /// - Material 3 styling
-/// - Responsive sizing
-/// - Theme awareness
+/// - Theme-aware
+/// - Lightweight rendering
 /// - Accessibility support
 /// - Optional Hero animation
-/// - Highly customizable
+/// - Responsive sizing
+/// - Highly reusable
 @immutable
 final class AppLogo extends StatelessWidget {
   /// Creates an application logo.
@@ -33,29 +33,27 @@ final class AppLogo extends StatelessWidget {
     this.size = 96,
     this.showTitle = true,
     this.title = 'Notes App',
-    this.subtitle = 'Capture your ideas, anytime.',
+    this.subtitle,
     this.icon = Icons.sticky_note_2_rounded,
     this.heroTag,
   });
 
-  /// Size of the logo container.
+  /// Size of the logo.
   final double size;
 
   /// Whether to display the application title.
   final bool showTitle;
 
-  /// Application title displayed below the logo.
+  /// Application title.
   final String title;
 
-  /// Optional subtitle displayed below the title.
-  final String subtitle;
+  /// Optional subtitle.
+  final String? subtitle;
 
   /// Icon displayed inside the logo.
   final IconData icon;
 
   /// Optional Hero tag.
-  ///
-  /// When supplied, the logo participates in Hero transitions.
   final Object? heroTag;
 
   @override
@@ -64,65 +62,73 @@ final class AppLogo extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
-    final logo = DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(size * .28),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.08),
-            blurRadius: size * .10,
-            offset: Offset(0, size * .04),
-          ),
-        ],
-      ),
-      child: SizedBox(
+    final double titleSpacing = (size * 0.16).clamp(12.0, 24.0);
+    final double subtitleSpacing = (size * 0.04).clamp(4.0, 8.0);
+
+    final Widget logo = Material(
+      color: colorScheme.primaryContainer,
+      elevation: 1,
+      borderRadius: BorderRadius.circular(size * 0.28),
+      clipBehavior: Clip.antiAlias,
+      child: Ink(
         width: size,
         height: size,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(size * 0.28),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.40),
+          ),
+        ),
         child: Center(
           child: Icon(
             icon,
-            size: size * .50,
+            size: size * 0.50,
             color: colorScheme.onPrimaryContainer,
           ),
         ),
       ),
     );
 
+    final Widget logoWidget = heroTag == null
+        ? logo
+        : Hero(
+            tag: heroTag!,
+            child: logo,
+          );
+
     return Semantics(
       container: true,
-      label: title,
       image: true,
+      label: title,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          heroTag != null
-              ? Hero(
-                  tag: heroTag!,
-                  child: Material(color: Colors.transparent, child: logo),
-                )
-              : logo,
+          logoWidget,
+
           if (showTitle) ...[
-            SizedBox(height: size * .16),
+            SizedBox(height: titleSpacing),
+
             Text(
               title,
               textAlign: TextAlign.center,
-              style: textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                letterSpacing: -.25,
-              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: textTheme.headlineSmall,
             ),
-            SizedBox(height: size * .04),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+
+            if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+              SizedBox(height: subtitleSpacing),
+
+              Text(
+                subtitle!,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
+            ],
           ],
         ],
       ),

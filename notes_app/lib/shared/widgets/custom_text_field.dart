@@ -7,27 +7,22 @@ import 'package:flutter/services.dart';
 ///
 /// Enterprise Material 3 reusable text field.
 ///
-/// A highly reusable wrapper around [TextFormField] providing a consistent
-/// appearance and behavior across the application.
+/// Optimized for:
+///
+/// - Authentication
+/// - Notes forms
+/// - Search
+/// - Settings
 ///
 /// Features:
 ///
-/// • Material 3
-/// • Password visibility toggle
-/// • Clear button
-/// • Accessibility
-/// • Desktop/Web support
-/// • Theme aware
-/// • Input formatters
-/// • Validation
-/// • Autofill
-/// • Read-only support
-/// • Enterprise API
-///
-/// This widget intentionally contains no business logic and can be reused
-/// throughout Authentication, Notes, Profile, Settings and future features.
-/// ============================================================================
-
+/// - Material 3
+/// - Password visibility
+/// - Clear button
+/// - Validation
+/// - Autofill
+/// - Accessibility
+/// - Low rebuild architecture
 @immutable
 final class CustomTextField extends StatefulWidget {
   const CustomTextField({
@@ -45,6 +40,7 @@ final class CustomTextField extends StatefulWidget {
     this.onFieldSubmitted,
     this.onEditingComplete,
     this.onTap,
+    this.onClear,
     this.prefixIcon,
     this.suffixIcon,
     this.maxLines = 1,
@@ -69,113 +65,76 @@ final class CustomTextField extends StatefulWidget {
     this.semanticLabel,
   });
 
-  /// Controller.
   final TextEditingController? controller;
 
-  /// Focus node.
   final FocusNode? focusNode;
 
-  /// Label text.
   final String? labelText;
 
-  /// Hint text.
   final String? hintText;
 
-  /// Helper text.
   final String? helperText;
 
-  /// Initial value.
-  ///
-  /// Ignored when [controller] is supplied.
   final String? initialValue;
 
-  /// Keyboard type.
   final TextInputType? keyboardType;
 
-  /// Text input action.
   final TextInputAction? textInputAction;
 
-  /// Validator.
   final FormFieldValidator<String>? validator;
 
-  /// Value changed callback.
   final ValueChanged<String>? onChanged;
 
-  /// Submit callback.
   final ValueChanged<String>? onFieldSubmitted;
 
-  /// Editing complete callback.
   final VoidCallback? onEditingComplete;
 
-  /// Tap callback.
   final VoidCallback? onTap;
 
-  /// Prefix icon.
+  final VoidCallback? onClear;
+
   final IconData? prefixIcon;
 
-  /// Suffix icon.
-  ///
-  /// Ignored when [obscureText] is true.
   final IconData? suffixIcon;
 
-  /// Maximum lines.
   final int? maxLines;
 
-  /// Minimum lines.
   final int? minLines;
 
-  /// Maximum length.
   final int? maxLength;
 
-  /// Enabled.
   final bool enabled;
 
-  /// Read only.
   final bool readOnly;
 
-  /// Autofill hints.
   final Iterable<String>? autofillHints;
 
-  /// Password field.
   final bool obscureText;
 
-  /// Autofocus.
   final bool autofocus;
 
-  /// Enable suggestions.
   final bool enableSuggestions;
 
-  /// Enable autocorrect.
   final bool autocorrect;
 
-  /// Show clear button.
   final bool showClearButton;
 
-  /// Text capitalization.
   final TextCapitalization textCapitalization;
 
-  /// Input formatters.
   final List<TextInputFormatter>? inputFormatters;
 
-  /// Cursor color.
   final Color? cursorColor;
 
-  /// Cursor width.
   final double cursorWidth;
 
-  /// Cursor radius.
   final Radius? cursorRadius;
 
-  /// Text alignment.
   final TextAlign textAlign;
 
-  /// Mouse cursor.
   final MouseCursor? mouseCursor;
 
-  /// Optional decoration override.
   final InputDecoration? decoration;
 
-  /// Accessibility label.
   final String? semanticLabel;
 
   @override
@@ -183,71 +142,57 @@ final class CustomTextField extends StatefulWidget {
 }
 
 final class _CustomTextFieldState extends State<CustomTextField> {
-  late final ValueNotifier<bool> _obscureNotifier;
+  late bool _obscured;
 
   @override
   void initState() {
     super.initState();
-    _obscureNotifier = ValueNotifier<bool>(widget.obscureText);
+    _obscured = widget.obscureText;
   }
 
-  @override
-  void dispose() {
-    _obscureNotifier.dispose();
-    super.dispose();
+  void _toggleVisibility() {
+    setState(() {
+      _obscured = !_obscured;
+    });
   }
 
-  void _togglePasswordVisibility() {
-    _obscureNotifier.value = !_obscureNotifier.value;
-  }
-
-  Widget? _buildSuffixIcon() {
+  Widget? _suffix(BuildContext context) {
     if (widget.obscureText) {
-      return ValueListenableBuilder<bool>(
-        valueListenable: _obscureNotifier,
-        builder: (_, obscure, __) {
-          return IconButton(
-            tooltip: obscure ? 'Show password' : 'Hide password',
-            onPressed: _togglePasswordVisibility,
-            icon: Icon(
-              obscure
-                  ? Icons.visibility_off_outlined
-                  : Icons.visibility_outlined,
-            ),
-          );
-        },
+      return IconButton(
+        tooltip: _obscured ? 'Show password' : 'Hide password',
+        icon: Icon(
+          _obscured ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+        ),
+        onPressed: _toggleVisibility,
       );
     }
 
     if (widget.showClearButton && widget.controller != null) {
       return ValueListenableBuilder<TextEditingValue>(
         valueListenable: widget.controller!,
-        builder: (_, value, __) {
+        builder: (context, value, _) {
           if (value.text.isEmpty) {
-            if (widget.suffixIcon == null) {
-              return const SizedBox.shrink();
-            }
-
-            return Icon(widget.suffixIcon);
+            return widget.suffixIcon == null
+                ? const SizedBox.shrink()
+                : Icon(widget.suffixIcon);
           }
 
           return IconButton(
             tooltip: 'Clear',
+            icon: const Icon(Icons.close_rounded),
             onPressed: () {
               widget.controller!.clear();
+
               widget.onChanged?.call('');
+
+              widget.onClear?.call();
             },
-            icon: const Icon(Icons.close_rounded),
           );
         },
       );
     }
 
-    if (widget.suffixIcon != null) {
-      return Icon(widget.suffixIcon);
-    }
-
-    return null;
+    return widget.suffixIcon == null ? null : Icon(widget.suffixIcon);
   }
 
   @override
@@ -255,55 +200,81 @@ final class _CustomTextFieldState extends State<CustomTextField> {
     return Semantics(
       textField: true,
       label: widget.semanticLabel ?? widget.labelText ?? widget.hintText,
-      child: ValueListenableBuilder<bool>(
-        valueListenable: _obscureNotifier,
-        builder: (_, obscure, __) {
-          return TextFormField(
-            controller: widget.controller,
-            initialValue: widget.controller == null
-                ? widget.initialValue
-                : null,
-            focusNode: widget.focusNode,
-            enabled: widget.enabled,
-            readOnly: widget.readOnly,
-            autofocus: widget.autofocus,
-            keyboardType: widget.keyboardType,
-            textInputAction: widget.textInputAction,
-            textCapitalization: widget.textCapitalization,
-            obscureText: obscure,
-            enableSuggestions: widget.obscureText
-                ? false
-                : widget.enableSuggestions,
-            autocorrect: widget.obscureText ? false : widget.autocorrect,
-            autofillHints: widget.autofillHints,
-            validator: widget.validator,
-            onChanged: widget.onChanged,
-            onFieldSubmitted: widget.onFieldSubmitted,
-            onEditingComplete: widget.onEditingComplete,
-            onTap: widget.onTap,
-            inputFormatters: widget.inputFormatters,
-            maxLength: widget.maxLength,
-            minLines: widget.minLines,
-            maxLines: widget.obscureText ? 1 : widget.maxLines,
-            cursorColor: widget.cursorColor,
-            cursorWidth: widget.cursorWidth,
-            cursorRadius: widget.cursorRadius,
-            textAlign: widget.textAlign,
-            mouseCursor: widget.mouseCursor,
-            showCursor: !widget.readOnly,
-            decoration:
-                widget.decoration ??
-                InputDecoration(
-                  labelText: widget.labelText,
-                  hintText: widget.hintText,
-                  helperText: widget.helperText,
-                  prefixIcon: widget.prefixIcon != null
-                      ? Icon(widget.prefixIcon)
-                      : null,
-                  suffixIcon: _buildSuffixIcon(),
-                ),
-          );
-        },
+
+      child: TextFormField(
+        controller: widget.controller,
+
+        initialValue: widget.controller == null ? widget.initialValue : null,
+
+        focusNode: widget.focusNode,
+
+        enabled: widget.enabled,
+
+        readOnly: widget.readOnly,
+
+        autofocus: widget.autofocus,
+
+        keyboardType: widget.keyboardType,
+
+        textInputAction: widget.textInputAction,
+
+        textCapitalization: widget.textCapitalization,
+
+        obscureText: _obscured,
+
+        enableSuggestions: widget.obscureText
+            ? false
+            : widget.enableSuggestions,
+
+        autocorrect: widget.obscureText ? false : widget.autocorrect,
+
+        autofillHints: widget.autofillHints,
+
+        validator: widget.validator,
+
+        onChanged: widget.onChanged,
+
+        onFieldSubmitted: widget.onFieldSubmitted,
+
+        onEditingComplete: widget.onEditingComplete,
+
+        onTap: widget.onTap,
+
+        inputFormatters: widget.inputFormatters,
+
+        maxLength: widget.maxLength,
+
+        minLines: widget.minLines,
+
+        maxLines: widget.obscureText ? 1 : widget.maxLines,
+
+        cursorColor: widget.cursorColor,
+
+        cursorWidth: widget.cursorWidth,
+
+        cursorRadius: widget.cursorRadius,
+
+        textAlign: widget.textAlign,
+
+        mouseCursor: widget.mouseCursor,
+
+        showCursor: !widget.readOnly,
+
+        decoration:
+            widget.decoration ??
+            InputDecoration(
+              labelText: widget.labelText,
+
+              hintText: widget.hintText,
+
+              helperText: widget.helperText,
+
+              prefixIcon: widget.prefixIcon == null
+                  ? null
+                  : Icon(widget.prefixIcon),
+
+              suffixIcon: _suffix(context),
+            ),
       ),
     );
   }

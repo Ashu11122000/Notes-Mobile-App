@@ -8,31 +8,15 @@
 /// of Flutter widgets, networking, and persistence implementations.
 ///
 /// The selected filter may be applied:
-///
 /// - Server-side through API query parameters.
 /// - Client-side after fetching note data.
 ///
 /// Centralizing filter definitions provides:
-///
 /// - Strong typing
 /// - Safer persistence
 /// - Easier serialization
 /// - Consistent UI behavior
 /// - Better maintainability
-///
-/// Example:
-///
-/// ```dart
-/// switch (filter) {
-///   case NoteFilter.all:
-///     // Display every note.
-///     break;
-///
-///   case NoteFilter.search:
-///     // Display notes matching the current search query.
-///     break;
-/// }
-/// ```
 enum NoteFilter {
   /// Displays every available note.
   all(value: 'all', displayName: 'All'),
@@ -43,17 +27,15 @@ enum NoteFilter {
   /// the backend API.
   search(value: 'search', displayName: 'Search');
 
-  /// Creates a note filter.
   const NoteFilter({required this.value, required this.displayName});
 
-  /// Persisted value used for serialization.
-  ///
-  /// Examples:
-  /// - `all`
-  /// - `search`
+  /// Stable value used for persistence and serialization.
   final String value;
 
   /// Human-readable label displayed in the UI.
+  ///
+  /// Note: When localization is introduced, UI should provide localized
+  /// strings while this enum continues to expose stable identifiers.
   final String displayName;
 
   /// Returns whether this filter displays every note.
@@ -64,43 +46,35 @@ enum NoteFilter {
 
   /// Converts a persisted value into a [NoteFilter].
   ///
-  /// If the supplied value is:
-  ///
-  /// - `null`
-  /// - empty
-  /// - unsupported
-  ///
-  /// the default filter ([NoteFilter.all]) is returned.
+  /// Returns [NoteFilter.all] for `null`, empty, or unsupported values.
   static NoteFilter fromValue(String? value) {
-    if (value == null || value.trim().isEmpty) {
+    final normalized = value?.trim().toLowerCase();
+
+    if (normalized == null || normalized.isEmpty) {
       return NoteFilter.all;
     }
 
-    final normalizedValue = value.trim().toLowerCase();
-
-    return NoteFilter.values.firstWhere(
-      (filter) => filter.value == normalizedValue,
+    return values.firstWhere(
+      (filter) => filter.value == normalized,
       orElse: () => NoteFilter.all,
     );
   }
 
   /// Returns whether the supplied value represents a supported filter.
   static bool isSupported(String? value) {
-    if (value == null || value.trim().isEmpty) {
+    final normalized = value?.trim().toLowerCase();
+
+    if (normalized == null || normalized.isEmpty) {
       return false;
     }
 
-    final normalizedValue = value.trim().toLowerCase();
-
-    return NoteFilter.values.any((filter) => filter.value == normalizedValue);
+    return values.any((filter) => filter.value == normalized);
   }
 
-  /// List of all supported persisted values.
-  ///
-  /// Useful for:
-  /// - validation
-  /// - serialization
-  /// - analytics
-  /// - Settings
-  static const List<String> supportedValues = ['all', 'search'];
+  /// Returns the display name for a persisted filter value.
+  static String displayNameOf(String? value) => fromValue(value).displayName;
+
+  /// All supported persisted values.
+  static List<String> get supportedValues =>
+      values.map((filter) => filter.value).toList(growable: false);
 }
