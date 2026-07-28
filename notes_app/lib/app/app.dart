@@ -18,25 +18,14 @@ import 'app_theme.dart';
 /// • Registers dependency providers.
 /// • Configures MaterialApp.router.
 /// • Applies theme system.
-/// • Handles global UI configuration.
-/// • Connects application routing.
+/// • Connects routing.
+/// • Provides global UI configuration.
 ///
 /// Does NOT:
 /// ----------------------------------------------------------------------------
 /// • Handle business logic.
 /// • Call APIs.
 /// • Manage feature state.
-///
-/// Architecture
-/// ----------------------------------------------------------------------------
-///
-/// main.dart
-///     ↓
-/// NotesApp
-///     ↓
-/// AppProviders
-///     ↓
-/// Feature Providers
 ///
 /// ============================================================================
 
@@ -46,11 +35,15 @@ final class NotesApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppProviders(
-      child: Consumer<SettingsProvider>(
-        builder: (context, settingsProvider, child) {
+      child: Selector<SettingsProvider, ThemeMode>(
+        selector: (context, settingsProvider) {
+          return settingsProvider.themeMode;
+        },
+
+        builder: (context, themeMode, child) {
           return MaterialApp.router(
             // =================================================================
-            // Application Metadata
+            // Metadata
             // =================================================================
             title: 'Notes App',
 
@@ -59,25 +52,25 @@ final class NotesApp extends StatelessWidget {
             restorationScopeId: 'notes_app',
 
             // =================================================================
-            // Theme Configuration
+            // Theme
             // =================================================================
             theme: AppTheme.lightTheme,
 
             darkTheme: AppTheme.darkTheme,
 
-            themeMode: settingsProvider.themeMode,
+            themeMode: themeMode,
 
-            themeAnimationDuration: const Duration(milliseconds: 300),
+            themeAnimationDuration: const Duration(milliseconds: 200),
 
-            themeAnimationCurve: Curves.easeInOutCubic,
+            themeAnimationCurve: Curves.easeOut,
 
             // =================================================================
-            // Router
+            // Routing
             // =================================================================
             routerConfig: AppRouter.router,
 
             // =================================================================
-            // Global Application Builder
+            // Global Wrapper
             // =================================================================
             builder: (context, child) {
               return _AppWrapper(child: child ?? const SizedBox.shrink());
@@ -95,10 +88,9 @@ final class NotesApp extends StatelessWidget {
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Handles global gestures.
-/// • Dismisses keyboard.
-/// • Provides accessibility configuration.
-/// • Keeps MaterialApp clean.
+/// • Keyboard dismissal.
+/// • Accessibility configuration.
+/// • Global UI behavior.
 ///
 /// ============================================================================
 
@@ -109,17 +101,17 @@ final class _AppWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final TextScaler textScaler = MediaQuery.textScalerOf(
+      context,
+    ).clamp(minScaleFactor: 0.8, maxScaleFactor: 1.3);
+
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
 
       onTap: _dismissKeyboard,
 
       child: MediaQuery(
-        data: MediaQuery.of(context).copyWith(
-          // Prevents extreme text scaling
-          // from breaking UI layouts.
-          textScaler: const TextScaler.linear(1.0),
-        ),
+        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
 
         child: child,
       ),
@@ -131,12 +123,8 @@ final class _AppWrapper extends StatelessWidget {
   // ===========================================================================
 
   void _dismissKeyboard() {
-    final FocusManager focusManager = FocusManager.instance;
+    final FocusNode? focusNode = FocusManager.instance.primaryFocus;
 
-    final FocusNode? primaryFocus = focusManager.primaryFocus;
-
-    if (primaryFocus != null) {
-      primaryFocus.unfocus();
-    }
+    focusNode?.unfocus();
   }
 }

@@ -24,9 +24,9 @@ import 'package:notes_app/features/settings/presentation/providers/settings_prov
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Registers application dependencies.
-/// • Provides repositories.
-/// • Provides feature state managers.
 /// • Controls dependency lifecycle.
+/// • Provides repositories.
+/// • Provides feature state management.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -39,7 +39,7 @@ import 'package:notes_app/features/settings/presentation/providers/settings_prov
 ///  ↓
 /// Data Sources
 ///  ↓
-/// APIs
+/// API
 ///
 /// ============================================================================
 
@@ -58,31 +58,39 @@ final class AppProviders extends StatelessWidget {
         Provider<AuthRemoteDataSource>(
           lazy: true,
 
-          create: (_) => AuthRemoteDataSourceImpl(),
+          create: (_) {
+            return AuthRemoteDataSourceImpl();
+          },
         ),
 
         Provider<NotesRemoteDataSource>(
           lazy: true,
 
-          create: (_) => NotesRemoteDataSourceImpl(),
+          create: (_) {
+            return NotesRemoteDataSourceImpl();
+          },
         ),
 
         // =====================================================================
         // REPOSITORIES
         // =====================================================================
-        ProxyProvider<AuthRemoteDataSource, AuthRepository>(
+        Provider<AuthRepository>(
           lazy: true,
 
-          update: (context, remoteDataSource, previous) {
-            return AuthRepositoryImpl(remoteDataSource: remoteDataSource);
+          create: (context) {
+            return AuthRepositoryImpl(
+              remoteDataSource: context.read<AuthRemoteDataSource>(),
+            );
           },
         ),
 
-        ProxyProvider<NotesRemoteDataSource, NotesRepository>(
+        Provider<NotesRepository>(
           lazy: true,
 
-          update: (context, remoteDataSource, previous) {
-            return NotesRepositoryImpl(remoteDataSource: remoteDataSource);
+          create: (context) {
+            return NotesRepositoryImpl(
+              remoteDataSource: context.read<NotesRemoteDataSource>(),
+            );
           },
         ),
 
@@ -106,7 +114,7 @@ final class AppProviders extends StatelessWidget {
         ),
 
         ChangeNotifierProvider<NotificationProvider>(
-          lazy: false,
+          lazy: true,
 
           create: (_) {
             return NotificationProvider();
@@ -114,7 +122,7 @@ final class AppProviders extends StatelessWidget {
         ),
 
         ChangeNotifierProvider<SettingsProvider>(
-          lazy: false,
+          lazy: true,
 
           create: (_) {
             return SettingsProvider();
