@@ -6,35 +6,17 @@ import 'package:flutter/material.dart';
 ///
 /// Enterprise Material 3 reusable filter chip.
 ///
-/// This widget standardizes the appearance and behavior of selectable chips
-/// throughout the application while remaining lightweight and highly
-/// customizable.
+/// Standardizes selectable chips across the application while remaining
+/// lightweight, accessible, and customizable.
 ///
-/// Features:
-/// - Material 3 compliant
-/// - Theme-aware
-/// - Accessible
-/// - Tooltip support
-/// - Desktop/Web friendly
-/// - Reusable across features
+/// Common usage:
 ///
-/// Typical use cases:
 /// - Note filters
 /// - Categories
 /// - Tags
 /// - Search suggestions
 /// - Sort options
 /// - Settings
-///
-/// Example:
-///
-/// ```dart
-/// CustomChip(
-///   label: 'All',
-///   selected: true,
-///   onSelected: (_) {},
-/// )
-/// ```
 @immutable
 final class CustomChip extends StatelessWidget {
   /// Creates a reusable Material 3 filter chip.
@@ -43,7 +25,9 @@ final class CustomChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onSelected,
+    this.enabled = true,
     this.avatar,
+    this.onDeleted,
     this.tooltip,
     this.semanticLabel,
     this.labelStyle,
@@ -52,73 +36,95 @@ final class CustomChip extends StatelessWidget {
     this.elevation = 0,
     this.selectedColor,
     this.backgroundColor,
+    this.shape,
   });
 
   /// Text displayed inside the chip.
   final String label;
 
-  /// Whether the chip is currently selected.
+  /// Whether the chip is selected.
   final bool selected;
 
-  /// Invoked when the chip selection changes.
+  /// Whether the chip is enabled.
+  final bool enabled;
+
+  /// Called when selection changes.
   final ValueChanged<bool> onSelected;
 
   /// Optional leading widget.
   final Widget? avatar;
 
-  /// Optional tooltip shown on long press or hover.
+  /// Optional delete callback.
+  ///
+  /// Useful for removable tags.
+  final VoidCallback? onDeleted;
+
+  /// Tooltip displayed on hover/long press.
   final String? tooltip;
 
-  /// Optional accessibility label.
+  /// Accessibility label.
   final String? semanticLabel;
 
-  /// Optional label text style.
+  /// Optional label style.
   final TextStyle? labelStyle;
 
-  /// Internal chip padding.
+  /// Internal padding.
   final EdgeInsetsGeometry padding;
 
-  /// Visual density of the chip.
+  /// Visual density.
   final VisualDensity visualDensity;
 
   /// Chip elevation.
   final double elevation;
 
-  /// Optional selected background color.
+  /// Selected background color.
   final Color? selectedColor;
 
-  /// Optional unselected background color.
+  /// Unselected background color.
   final Color? backgroundColor;
+
+  /// Custom chip shape.
+  final OutlinedBorder? shape;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final isEnabled = enabled;
+
     Widget chip = Semantics(
       button: true,
+      enabled: isEnabled,
       selected: selected,
       label: semanticLabel ?? label,
       child: FilterChip(
         label: Text(label, style: labelStyle),
         selected: selected,
-        onSelected: onSelected,
+        onSelected: isEnabled ? onSelected : null,
+        onDeleted: onDeleted,
         avatar: avatar,
         padding: padding,
         elevation: elevation,
         showCheckmark: false,
         visualDensity: visualDensity,
-        mouseCursor: SystemMouseCursors.click,
+        mouseCursor: isEnabled
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
         backgroundColor:
             backgroundColor ?? theme.colorScheme.surfaceContainerLow,
         selectedColor: selectedColor ?? theme.colorScheme.secondaryContainer,
         side: BorderSide(
           color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape:
+            shape ??
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
 
-    if (tooltip != null && tooltip!.trim().isNotEmpty) {
+    final hasTooltip = tooltip != null && tooltip!.trim().isNotEmpty;
+
+    if (hasTooltip) {
       chip = Tooltip(
         message: tooltip!,
         waitDuration: const Duration(milliseconds: 500),

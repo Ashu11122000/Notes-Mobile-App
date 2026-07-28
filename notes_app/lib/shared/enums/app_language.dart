@@ -1,27 +1,24 @@
+import 'package:flutter/widgets.dart';
+
 /// =============================================================================
 /// File: app_language.dart
 /// =============================================================================
 ///
 /// Defines the application languages supported by the Notes App.
 ///
-/// This enum acts as the single source of truth for language metadata,
-/// making it easy to integrate Flutter localization (`gen_l10n` or
-/// `flutter_localizations`) in the future.
+/// This enum serves as the single source of truth for language metadata,
+/// ensuring type safety and making future localization straightforward.
 ///
-/// Keeping language information centralized avoids scattered string literals
-/// throughout the codebase and provides strong type safety.
-///
-/// Current supported languages:
-/// - English
-/// - Hindi
+/// New languages can be added by introducing another enum value without
+/// modifying lookup logic.
 ///
 /// Example:
 /// ```dart
-/// final language = AppLanguage.fromCode('hi');
+/// final language = AppLanguage.fromCode('hi-IN');
 ///
 /// print(language.displayName); // Hindi
 /// print(language.code);        // hi
-/// print(language.localeTag);   // hi
+/// print(language.locale);      // Locale('hi')
 /// ```
 enum AppLanguage {
   /// English (default application language).
@@ -34,42 +31,39 @@ enum AppLanguage {
   const AppLanguage({required this.code, required this.displayName});
 
   /// ISO 639-1 language code.
-  ///
-  /// Examples:
-  /// - `en`
-  /// - `hi`
   final String code;
 
   /// User-visible language name.
   final String displayName;
 
-  /// Locale identifier used when constructing a Flutter [Locale].
-  ///
-  /// Example:
-  /// ```dart
-  /// Locale(AppLanguage.english.localeTag);
-  /// ```
-  String get localeTag => code;
+  /// Flutter locale.
+  Locale get locale => Locale(code);
 
-  /// Indicates whether this is the application's default language.
+  /// Whether this is the application's default language.
   bool get isDefault => this == AppLanguage.english;
 
-  /// Returns the corresponding [AppLanguage] for the given ISO language code.
+  /// Returns the language corresponding to the given language code.
   ///
-  /// If the provided value is:
-  /// - `null`
-  /// - empty
-  /// - unsupported
+  /// Supports values such as:
+  /// - en
+  /// - en-US
+  /// - en_US
+  /// - hi
+  /// - hi-IN
+  /// - hi_IN
   ///
-  /// the default language ([AppLanguage.english]) is returned.
+  /// Falls back to [AppLanguage.english] when the code is null,
+  /// empty, or unsupported.
   static AppLanguage fromCode(String? code) {
-    if (code == null || code.trim().isEmpty) {
+    final value = code?.trim();
+
+    if (value == null || value.isEmpty) {
       return AppLanguage.english;
     }
 
-    final normalizedCode = code.trim().toLowerCase();
+    final normalizedCode = value.toLowerCase().split(RegExp(r'[-_]')).first;
 
-    return AppLanguage.values.firstWhere(
+    return values.firstWhere(
       (language) => language.code == normalizedCode,
       orElse: () => AppLanguage.english,
     );
@@ -77,23 +71,25 @@ enum AppLanguage {
 
   /// Returns whether the given language code is supported.
   static bool isSupported(String? code) {
-    if (code == null || code.trim().isEmpty) {
+    final value = code?.trim();
+
+    if (value == null || value.isEmpty) {
       return false;
     }
 
-    final normalizedCode = code.trim().toLowerCase();
+    final normalizedCode = value.toLowerCase().split(RegExp(r'[-_]')).first;
 
-    return AppLanguage.values.any(
-      (language) => language.code == normalizedCode,
-    );
+    return values.any((language) => language.code == normalizedCode);
   }
 
-  /// List of all supported ISO language codes.
-  ///
-  /// Useful for:
-  /// - API validation
-  /// - Settings
-  /// - Localization
-  /// - Analytics
-  static const List<String> supportedCodes = ['en', 'hi'];
+  /// Returns the display name for a language code.
+  static String displayNameOf(String? code) => fromCode(code).displayName;
+
+  /// Supported ISO language codes.
+  static List<String> get supportedCodes =>
+      values.map((e) => e.code).toList(growable: false);
+
+  /// Supported Flutter locales.
+  static List<Locale> get supportedLocales =>
+      values.map((e) => e.locale).toList(growable: false);
 }

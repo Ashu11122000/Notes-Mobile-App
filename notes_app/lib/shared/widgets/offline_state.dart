@@ -6,48 +6,24 @@ import 'package:flutter/material.dart';
 ///
 /// Enterprise Material 3 offline state widget.
 ///
-/// Displays a polished and reusable UI whenever the application detects that
-/// no active internet connection is available.
+/// Displays reusable UI when network connectivity is unavailable.
 ///
-/// Typical use cases:
+/// Designed for:
 ///
-/// • Network unavailable
-/// • Internet disconnected
-/// • API timeout
-/// • Server unreachable
-/// • Offline mode
+/// - No internet
+/// - API timeout
+/// - Server unreachable
+/// - Offline mode
 ///
 /// Features:
 ///
-/// • Material 3
-/// • Theme aware
-/// • Responsive
-/// • Accessible
-/// • Lightweight
-/// • Highly reusable
-///
-/// Example:
-///
-/// ```dart
-/// OfflineState(
-///   action: FilledButton(
-///     onPressed: retry,
-///     child: const Text('Retry'),
-///   ),
-/// )
-/// ```
-///
-/// A custom illustration can also be provided:
-///
-/// ```dart
-/// OfflineState(
-///   illustration: SvgPicture.asset('assets/images/offline.svg'),
-/// )
-/// ```
-/// ============================================================================
+/// - Material 3
+/// - Theme aware
+/// - Responsive
+/// - Accessible
+/// - Lightweight
 @immutable
 final class OfflineState extends StatelessWidget {
-  /// Creates an enterprise offline state.
   const OfflineState({
     super.key,
     this.title = 'No Internet Connection',
@@ -58,94 +34,127 @@ final class OfflineState extends StatelessWidget {
     this.iconSize = 72,
     this.maxWidth = 420,
     this.padding = const EdgeInsets.all(24),
+    this.titleSpacing = 24,
+    this.messageSpacing = 12,
+    this.actionSpacing = 28,
+    this.textAlign = TextAlign.center,
     this.semanticLabel,
   });
 
   /// Offline title.
   final String title;
 
-  /// Supporting message.
+  /// Offline description.
   final String message;
 
-  /// Icon displayed above the title.
-  ///
-  /// Ignored when [illustration] is supplied.
+  /// Default icon.
   final IconData icon;
 
-  /// Optional custom illustration.
-  ///
-  /// Allows replacing the default icon with an SVG, Lottie animation,
-  /// branded illustration, or any other widget without changing the API.
+  /// Custom illustration.
   final Widget? illustration;
 
-  /// Optional action widget.
-  ///
-  /// Typical examples:
-  ///
-  /// • Retry button
-  /// • Refresh button
-  /// • Open Settings button
-  /// • Continue Offline button
+  /// Optional action.
   final Widget? action;
 
-  /// Size of the icon.
+  /// Icon size.
   final double iconSize;
 
   /// Maximum content width.
-  ///
-  /// Prevents the layout from becoming too wide on tablets and desktop.
   final double maxWidth;
 
   /// Outer padding.
   final EdgeInsetsGeometry padding;
 
-  /// Optional accessibility label.
+  /// Space between icon and title.
+  final double titleSpacing;
+
+  /// Space between title and message.
+  final double messageSpacing;
+
+  /// Space before action.
+  final double actionSpacing;
+
+  /// Text alignment.
+  final TextAlign textAlign;
+
+  /// Accessibility label.
   final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
 
     return Center(
       child: Semantics(
         container: true,
         liveRegion: true,
-        label: semanticLabel ?? title,
+        label: semanticLabel ?? '$title. $message',
+
         child: Padding(
           padding: padding,
+
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
+
             child: Column(
               mainAxisSize: MainAxisSize.min,
+
               children: [
                 illustration ??
-                    Icon(icon, size: iconSize, color: colorScheme.outline),
+                    Container(
+                      width: iconSize * 1.35,
+                      height: iconSize * 1.35,
 
-                const SizedBox(height: 24),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+
+                        borderRadius: BorderRadius.circular(iconSize * .35),
+                      ),
+
+                      child: Icon(
+                        icon,
+
+                        size: iconSize,
+
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+
+                SizedBox(height: titleSpacing),
 
                 Text(
                   title,
-                  textAlign: TextAlign.center,
-                  style: textTheme.titleLarge?.copyWith(
+
+                  textAlign: textAlign,
+
+                  style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
+
                     letterSpacing: -0.2,
                   ),
                 ),
 
-                const SizedBox(height: 12),
+                SizedBox(height: messageSpacing),
 
                 Text(
                   message,
-                  textAlign: TextAlign.center,
-                  style: textTheme.bodyMedium?.copyWith(
+
+                  textAlign: textAlign,
+
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
+
                     height: 1.5,
                   ),
                 ),
 
-                if (action != null) ...[const SizedBox(height: 28), action!],
+                if (action != null) ...[
+                  SizedBox(height: actionSpacing),
+
+                  action!,
+                ],
               ],
             ),
           ),

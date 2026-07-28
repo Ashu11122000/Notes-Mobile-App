@@ -6,22 +6,21 @@ import 'package:flutter/material.dart';
 ///
 /// Enterprise Material 3 reusable card.
 ///
-/// This widget provides a centralized implementation of cards used throughout
-/// the application, ensuring a consistent appearance, interaction model, and
-/// accessibility.
+/// Provides a centralized card implementation with consistent styling,
+/// interaction behavior, accessibility, and responsive behavior.
 ///
 /// Features:
 ///
 /// - Material 3 compliant
 /// - Theme-aware
 /// - Accessible
-/// - Keyboard friendly
+/// - Ripple support
 /// - Hover support
-/// - Proper ripple effects
-/// - Responsive
-/// - Lightweight
+/// - Keyboard friendly
+/// - Lightweight rendering
+/// - Reusable across features
 ///
-/// Typical use cases:
+/// Common usage:
 ///
 /// - Note cards
 /// - Profile cards
@@ -29,15 +28,6 @@ import 'package:flutter/material.dart';
 /// - Dashboard panels
 /// - Empty states
 /// - Statistics cards
-///
-/// Example:
-///
-/// ```dart
-/// CustomCard(
-///   onTap: () {},
-///   child: Text('Hello'),
-/// )
-/// ```
 @immutable
 final class CustomCard extends StatelessWidget {
   /// Creates a reusable application card.
@@ -47,12 +37,14 @@ final class CustomCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.margin = EdgeInsets.zero,
     this.onTap,
+    this.enabled = true,
     this.elevation = 0,
     this.borderRadius = 20,
     this.clipBehavior = Clip.antiAlias,
     this.color,
     this.border,
     this.shadowColor,
+    this.surfaceTintColor,
     this.semanticLabel,
   });
 
@@ -65,28 +57,34 @@ final class CustomCard extends StatelessWidget {
   /// External spacing.
   final EdgeInsetsGeometry margin;
 
-  /// Callback invoked when the card is tapped.
+  /// Callback invoked when tapped.
   final VoidCallback? onTap;
+
+  /// Whether the card is interactive.
+  final bool enabled;
 
   /// Card elevation.
   final double elevation;
 
-  /// Card corner radius.
+  /// Corner radius.
   final double borderRadius;
 
   /// Clip behavior.
   final Clip clipBehavior;
 
-  /// Optional background color.
+  /// Background color.
   final Color? color;
 
   /// Optional border.
   final BorderSide? border;
 
-  /// Optional shadow color.
+  /// Shadow color.
   final Color? shadowColor;
 
-  /// Optional accessibility label.
+  /// Material 3 surface tint.
+  final Color? surfaceTintColor;
+
+  /// Accessibility label.
   final String? semanticLabel;
 
   @override
@@ -95,31 +93,31 @@ final class CustomCard extends StatelessWidget {
 
     final radius = BorderRadius.circular(borderRadius);
 
+    final effectiveOnTap = enabled ? onTap : null;
+
     return Semantics(
       container: true,
-      button: onTap != null,
+      button: effectiveOnTap != null,
+      enabled: enabled,
       label: semanticLabel,
-      child: Card(
-        margin: margin,
+      child: Material(
+        color: color ?? theme.colorScheme.surfaceContainerLow,
         elevation: elevation,
-        clipBehavior: clipBehavior,
-        color: color,
         shadowColor: shadowColor,
-        surfaceTintColor: Colors.transparent,
+        surfaceTintColor: surfaceTintColor,
         shape: RoundedRectangleBorder(
           borderRadius: radius,
-          side: border != null
-              ? BorderSide(color: border!.color, width: border!.width)
-              : BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.35,
-                  ),
-                ),
+          side:
+              border ??
+              BorderSide(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
+              ),
         ),
+        clipBehavior: clipBehavior,
         child: InkWell(
-          onTap: onTap,
+          onTap: effectiveOnTap,
           borderRadius: radius,
-          mouseCursor: onTap != null
+          mouseCursor: effectiveOnTap != null
               ? SystemMouseCursors.click
               : MouseCursor.defer,
           child: Padding(padding: padding, child: child),

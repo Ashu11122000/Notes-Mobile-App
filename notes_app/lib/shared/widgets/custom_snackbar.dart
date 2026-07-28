@@ -8,8 +8,7 @@ import '../enums/snackbar_type.dart';
 ///
 /// Enterprise Material 3 snackbar helper.
 ///
-/// Centralizes snackbar presentation across the application, providing a
-/// consistent look, accessibility, and behavior.
+/// Centralizes snackbar presentation across the application.
 ///
 /// Features:
 ///
@@ -18,19 +17,12 @@ import '../enums/snackbar_type.dart';
 /// - Accessible
 /// - Responsive
 /// - Floating appearance
-/// - Optional action button
+/// - Optional actions
 /// - Lightweight
-///
-/// Typical use cases:
-///
-/// - Login success
-/// - Registration
-/// - CRUD operations
-/// - Network errors
-/// - Validation
-/// - Session expiration
-/// ============================================================================
 abstract final class CustomSnackBar {
+  /// Maximum snackbar width on large screens.
+  static const double _maxWidth = 600;
+
   /// Displays a snackbar.
   static void show(
     BuildContext context, {
@@ -41,34 +33,7 @@ abstract final class CustomSnackBar {
     bool hideCurrent = true,
   }) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    final (
-      Color backgroundColor,
-      Color foregroundColor,
-      IconData icon,
-    ) = switch (type) {
-      SnackbarType.success => (
-        Colors.green.shade700,
-        Colors.white,
-        Icons.check_circle_rounded,
-      ),
-      SnackbarType.info => (
-        colorScheme.inverseSurface,
-        colorScheme.onInverseSurface,
-        Icons.info_rounded,
-      ),
-      SnackbarType.warning => (
-        Colors.orange.shade700,
-        Colors.white,
-        Icons.warning_amber_rounded,
-      ),
-      SnackbarType.error => (
-        colorScheme.error,
-        colorScheme.onError,
-        Icons.error_rounded,
-      ),
-    };
+    final style = _resolveStyle(theme, type);
 
     final messenger = ScaffoldMessenger.of(context);
 
@@ -81,40 +46,94 @@ abstract final class CustomSnackBar {
         duration: duration,
         behavior: SnackBarBehavior.floating,
         dismissDirection: DismissDirection.horizontal,
-        backgroundColor: backgroundColor,
-        action: action,
+        backgroundColor: style.backgroundColor,
         elevation: 2,
         margin: const EdgeInsets.all(16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: Semantics(
-          liveRegion: true,
-          child: Row(
-            children: [
-              Icon(icon, color: foregroundColor, size: 22),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  message,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: foregroundColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+        action: action == null
+            ? null
+            : SnackBarAction(
+                label: action.label,
+                onPressed: action.onPressed,
+                textColor: style.foregroundColor,
               ),
-            ],
+        content: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _maxWidth),
+            child: Semantics(
+              liveRegion: true,
+              child: Row(
+                children: [
+                  Icon(style.icon, color: style.foregroundColor, size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: style.foregroundColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
-  /// Hides the currently visible snackbar.
+  /// Hides current snackbar.
   static void hide(BuildContext context) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
   }
 
-  /// Removes all queued snackbar.
+  /// Removes queued snackbars.
   static void clear(BuildContext context) {
     ScaffoldMessenger.of(context).clearSnackBars();
   }
+
+  static _SnackBarStyle _resolveStyle(ThemeData theme, SnackbarType type) {
+    final colorScheme = theme.colorScheme;
+
+    return switch (type) {
+      SnackbarType.success => _SnackBarStyle(
+        backgroundColor: colorScheme.primaryContainer,
+        foregroundColor: colorScheme.onPrimaryContainer,
+        icon: Icons.check_circle_rounded,
+      ),
+
+      SnackbarType.info => _SnackBarStyle(
+        backgroundColor: colorScheme.inverseSurface,
+        foregroundColor: colorScheme.onInverseSurface,
+        icon: Icons.info_rounded,
+      ),
+
+      SnackbarType.warning => _SnackBarStyle(
+        backgroundColor: colorScheme.tertiaryContainer,
+        foregroundColor: colorScheme.onTertiaryContainer,
+        icon: Icons.warning_amber_rounded,
+      ),
+
+      SnackbarType.error => _SnackBarStyle(
+        backgroundColor: colorScheme.errorContainer,
+        foregroundColor: colorScheme.onErrorContainer,
+        icon: Icons.error_rounded,
+      ),
+    };
+  }
+}
+
+@immutable
+final class _SnackBarStyle {
+  const _SnackBarStyle({
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.icon,
+  });
+
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final IconData icon;
 }

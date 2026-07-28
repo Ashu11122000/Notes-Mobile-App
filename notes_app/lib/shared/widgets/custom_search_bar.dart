@@ -6,36 +6,23 @@ import 'package:flutter/material.dart';
 ///
 /// Enterprise Material 3 search bar.
 ///
-/// A reusable wrapper around Flutter's Material 3 [SearchBar] that provides
-/// a consistent search experience throughout the application.
+/// Reusable wrapper around Flutter Material 3 [SearchBar].
+///
+/// Designed for:
+///
+/// - Notes search
+/// - Global search
+/// - Filters
+/// - Dashboard search
 ///
 /// Features:
 ///
 /// - Material 3 compliant
 /// - Theme-aware
-/// - Responsive
 /// - Accessible
 /// - Keyboard friendly
-/// - Desktop/Web friendly
 /// - Lightweight
-///
-/// Typical use cases:
-///
-/// - Notes search
-/// - User search
-/// - Filter bars
-/// - Dashboard search
-/// - Global search
-///
-/// Example:
-///
-/// ```dart
-/// CustomSearchBar(
-///   controller: controller,
-///   hintText: 'Search notes...',
-///   onChanged: provider.search,
-/// )
-/// ```
+/// - Performance optimized
 @immutable
 final class CustomSearchBar extends StatelessWidget {
   /// Creates a reusable Material 3 search bar.
@@ -49,6 +36,7 @@ final class CustomSearchBar extends StatelessWidget {
     this.onChanged,
     this.onSubmitted,
     this.onTap,
+    this.onClear,
     this.enabled = true,
     this.autoFocus = false,
     this.semanticLabel,
@@ -56,59 +44,69 @@ final class CustomSearchBar extends StatelessWidget {
     this.textCapitalization = TextCapitalization.none,
     this.constraints,
     this.showClearButton = true,
+    this.backgroundColor,
+    this.elevation,
   });
 
-  /// Controller for the search field.
+  /// Text controller.
   final TextEditingController? controller;
 
   /// Focus node.
   final FocusNode? focusNode;
 
-  /// Placeholder text.
+  /// Hint text.
   final String hintText;
 
   /// Leading widget.
-  ///
-  /// Defaults to a search icon.
   final Widget? leading;
 
-  /// Optional trailing widgets.
+  /// Custom trailing widgets.
   final List<Widget>? trailing;
 
-  /// Invoked whenever the search text changes.
+  /// Text change callback.
   final ValueChanged<String>? onChanged;
 
-  /// Invoked when the user submits the search.
+  /// Submit callback.
   final ValueChanged<String>? onSubmitted;
 
-  /// Invoked when the search bar is tapped.
+  /// Tap callback.
   final VoidCallback? onTap;
 
-  /// Whether the search bar is enabled.
+  /// Clear callback.
+  final VoidCallback? onClear;
+
+  /// Whether search is enabled.
   final bool enabled;
 
-  /// Whether the search field should receive focus automatically.
+  /// Auto focus.
   final bool autoFocus;
 
-  /// Optional accessibility label.
+  /// Accessibility label.
   final String? semanticLabel;
 
-  /// Keyboard action button.
+  /// Keyboard action.
   final TextInputAction textInputAction;
 
-  /// Text capitalization behavior.
+  /// Capitalization.
   final TextCapitalization textCapitalization;
 
-  /// Optional layout constraints.
+  /// Layout constraints.
   final BoxConstraints? constraints;
 
-  /// Whether a clear button should automatically appear when text exists.
+  /// Show clear button.
   final bool showClearButton;
+
+  /// Search background color.
+  final Color? backgroundColor;
+
+  /// Search elevation.
+  final WidgetStateProperty<double?>? elevation;
 
   @override
   Widget build(BuildContext context) {
     final effectiveTrailing = <Widget>[
       if (trailing != null) ...trailing!,
+
       if (showClearButton && controller != null)
         ValueListenableBuilder<TextEditingValue>(
           valueListenable: controller!,
@@ -122,7 +120,10 @@ final class CustomSearchBar extends StatelessWidget {
               icon: const Icon(Icons.close_rounded),
               onPressed: () {
                 controller!.clear();
+
                 onChanged?.call('');
+
+                onClear?.call();
               },
             );
           },
@@ -147,6 +148,10 @@ final class CustomSearchBar extends StatelessWidget {
           autoFocus: autoFocus,
           textInputAction: textInputAction,
           textCapitalization: textCapitalization,
+          backgroundColor: backgroundColor != null
+              ? WidgetStatePropertyAll(backgroundColor)
+              : null,
+          elevation: elevation,
         ),
       ),
     );

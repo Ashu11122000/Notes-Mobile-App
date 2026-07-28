@@ -6,51 +6,27 @@ import 'package:flutter/material.dart';
 ///
 /// Enterprise Material 3 primary button.
 ///
-/// A reusable wrapper around [FilledButton] that provides a consistent primary
-/// action button throughout the application.
+/// A reusable wrapper around [FilledButton] used for primary application
+/// actions.
 ///
-/// Typical use cases:
+/// Optimized for:
 ///
-/// • Login
-/// • Register
-/// • Save Note
-/// • Update Note
-/// • Delete Note
-/// • Retry
-/// • Refresh
-/// • Logout
+/// - Authentication
+/// - Notes CRUD
+/// - Forms
+/// - Settings
+/// - Confirmation actions
 ///
 /// Features:
 ///
-/// • Material 3
-/// • Theme aware
-/// • Accessible
-/// • Loading state
-/// • Responsive
-/// • Desktop/Web friendly
-/// • Lightweight
-/// • Reusable
-///
-/// Example:
-///
-/// ```dart
-/// PrimaryButton(
-///   text: 'Sign In',
-///   onPressed: _login,
-/// )
-/// ```
-///
-/// ```dart
-/// PrimaryButton(
-///   text: 'Save',
-///   icon: Icons.save_rounded,
-///   onPressed: save,
-/// )
-/// ```
-/// ============================================================================
+/// - Material 3
+/// - Theme aware
+/// - Accessible
+/// - Loading state
+/// - Responsive
+/// - Lightweight
 @immutable
 final class PrimaryButton extends StatelessWidget {
-  /// Creates an enterprise primary button.
   const PrimaryButton({
     super.key,
     required this.text,
@@ -65,45 +41,47 @@ final class PrimaryButton extends StatelessWidget {
     this.autofocus = false,
     this.mouseCursor,
     this.semanticLabel,
+    this.minimumSize,
   });
 
-  /// Button label.
+  /// Button text.
   final String text;
 
-  /// Invoked when the button is pressed.
+  /// Button action.
   final VoidCallback? onPressed;
 
-  /// Optional leading/trailing icon.
+  /// Optional icon.
   final IconData? icon;
 
-  /// Whether to display the loading state.
+  /// Loading state.
   final bool isLoading;
 
-  /// Whether the button should occupy the available width.
+  /// Full width button.
   final bool isExpanded;
 
-  /// Optional loading label.
-  ///
-  /// When null, [text] is displayed while loading.
+  /// Loading text.
   final String? loadingText;
 
-  /// Whether the icon should appear after the text.
+  /// Icon position.
   final bool iconOnTrailing;
 
-  /// Optional custom button style.
+  /// Custom style.
   final ButtonStyle? style;
 
-  /// Optional focus node.
+  /// Focus node.
   final FocusNode? focusNode;
 
-  /// Whether the button should receive focus automatically.
+  /// Autofocus.
   final bool autofocus;
 
-  /// Optional desktop/web mouse cursor.
+  /// Mouse cursor.
   final MouseCursor? mouseCursor;
 
-  /// Optional accessibility label.
+  /// Accessibility label.
   final String? semanticLabel;
+
+  /// Button minimum size.
+  final Size? minimumSize;
 
   @override
   Widget build(BuildContext context) {
@@ -111,19 +89,31 @@ final class PrimaryButton extends StatelessWidget {
 
     Widget button = Semantics(
       button: true,
+
       enabled: effectiveOnPressed != null,
-      label: semanticLabel ?? text,
+
+      label: semanticLabel ?? (isLoading ? loadingText ?? text : text),
+
       child: FilledButton(
         onPressed: effectiveOnPressed,
-        style: style,
+
         focusNode: focusNode,
+
         autofocus: autofocus,
+
         clipBehavior: Clip.antiAlias,
+
+        style: style ?? FilledButton.styleFrom(minimumSize: minimumSize),
+
         child: _ButtonContent(
           text: text,
+
           loadingText: loadingText,
+
           icon: icon,
+
           isLoading: isLoading,
+
           iconOnTrailing: iconOnTrailing,
         ),
       ),
@@ -141,14 +131,6 @@ final class PrimaryButton extends StatelessWidget {
   }
 }
 
-/// Internal reusable button content.
-///
-/// Displays one of the following:
-///
-/// • Loading indicator
-/// • Icon + text
-/// • Text + icon
-/// • Text only
 @immutable
 final class _ButtonContent extends StatelessWidget {
   const _ButtonContent({
@@ -160,25 +142,32 @@ final class _ButtonContent extends StatelessWidget {
   });
 
   final String text;
+
   final String? loadingText;
+
   final IconData? icon;
+
   final bool isLoading;
+
   final bool iconOnTrailing;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     if (isLoading) {
       return Row(
         mainAxisSize: MainAxisSize.min,
+
         children: [
           const SizedBox(
             width: 18,
+
             height: 18,
-            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+
+            child: CircularProgressIndicator(strokeWidth: 2),
           ),
+
           const SizedBox(width: 12),
+
           Text(loadingText ?? text),
         ],
       );
@@ -192,16 +181,11 @@ final class _ButtonContent extends StatelessWidget {
 
     return Row(
       mainAxisSize: MainAxisSize.min,
+
       children: [
         if (!iconOnTrailing) ...[iconWidget, const SizedBox(width: 8)],
 
-        Flexible(
-          child: Text(
-            text,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelLarge,
-          ),
-        ),
+        Flexible(child: Text(text, overflow: TextOverflow.ellipsis)),
 
         if (iconOnTrailing) ...[const SizedBox(width: 8), iconWidget],
       ],
