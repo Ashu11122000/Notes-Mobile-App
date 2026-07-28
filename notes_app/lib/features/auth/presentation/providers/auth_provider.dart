@@ -21,22 +21,29 @@ import '../../data/repositories/auth_repository.dart';
 /// ----------------------------------------------------------------------------
 /// • Manages authentication state.
 /// • Coordinates authentication workflows.
-/// • Persists JWT using SessionManager.
-/// • Loads current authenticated user.
-/// • Exposes authentication state to UI.
+/// • Persists authentication session.
+/// • Loads authenticated user.
+/// • Exposes authentication state to the UI.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
 /// UI
-///      ↓
+///     ↓
 /// AuthProvider
-///      ↓
+///     ↓
 /// AuthRepository
-///      ↓
+///     ↓
 /// AuthRemoteDataSource
-///      ↓
+///     ↓
 /// FastAPI
 ///
+/// Notes
+/// ----------------------------------------------------------------------------
+/// • Contains presentation state only.
+/// • No networking implementation.
+/// • No navigation.
+/// • No widget dependencies.
+/// • Optimized for minimal rebuilds.
 /// ============================================================================
 
 class AuthProvider extends ChangeNotifier {
@@ -50,18 +57,15 @@ class AuthProvider extends ChangeNotifier {
 
   bool _disposed = false;
 
+  CancelToken? _cancelToken;
+
   @override
   void dispose() {
     _disposed = true;
+
+    _cancelOngoingRequest();
+
     super.dispose();
-  }
-
-  void _notifySafely() {
-    if (_disposed) {
-      return;
-    }
-
-    notifyListeners();
   }
 
   // ===========================================================================
@@ -77,7 +81,7 @@ class AuthProvider extends ChangeNotifier {
   UserModel? _currentUser;
 
   // ===========================================================================
-  // Getters
+  // Public Getters
   // ===========================================================================
 
   bool get isLoading => _isLoading;
@@ -103,7 +107,43 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // ===========================================================================
-  // State Helpers
+  // Notification Helpers
+  // ===========================================================================
+
+  void _notifySafely() {
+    if (_disposed) {
+      return;
+    }
+
+    notifyListeners();
+  }
+
+  // ===========================================================================
+  // Cancel Token Helpers
+  // ===========================================================================
+
+  CancelToken _createCancelToken() {
+    _cancelOngoingRequest();
+
+    final token = CancelToken();
+
+    _cancelToken = token;
+
+    return token;
+  }
+
+  void _cancelOngoingRequest() {
+    final token = _cancelToken;
+
+    if (token != null && !token.isCancelled) {
+      token.cancel('Request cancelled.');
+    }
+
+    _cancelToken = null;
+  }
+
+  // ===========================================================================
+  // Loading Helpers
   // ===========================================================================
 
   void _setLoading(bool value) {
@@ -112,6 +152,20 @@ class AuthProvider extends ChangeNotifier {
     }
 
     _isLoading = value;
+
+    _notifySafely();
+  }
+
+  // ===========================================================================
+  // Error Helpers
+  // ===========================================================================
+
+  void clearError() {
+    if (_errorMessage == null) {
+      return;
+    }
+
+    _errorMessage = null;
 
     _notifySafely();
   }
@@ -126,16 +180,16 @@ class AuthProvider extends ChangeNotifier {
     _notifySafely();
   }
 
-  void clearError() {
-    _setError(null);
-  }
+  // ===========================================================================
+  // Authentication State Helpers
+  // ===========================================================================
 
   void _setAuthenticationState({
     required bool authenticated,
     UserModel? user,
     bool updateUser = false,
   }) {
-    bool changed = false;
+    var changed = false;
 
     if (_isAuthenticated != authenticated) {
       _isAuthenticated = authenticated;
@@ -153,20 +207,26 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _resetState() {
-    _currentUser = null;
+    _cancelOngoingRequest();
 
     _isAuthenticated = false;
-
+    _currentUser = null;
     _errorMessage = null;
 
     _notifySafely();
   }
 
   // ===========================================================================
-  // Error Handling
+  // Exception Handling
   // ===========================================================================
 
   void _handleException(String operation, Object error, StackTrace stackTrace) {
+    if (error is DioException && error.type == DioExceptionType.cancel) {
+      LoggerService.info('$operation cancelled.');
+
+      return;
+    }
+
     LoggerService.error(
       '$operation failed.',
       error: error,
@@ -182,17 +242,21 @@ class AuthProvider extends ChangeNotifier {
     _setError('$operation failed. Please try again.');
   }
 
-  String _extractErrorMessage(DioException exception) {
-    final dynamic data = exception.response?.data;
+  // ===========================================================================
+  // API Error Extraction
+  // ===========================================================================
 
-    if (data is Map<String, dynamic>) {
-      final dynamic detail = data['detail'];
+  String _extractErrorMessage(DioException exception) {
+    final responseData = exception.response?.data;
+
+    if (responseData is Map<String, dynamic>) {
+      final detail = responseData['detail'];
 
       if (detail is String && detail.trim().isNotEmpty) {
         return detail;
       }
 
-      final dynamic message = data['message'];
+      final message = responseData['message'];
 
       if (message is String && message.trim().isNotEmpty) {
         return message;
@@ -204,38 +268,92 @@ class AuthProvider extends ChangeNotifier {
         return 'Connection timed out.';
 
       case DioExceptionType.sendTimeout:
-        return 'Request sending timed out.';
+        return 'Request timed out while sending data.';
 
       case DioExceptionType.receiveTimeout:
         return 'Server response timed out.';
 
       case DioExceptionType.connectionError:
-        return 'Unable to connect to server.';
+        return 'Unable to connect to the server.';
+
+      case DioExceptionType.badCertificate:
+        return 'Secure connection failed.';
 
       case DioExceptionType.badResponse:
-        switch (exception.response?.statusCode) {
-          case 401:
-            return 'Invalid email or password.';
+        return _statusCodeMessage(exception.response?.statusCode);
 
-          case 403:
-            return 'Access denied.';
+      case DioExceptionType.cancel:
+        return 'Request cancelled.';
 
-          case 404:
-            return 'Resource not found.';
+      case DioExceptionType.transformTimeout:
+        return 'Request timed out during response transformation.';
 
-          case 422:
-            return 'Invalid information provided.';
+      case DioExceptionType.unknown:
+        return exception.message ?? 'Something went wrong. Please try again.';
+    }
+  }
 
-          case 500:
-            return 'Server error.';
+  // ===========================================================================
+  // HTTP Status Messages
+  // ===========================================================================
 
-          default:
-            return 'Request failed.';
-        }
+  String _statusCodeMessage(int? statusCode) {
+    switch (statusCode) {
+      case 400:
+        return 'Invalid request.';
+
+      case 401:
+        return 'Invalid email or password.';
+
+      case 403:
+        return 'Access denied.';
+
+      case 404:
+        return 'Requested resource was not found.';
+
+      case 409:
+        return 'Account already exists.';
+
+      case 422:
+        return 'Please check the entered information.';
+
+      case 429:
+        return 'Too many requests. Please try again later.';
+
+      case 500:
+        return 'Internal server error.';
+
+      case 502:
+        return 'Service temporarily unavailable.';
+
+      case 503:
+        return 'Server is currently unavailable.';
 
       default:
-        return exception.message ?? 'Something went wrong.';
+        return 'Request failed.';
     }
+  }
+
+  // ===========================================================================
+  // Session Helpers
+  // ===========================================================================
+
+  Future<void> _saveSession(LoginResponseModel response) async {
+    final token = response.accessToken.trim();
+
+    if (token.isEmpty) {
+      throw const FormatException('Authentication token is missing.');
+    }
+
+    final saved = await SessionManager.saveAccessToken(token);
+
+    if (!saved) {
+      throw Exception('Unable to save authentication session.');
+    }
+  }
+
+  Future<void> _clearSession() async {
+    await SessionManager.clearSession();
   }
 
   // ===========================================================================
@@ -244,20 +362,27 @@ class AuthProvider extends ChangeNotifier {
 
   Future<RegisterResponseModel> register(RegisterRequestModel request) async {
     _setLoading(true);
-
     clearError();
 
     try {
-      final response = await _repository.register(request);
+      final response = await _repository.register(
+        request,
+        cancelToken: _createCancelToken(),
+      );
 
-      LoggerService.info('Registration successful.');
+      LoggerService.info('User registration completed successfully.');
 
       return response;
+    } on DioException catch (error, stackTrace) {
+      _handleException('Registration', error, stackTrace);
+
+      rethrow;
     } catch (error, stackTrace) {
       _handleException('Registration', error, stackTrace);
 
       rethrow;
     } finally {
+      _cancelToken = null;
       _setLoading(false);
     }
   }
@@ -268,34 +393,31 @@ class AuthProvider extends ChangeNotifier {
 
   Future<LoginResponseModel> login(LoginRequestModel request) async {
     _setLoading(true);
-
     clearError();
 
     try {
-      final LoginResponseModel response = await _repository.login(request);
+      final response = await _repository.login(
+        request,
+        cancelToken: _createCancelToken(),
+      );
 
-      final String token = response.accessToken.trim();
-
-      if (token.isEmpty) {
-        throw Exception('Authentication token was not received from server.');
-      }
-
-      final bool saved = await SessionManager.saveAccessToken(token);
-
-      if (!saved) {
-        throw Exception('Unable to save authentication session.');
-      }
+      await _saveSession(response);
 
       _setAuthenticationState(authenticated: true);
 
-      LoggerService.info('Login successful. JWT stored successfully.');
+      LoggerService.info('Authentication completed successfully.');
 
       return response;
+    } on DioException catch (error, stackTrace) {
+      _handleException('Login', error, stackTrace);
+
+      rethrow;
     } catch (error, stackTrace) {
       _handleException('Login', error, stackTrace);
 
       rethrow;
     } finally {
+      _cancelToken = null;
       _setLoading(false);
     }
   }
@@ -308,7 +430,9 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(true);
 
     try {
-      final UserModel user = await _repository.getCurrentUser();
+      final user = await _repository.getCurrentUser(
+        cancelToken: _createCancelToken(),
+      );
 
       _setAuthenticationState(
         authenticated: true,
@@ -316,10 +440,10 @@ class AuthProvider extends ChangeNotifier {
         updateUser: true,
       );
 
-      LoggerService.info('Current user loaded successfully.');
-    } catch (error, stackTrace) {
+      LoggerService.info('Authenticated user loaded successfully.');
+    } on DioException catch (error, stackTrace) {
       LoggerService.error(
-        'Current user loading failed. Clearing session.',
+        'Unable to load authenticated user.',
         error: error,
         stackTrace: stackTrace,
       );
@@ -327,7 +451,22 @@ class AuthProvider extends ChangeNotifier {
       _handleException('Load current user', error, stackTrace);
 
       await logout();
+
+      rethrow;
+    } catch (error, stackTrace) {
+      LoggerService.error(
+        'Unexpected error while loading authenticated user.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+      _handleException('Load current user', error, stackTrace);
+
+      await logout();
+
+      rethrow;
     } finally {
+      _cancelToken = null;
       _setLoading(false);
     }
   }
@@ -337,10 +476,10 @@ class AuthProvider extends ChangeNotifier {
   // ===========================================================================
 
   Future<bool> autoLogin() async {
-    final bool hasSession = SessionManager.isLoggedIn();
+    final hasSession = SessionManager.isLoggedIn() == true;
 
     if (!hasSession) {
-      LoggerService.info('No existing session found.');
+      LoggerService.info('No stored authentication session found.');
 
       return false;
     }
@@ -349,9 +488,17 @@ class AuthProvider extends ChangeNotifier {
       await loadCurrentUser();
 
       return _isAuthenticated;
+    } on DioException catch (error, stackTrace) {
+      LoggerService.error(
+        'Automatic login failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+      return false;
     } catch (error, stackTrace) {
       LoggerService.error(
-        'Auto login failed.',
+        'Unexpected error during automatic login.',
         error: error,
         stackTrace: stackTrace,
       );
@@ -364,11 +511,69 @@ class AuthProvider extends ChangeNotifier {
   // Logout
   // ===========================================================================
 
+  /// Clears the current authentication session and resets all provider state.
   Future<void> logout() async {
-    await SessionManager.clearSession();
+    _setLoading(true);
 
-    _resetState();
+    try {
+      _cancelOngoingRequest();
 
-    LoggerService.info('User logged out successfully.');
+      await _clearSession();
+
+      _resetState();
+
+      LoggerService.info('User logged out successfully.');
+    } catch (error, stackTrace) {
+      LoggerService.error(
+        'Logout failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+      _setError('Unable to logout. Please try again.');
+
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // ===========================================================================
+  // Public Helpers
+  // ===========================================================================
+
+  /// Clears the current error message.
+  ///
+  /// Safe to call multiple times.
+  void resetError() {
+    clearError();
+  }
+
+  /// Refreshes the authenticated user.
+  ///
+  /// Useful after:
+  /// • Profile update
+  /// • Password change
+  /// • Role update
+  Future<void> refreshCurrentUser() async {
+    await loadCurrentUser();
+  }
+
+  /// Returns whether a request is currently active.
+  bool get hasRunningRequest =>
+      _cancelToken != null && !_cancelToken!.isCancelled;
+
+  // ===========================================================================
+  // Debug Helpers
+  // ===========================================================================
+
+  @override
+  String toString() {
+    return 'AuthProvider('
+        'isLoading: $_isLoading, '
+        'isAuthenticated: $_isAuthenticated, '
+        'hasUser: ${_currentUser != null}, '
+        'hasError: ${_errorMessage != null}'
+        ')';
   }
 }

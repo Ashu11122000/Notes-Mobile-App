@@ -11,14 +11,15 @@ import 'package:flutter/foundation.dart';
 /// • Represents the response returned by the FastAPI registration endpoint.
 /// • Stores the success message.
 /// • Stores the newly created user identifier.
-/// • Converts between JSON and Dart objects.
-/// • Remains immutable and free of business logic.
+/// • Converts between Map/JSON and Dart objects.
+/// • Remains immutable.
+/// • Contains no business logic.
 ///
 /// FastAPI Endpoint
 /// ----------------------------------------------------------------------------
 /// POST /api/v1/auth/register
 ///
-/// Response Body
+/// Example Response
 /// ----------------------------------------------------------------------------
 /// {
 ///   "message": "User registered successfully.",
@@ -46,7 +47,13 @@ final class RegisterResponseModel {
   /// Identifier of the newly created user.
   final int userId;
 
-  /// Returns a copy of this model with updated values.
+  /// Returns true when the backend returned a valid user identifier.
+  bool get hasUserId => userId > 0;
+
+  /// Returns true when the backend returned a non-empty message.
+  bool get hasMessage => message.isNotEmpty;
+
+  /// Returns a new immutable instance with updated values.
   RegisterResponseModel copyWith({String? message, int? userId}) {
     return RegisterResponseModel(
       message: message ?? this.message,
@@ -54,23 +61,39 @@ final class RegisterResponseModel {
     );
   }
 
-  /// Creates a model from a JSON object.
-  factory RegisterResponseModel.fromJson(Map<String, dynamic> json) {
+  /// Creates a model from a Map.
+  factory RegisterResponseModel.fromMap(Map<String, dynamic> map) {
     return RegisterResponseModel(
-      message: (json[_messageKey] ?? '') as String,
-      userId: (json[_userIdKey] as num?)?.toInt() ?? 0,
+      message: map[_messageKey]?.toString() ?? '',
+      userId: switch (map[_userIdKey]) {
+        final int value => value,
+        final num value => value.toInt(),
+        final String value => int.tryParse(value) ?? 0,
+        _ => 0,
+      },
     );
   }
 
-  /// Converts this model into a JSON object.
-  Map<String, dynamic> toJson() => <String, dynamic>{
-    _messageKey: message,
-    _userIdKey: userId,
-  };
+  /// Alias for [fromMap].
+  factory RegisterResponseModel.fromJson(Map<String, dynamic> json) {
+    return RegisterResponseModel.fromMap(json);
+  }
+
+  /// Converts this model into a Map.
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{_messageKey: message, _userIdKey: userId};
+  }
+
+  /// Alias for [toMap].
+  Map<String, dynamic> toJson() => toMap();
 
   @override
-  String toString() =>
-      'RegisterResponseModel(message: $message, userId: $userId)';
+  String toString() {
+    return 'RegisterResponseModel('
+        'message: $message, '
+        'userId: $userId'
+        ')';
+  }
 
   @override
   bool operator ==(Object other) {

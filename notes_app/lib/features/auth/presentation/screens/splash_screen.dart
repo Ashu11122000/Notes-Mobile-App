@@ -16,14 +16,20 @@ import '../providers/auth_provider.dart';
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Displays the application splash screen.
-/// • Initializes the authentication state.
+/// • Initializes authentication.
 /// • Redirects to Login or Notes.
 /// • Contains no authentication business logic.
 ///
-/// Business logic remains inside [AuthProvider].
+/// Performance
+/// ----------------------------------------------------------------------------
+/// • Single initialization.
+/// • No animations.
+/// • No timers.
+/// • Minimal widget tree.
+/// • Optimized for low-memory devices.
 /// ============================================================================
 
-class SplashScreen extends StatefulWidget {
+final class SplashScreen extends StatefulWidget {
   /// Creates the splash screen.
   const SplashScreen({super.key});
 
@@ -31,32 +37,39 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+final class _SplashScreenState extends State<SplashScreen> {
   static const EdgeInsets _padding = EdgeInsets.all(24);
+
   static const SizedBox _spacing = SizedBox(height: 48);
+
+  bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_initialized || !mounted) {
+        return;
+      }
+
+      _initialized = true;
+
       _initialize();
     });
   }
 
   Future<void> _initialize() async {
-    final AuthProvider authProvider = context.read<AuthProvider>();
+    final authProvider = context.read<AuthProvider>();
 
     try {
-      final bool isLoggedIn = await authProvider.initialize();
+      final isLoggedIn = await authProvider.initialize();
 
       if (!mounted) {
         return;
       }
 
-      final String destination = isLoggedIn ? AppRoutes.notes : AppRoutes.login;
-
-      context.go(destination);
+      context.go(isLoggedIn ? AppRoutes.notes : AppRoutes.login);
     } catch (_) {
       if (!mounted) {
         return;
@@ -70,14 +83,14 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Semantics(
-          container: true,
-          label: 'Application loading',
-          child: Center(
-            child: Padding(
-              padding: _padding,
+        child: Center(
+          child: Padding(
+            padding: _padding,
+            child: Semantics(
+              container: true,
+              label: 'Loading application',
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   AppLogo(),
 

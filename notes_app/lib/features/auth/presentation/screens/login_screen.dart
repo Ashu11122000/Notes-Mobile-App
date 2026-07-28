@@ -20,15 +20,20 @@ import '../widgets/login_form.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Displays the authentication UI.
-/// • Coordinates with [AuthProvider].
+/// • Displays the login UI.
+/// • Delegates authentication to AuthProvider.
 /// • Handles navigation.
-/// • Displays success and error snackbars.
+/// • Displays success and error messages.
 ///
-/// Business logic remains inside [AuthProvider].
+/// Notes
+/// ----------------------------------------------------------------------------
+/// • No business logic.
+/// • Optimized for minimal rebuilds.
+/// • Material 3 compliant.
+/// • Lightweight and production-ready.
 /// ============================================================================
 
-class LoginScreen extends StatelessWidget {
+final class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
   static const EdgeInsets _pagePadding = EdgeInsets.symmetric(
@@ -44,16 +49,14 @@ class LoginScreen extends StatelessWidget {
     required String email,
     required String password,
   }) async {
-    final AuthProvider provider = context.read<AuthProvider>();
+    final provider = context.read<AuthProvider>();
 
     provider.clearError();
 
     try {
       await provider.login(LoginRequestModel(email: email, password: password));
 
-      if (!context.mounted) {
-        return;
-      }
+      if (!context.mounted) return;
 
       CustomSnackBar.show(
         context,
@@ -63,9 +66,7 @@ class LoginScreen extends StatelessWidget {
 
       context.go(AppRoutes.notes);
     } catch (_) {
-      if (!context.mounted) {
-        return;
-      }
+      if (!context.mounted) return;
 
       CustomSnackBar.show(
         context,
@@ -78,10 +79,12 @@ class LoginScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AuthProvider provider = context.watch<AuthProvider>();
+    final bool isLoading = context.select<AuthProvider, bool>(
+      (provider) => provider.isLoading,
+    );
 
     return LoadingOverlay(
-      isLoading: provider.isLoading,
+      isLoading: isLoading,
       message: 'Signing in...',
       child: Scaffold(
         appBar: AppBar(),
@@ -91,9 +94,12 @@ class LoginScreen extends StatelessWidget {
               container: true,
               child: SingleChildScrollView(
                 padding: _pagePadding,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
                       const AuthHeader(
@@ -104,9 +110,14 @@ class LoginScreen extends StatelessWidget {
                       _spacing32,
 
                       LoginForm(
-                        isLoading: provider.isLoading,
-                        onSubmit: (email, password) =>
-                            _login(context, email: email, password: password),
+                        isLoading: isLoading,
+                        onSubmit: (email, password) {
+                          return _login(
+                            context,
+                            email: email,
+                            password: password,
+                          );
+                        },
                       ),
 
                       _spacing24,
