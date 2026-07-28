@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as path;
 
 import '../../../core/services/logger_service.dart';
 
@@ -8,28 +9,25 @@ import '../../../core/services/logger_service.dart';
 /// File: image_picker_service.dart
 /// ============================================================================
 ///
-/// Image Picker Service.
+/// Enterprise Image Picker Service.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Wraps the image_picker package.
 /// • Picks images from gallery.
 /// • Picks images from camera.
+/// • Performs lightweight validation.
 /// • Converts XFile into File.
-/// • Handles picker exceptions.
-/// • Provides image validation helpers.
+/// • Uses asynchronous file operations.
 /// • Contains no UI logic.
 /// • Contains no business logic.
 ///
-/// Architecture
+/// Optimized For
 /// ----------------------------------------------------------------------------
-/// UI
-///     ↓
-/// NotesProvider
-///     ↓
-/// ImagePickerService
-///     ↓
-/// image_picker
+/// • Flutter Stable
+/// • Android 15
+/// • Low-memory devices
+/// • Dell Inspiron 5590 (8 GB RAM)
 ///
 /// ============================================================================
 
@@ -51,23 +49,21 @@ final class ImagePickerService {
 
   static const int _maxFileSizeMb = 10;
 
-  static const List<String> _allowedExtensions = <String>[
+  static const int _bytesPerMb = 1024 * 1024;
+
+  static const Set<String> _allowedExtensions = <String>{
     'jpg',
     'jpeg',
     'png',
     'webp',
-  ];
+  };
 
   // ===========================================================================
   // Gallery
   // ===========================================================================
 
-  /// Picks an image from the device gallery.
-  ///
-  /// Returns:
-  /// - Selected image file
-  /// - null when cancelled or failed
-  Future<File?> pickFromGallery() async {
+  /// Picks an image from the gallery.
+  Future<File?> pickFromGallery() {
     return _pickImage(source: ImageSource.gallery, operation: 'Gallery');
   }
 
@@ -76,11 +72,7 @@ final class ImagePickerService {
   // ===========================================================================
 
   /// Captures an image using the camera.
-  ///
-  /// Returns:
-  /// - Captured image file
-  /// - null when cancelled or failed
-  Future<File?> pickFromCamera() async {
+  Future<File?> pickFromCamera() {
     return _pickImage(source: ImageSource.camera, operation: 'Camera');
   }
 
@@ -95,33 +87,35 @@ final class ImagePickerService {
     try {
       LoggerService.info('$operation image picker opened.');
 
-      final XFile? pickedImage = await _imagePicker.pickImage(
+      final XFile? pickedFile = await _imagePicker.pickImage(
         source: source,
         imageQuality: _imageQuality,
         maxWidth: _maxWidth,
         maxHeight: _maxHeight,
       );
 
-      if (pickedImage == null) {
+      if (pickedFile == null) {
         LoggerService.info('$operation image selection cancelled.');
 
         return null;
       }
 
-      final File file = File(pickedImage.path);
+      final File imageFile = File(pickedFile.path);
 
-      if (!_isValidImage(file)) {
-        LoggerService.warning('Invalid image selected.');
+      final bool isValid = await _isValidImage(imageFile);
+
+      if (!isValid) {
+        LoggerService.warning('$operation image rejected by validation.');
 
         return null;
       }
 
       LoggerService.info('$operation image selected successfully.');
 
-      return file;
+      return imageFile;
     } catch (exception, stackTrace) {
       LoggerService.error(
-        'Failed during $operation image selection.',
+        '$operation image selection failed.',
         error: exception,
         stackTrace: stackTrace,
       );
@@ -134,55 +128,105 @@ final class ImagePickerService {
   // Validation
   // ===========================================================================
 
-  /// Checks whether the image is acceptable.
-  bool _isValidImage(File file) {
-    if (!exists(file)) {
+  Future<bool> _isValidImage(File file) async {
+    if (!await exists(file)) {
       return false;
     }
 
-    if (!_isAllowedExtension(file)) {
+    if (!_hasAllowedExtension(file)) {
       return false;
     }
 
-    if (!_isWithinSizeLimit(file)) {
+    if (!await _isWithinSizeLimit(file)) {
       return false;
     }
 
     return true;
   }
 
-  bool _isAllowedExtension(File file) {
-    final String extension = file.path.split('.').last.toLowerCase();
+  // ===========================================================================
+  // Validation Helpers
+  // ===========================================================================
 
-    return _allowedExtensions.contains(extension);
+  Future<bool> _isWithinSizeLimit(File file) async {
+    try {
+      final int fileSize = await file.length();
+
+      return fileSize <= (_maxFileSizeMb * _bytesPerMb);
+    } catch (exception, stackTrace) {
+      LoggerService.error(
+        'Unable to determine image size.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
+      return false;
+    }
   }
 
-  bool _isWithinSizeLimit(File file) {
-    final int sizeInBytes = file.lengthSync();
+  bool _hasAllowedExtension(File file) {
+    final String extension = path
+        .extension(file.path)
+        .replaceFirst('.', '')
+        .toLowerCase();
 
-    final double sizeInMb = sizeInBytes / (1024 * 1024);
-
-    return sizeInMb <= _maxFileSizeMb;
+    return _allowedExtensions.contains(extension);
   }
 
   // ===========================================================================
   // Utilities
   // ===========================================================================
 
-  /// Checks whether a file exists.
-  bool exists(File? file) {
-    return file != null && file.existsSync();
+  /// Returns true if the file exists.
+  ///
+  /// Uses asynchronous I/O to avoid blocking the UI thread.
+  Future<bool> exists(File? file) async {
+    if (file == null) {
+      return false;
+    }
+
+    try {
+      return await file.exists();
+    } catch (_) {
+      return false;
+    }
   }
 
-  /// Returns the file path.
+  /// Returns the image path.
+  ///
+  /// Returns null when no image is selected.
   String? getPath(File? file) {
     return file?.path;
   }
 
-  /// Clears selected image reference.
+  /// Returns the image filename.
   ///
-  /// Does not delete the physical file because
-  /// it may belong to the user's device storage.
+  /// Example:
+  /// image.jpg
+  String? getFileName(File? file) {
+    if (file == null) {
+      return null;
+    }
+
+    return path.basename(file.path);
+  }
+
+  /// Returns the image extension.
+  ///
+  /// Example:
+  /// jpg
+  String? getExtension(File? file) {
+    if (file == null) {
+      return null;
+    }
+
+    return path.extension(file.path).replaceFirst('.', '').toLowerCase();
+  }
+
+  /// Clears the selected image reference.
+  ///
+  /// This does NOT delete the physical image from
+  /// the user's device storage.
   File? removeImage() {
     LoggerService.info('Selected image reference cleared.');
 

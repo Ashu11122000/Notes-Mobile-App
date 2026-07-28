@@ -14,14 +14,14 @@ import '../../constants/notes_constants.dart';
 /// • Emits user interaction through callback.
 /// • Contains no navigation logic.
 /// • Contains no business logic.
-/// • Uses Material 3 FAB.
+/// • Uses Material 3 Floating Action Button.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
 /// UI
-///  ↓
+///   ↓
 /// NotesFab
-///  ↓
+///   ↓
 /// Callback
 ///
 /// ============================================================================
@@ -36,7 +36,7 @@ final class NotesFab extends StatelessWidget {
     this.extended = true,
     this.enabled = true,
     this.heroTag = NotesConstants.notesFabHeroTag,
-    this.iconSize = 24,
+    this.iconSize = 24.0,
   });
 
   /// Called when FAB is pressed.
@@ -51,10 +51,10 @@ final class NotesFab extends StatelessWidget {
   /// FAB icon.
   final IconData icon;
 
-  /// Displays extended FAB when true.
+  /// Displays an extended FAB when true.
   final bool extended;
 
-  /// Enables/disables FAB.
+  /// Enables/disables the FAB.
   final bool enabled;
 
   /// Hero animation tag.
@@ -63,44 +63,30 @@ final class NotesFab extends StatelessWidget {
   /// Icon size.
   final double iconSize;
 
-  // ===========================================================================
-  // Build
-  // ===========================================================================
-
   @override
   Widget build(BuildContext context) {
-    if (extended) {
-      return Semantics(
-        button: true,
-        label: tooltip,
+    final Widget fabIcon = Icon(icon, size: iconSize);
 
-        child: FloatingActionButton.extended(
-          heroTag: heroTag,
-
-          onPressed: enabled ? onPressed : null,
-
-          tooltip: tooltip,
-
-          icon: Icon(icon, size: iconSize),
-
-          label: Text(label),
-        ),
-      );
-    }
+    final VoidCallback? callback = enabled ? onPressed : null;
 
     return Semantics(
       button: true,
+      enabled: enabled,
       label: tooltip,
-
-      child: FloatingActionButton(
-        heroTag: heroTag,
-
-        onPressed: enabled ? onPressed : null,
-
-        tooltip: tooltip,
-
-        child: Icon(icon, size: iconSize),
-      ),
+      child: extended
+          ? FloatingActionButton.extended(
+              heroTag: heroTag,
+              tooltip: tooltip,
+              onPressed: callback,
+              icon: fabIcon,
+              label: Text(label),
+            )
+          : FloatingActionButton(
+              heroTag: heroTag,
+              tooltip: tooltip,
+              onPressed: callback,
+              child: fabIcon,
+            ),
     );
   }
 }

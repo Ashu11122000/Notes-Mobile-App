@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 /// • Shows configured reminder time.
 /// • Exposes edit/delete callbacks.
 /// • Contains no business logic.
-/// • Reusable across notification features.
+/// • Optimized for ListView performance.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -33,6 +33,10 @@ final class ReminderTile extends StatelessWidget {
     this.enabled = true,
   });
 
+  // ===========================================================================
+  // Inputs
+  // ===========================================================================
+
   /// Reminder title.
   final String title;
 
@@ -48,94 +52,173 @@ final class ReminderTile extends StatelessWidget {
   /// Whether interactions are enabled.
   final bool enabled;
 
+  // ===========================================================================
+  // Constants
+  // ===========================================================================
+
+  static const double _iconContainerSize = 42;
+
+  static const double _iconRadius = 14;
+
+  static const double _titleSpacing = 6;
+
+  static const double _buttonSpacing = 4;
+
+  // ===========================================================================
+  // Build
+  // ===========================================================================
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+
+    final bool hasDelete = onDelete != null;
 
     final Color iconColor = enabled
         ? theme.colorScheme.primary
         : theme.colorScheme.onSurfaceVariant;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
+    return Semantics(
+      container: true,
+      label: 'Reminder $title',
 
-      child: ListTile(
-        enabled: enabled,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
 
-        // ===============================================================
-        // Leading Icon
-        // ===============================================================
-        leading: Container(
-          width: 42,
-          height: 42,
+        child: ListTile(
+          enabled: enabled,
 
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 4,
           ),
 
-          child: Icon(Icons.notifications_active_outlined, color: iconColor),
-        ),
+          leading: _buildLeadingIcon(theme, iconColor),
 
-        // ===============================================================
-        // Content
-        // ===============================================================
-        title: Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+          title: Text(
+            title.trim(),
 
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
+            maxLines: 1,
 
-          child: Row(
-            children: [
-              Icon(
-                Icons.schedule_outlined,
-                size: 16,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            overflow: TextOverflow.ellipsis,
 
-              const SizedBox(width: 6),
-
-              Text(time.format(context), style: theme.textTheme.bodyMedium),
-            ],
-          ),
-        ),
-
-        // ===============================================================
-        // Actions
-        // ===============================================================
-        trailing: Wrap(
-          spacing: 4,
-
-          children: [
-            IconButton(
-              tooltip: 'Edit Reminder',
-
-              onPressed: enabled ? onEdit : null,
-
-              icon: const Icon(Icons.edit_outlined),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
+          ),
 
-            if (onDelete != null)
-              IconButton(
-                tooltip: 'Delete Reminder',
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: _titleSpacing),
 
-                onPressed: enabled ? onDelete : null,
+            child: _buildTimeRow(context, theme),
+          ),
 
-                icon: Icon(
-                  Icons.delete_outline,
-                  color: enabled ? theme.colorScheme.error : null,
-                ),
-              ),
-          ],
+          trailing: _buildActions(theme, hasDelete),
         ),
       ),
+    );
+  }
+  // ===========================================================================
+  // Leading Icon
+  // ===========================================================================
+
+  Widget _buildLeadingIcon(ThemeData theme, Color iconColor) {
+    return Container(
+      width: _iconContainerSize,
+
+      height: _iconContainerSize,
+
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer,
+
+        borderRadius: BorderRadius.circular(_iconRadius),
+      ),
+
+      alignment: Alignment.center,
+
+      child: Icon(Icons.notifications_active_outlined, color: iconColor),
+    );
+  }
+
+  // ===========================================================================
+  // Time Row
+  // ===========================================================================
+
+  // ===========================================================================
+  // Time Row
+  // ===========================================================================
+
+  Widget _buildTimeRow(BuildContext context, ThemeData theme) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+
+      crossAxisAlignment: CrossAxisAlignment.center,
+
+      children: <Widget>[
+        Icon(
+          Icons.schedule_outlined,
+
+          size: 16,
+
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+
+        const SizedBox(width: 6),
+
+        Text(
+          time.format(context),
+
+          maxLines: 1,
+
+          overflow: TextOverflow.ellipsis,
+
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+  // ===========================================================================
+  // Actions
+  // ===========================================================================
+
+  Widget? _buildActions(ThemeData theme, bool hasDelete) {
+    if (!hasDelete) {
+      return IconButton(
+        tooltip: 'Edit Reminder',
+
+        onPressed: enabled ? onEdit : null,
+
+        icon: const Icon(Icons.edit_outlined),
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+
+      children: <Widget>[
+        IconButton(
+          tooltip: 'Edit Reminder',
+
+          onPressed: enabled ? onEdit : null,
+
+          icon: const Icon(Icons.edit_outlined),
+        ),
+
+        const SizedBox(width: _buttonSpacing),
+
+        IconButton(
+          tooltip: 'Delete Reminder',
+
+          onPressed: enabled ? onDelete : null,
+
+          icon: Icon(
+            Icons.delete_outline_rounded,
+
+            color: enabled ? theme.colorScheme.error : null,
+          ),
+        ),
+      ],
     );
   }
 }

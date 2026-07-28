@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -19,29 +20,38 @@ import '../../services/image_picker_service.dart';
 /// File: notes_provider.dart
 /// ============================================================================
 ///
-/// Enterprise Notes Provider.
+/// Enterprise Notes Provider
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Manages notes UI state.
+/// • Manages Notes UI state.
 /// • Coordinates CRUD operations.
 /// • Handles pagination.
-/// • Handles searching.
-/// • Handles image selection.
+/// • Performs local searching.
+/// • Coordinates image selection.
 /// • Coordinates local reminders.
 ///
-/// Architecture
-/// ----------------------------------------------------------------------------
+/// This provider intentionally contains no networking logic.
+/// All API communication flows through:
 ///
 /// UI
-///    ↓
+///   ↓
 /// NotesProvider
-///    ↓
+///   ↓
 /// NotesRepository
-///    ↓
+///   ↓
 /// NotesRemoteDataSource
-///    ↓
+///   ↓
 /// FastAPI
+///
+/// Optimized For
+/// ----------------------------------------------------------------------------
+/// • Flutter Stable
+/// • Provider
+/// • Material 3
+/// • FastAPI
+/// • Dell Inspiron 5590
+/// • 8 GB RAM
 ///
 /// ============================================================================
 
@@ -65,18 +75,38 @@ final class NotesProvider extends ChangeNotifier {
   final ReminderManager _reminderManager;
 
   // ===========================================================================
-  // Notes State
+  // Constants
   // ===========================================================================
 
+  static const int _pageSize = 10;
+
+  // ===========================================================================
+  // Cache
+  // ===========================================================================
+
+  /// Complete notes cache.
   final List<Note> _allNotes = <Note>[];
 
+  /// Visible notes after filtering.
   final List<Note> _notes = <Note>[];
 
-  Note? _selectedNote;
+  /// Cached read-only views.
+  ///
+  /// Avoids allocating
+  /// List.unmodifiable(...)
+  /// on every getter call.
+  late final UnmodifiableListView<Note> _notesView = UnmodifiableListView<Note>(
+    _notes,
+  );
+
+  late final UnmodifiableListView<Note> _allNotesView =
+      UnmodifiableListView<Note>(_allNotes);
 
   // ===========================================================================
-  // Image State
+  // Selection
   // ===========================================================================
+
+  Note? _selectedNote;
 
   File? _selectedImage;
 
@@ -98,8 +128,6 @@ final class NotesProvider extends ChangeNotifier {
   // Pagination
   // ===========================================================================
 
-  static const int _pageSize = 10;
-
   int _currentPage = 1;
 
   bool _hasMore = true;
@@ -111,183 +139,134 @@ final class NotesProvider extends ChangeNotifier {
   String _searchQuery = '';
 
   // ===========================================================================
-  // Getters
+  // Public Getters
   // ===========================================================================
 
-  List<Note> get notes => List<Note>.unmodifiable(_notes);
+  /// Visible notes.
+  UnmodifiableListView<Note> get notes => _notesView;
 
-  List<Note> get allNotes => List<Note>.unmodifiable(_allNotes);
+  /// Complete notes cache.
+  UnmodifiableListView<Note> get allNotes => _allNotesView;
 
+  /// Selected note.
   Note? get selectedNote => _selectedNote;
 
-  bool get isLoading => _isLoading;
-
-  bool get isLoadingMore => _isLoadingMore;
-
-  String? get errorMessage => _errorMessage;
-
-  bool get hasError => _errorMessage != null;
-
-  bool get hasMore => _hasMore;
-
-  int get currentPage => _currentPage;
-
-  String get searchQuery => _searchQuery;
-
+  /// Selected image.
   File? get selectedImage => _selectedImage;
 
-  bool get hasSelectedImage => _imagePickerService.exists(_selectedImage);
-
+  /// Selected image path.
   String? get selectedImagePath => _imagePickerService.getPath(_selectedImage);
 
+  /// Returns true if the file exists.
+  bool exists(File? file) {
+    return file?.existsSync() ?? false;
+  }
+
+  /// Loading indicator.
+  bool get isLoading => _isLoading;
+
+  /// Pagination loading indicator.
+  bool get isLoadingMore => _isLoadingMore;
+
+  /// Current error.
+  String? get errorMessage => _errorMessage;
+
+  /// Returns true when an error exists.
+  bool get hasError => _errorMessage != null;
+
+  /// Returns true when another page exists.
+  bool get hasMore => _hasMore;
+
+  /// Current page.
+  int get currentPage => _currentPage;
+
+  /// Current search query.
+  String get searchQuery => _searchQuery;
+
+  /// Returns true when no notes are visible.
   bool get isEmpty => _notes.isEmpty;
 
+  /// Returns true when notes are visible.
   bool get isNotEmpty => _notes.isNotEmpty;
 
+  /// Total cached notes.
+  int get totalNotes => _allNotes.length;
+
+  /// Visible notes count.
+  int get visibleNotes => _notes.length;
+
   // ===========================================================================
-  // Load Notes
+  // Internal Helpers
   // ===========================================================================
 
-  /// Loads notes from backend.
+  /// Notifies listeners only when this provider
+  /// has not been disposed.
   ///
-  /// When [refresh] is true:
-  /// - resets pagination
-  /// - clears existing cache
-  /// - reloads first page
-  Future<void> loadNotes({bool refresh = false}) async {
-    if (_isLoading && !refresh) {
-      return;
-    }
-
-    try {
-      _setLoading(true);
-
-      clearError();
-
-      if (refresh) {
-        _resetPagination();
-      }
-
-      final List<Note> response = await _repository.getNotes(
-        page: _currentPage,
-        limit: _pageSize,
-      );
-
-      if (refresh) {
-        _allNotes
-          ..clear()
-          ..addAll(response);
-      } else {
-        _allNotes.addAll(response);
-      }
-
-      _updatePagination(receivedCount: response.length);
-
-      _applySearchFilter();
-
-      LoggerService.info(
-        'Notes loaded successfully. '
-        'Count: ${response.length}',
-      );
-    } catch (exception, stackTrace) {
-      LoggerService.error(
-        'Failed to load notes.',
-        error: exception,
-        stackTrace: stackTrace,
-      );
-
-      _setError(exception.toString());
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // ===========================================================================
-  // Load More Notes
-  // ===========================================================================
-
-  /// Loads next page of notes.
-  ///
-  /// Prevents duplicate pagination requests.
-  Future<void> loadMore() async {
-    if (_isLoadingMore || !_hasMore) {
-      return;
-    }
-
-    try {
-      _isLoadingMore = true;
-
-      notifyListeners();
-
-      final int nextPage = _currentPage + 1;
-
-      final List<Note> response = await _repository.getNotes(
-        page: nextPage,
-        limit: _pageSize,
-      );
-
-      // No more records
-      if (response.isEmpty) {
-        _hasMore = false;
-
-        return;
-      }
-
-      _allNotes.addAll(response);
-
-      _currentPage = nextPage;
-
-      _updatePagination(receivedCount: response.length);
-
-      _applySearchFilter();
-
-      LoggerService.info(
-        'More notes loaded successfully. '
-        'Page: $_currentPage',
-      );
-    } catch (exception, stackTrace) {
-      LoggerService.error(
-        'Failed to load more notes.',
-        error: exception,
-        stackTrace: stackTrace,
-      );
-
-      _setError(exception.toString());
-    } finally {
-      _isLoadingMore = false;
-
+  /// This protects against asynchronous callbacks
+  /// completing after disposal.
+  @protected
+  void notifySafely() {
+    if (hasListeners) {
       notifyListeners();
     }
   }
 
+  /// Clears current error without notifying.
+  void _clearErrorInternal() {
+    _errorMessage = null;
+  }
+
   // ===========================================================================
-  // Get Single Note
+  // State Helpers
   // ===========================================================================
 
-  /// Fetches single note by id.
-
-  Future<Note?> getNote(int noteId) async {
-    try {
-      clearError();
-
-      final Note note = await _repository.getNoteById(noteId);
-
-      _selectedNote = note;
-
-      notifyListeners();
-
-      return note;
-    } catch (exception, stackTrace) {
-      LoggerService.error(
-        'Failed to get note.',
-        error: exception,
-        stackTrace: stackTrace,
-      );
-
-      _setError(exception.toString());
-
-      return null;
+  /// Updates the loading state.
+  ///
+  /// Prevents duplicate notifications.
+  bool _setLoading(bool value) {
+    if (_isLoading == value) {
+      return false;
     }
+
+    _isLoading = value;
+    notifySafely();
+    return true;
+  }
+
+  /// Updates the pagination loading state.
+  ///
+  /// Prevents unnecessary rebuilds.
+  bool _setLoadingMore(bool value) {
+    if (_isLoadingMore == value) {
+      return false;
+    }
+
+    _isLoadingMore = value;
+    notifySafely();
+    return true;
+  }
+
+  /// Updates the current error message.
+  ///
+  /// Does not notify when the value is unchanged.
+  bool _setError(String? message) {
+    if (_errorMessage == message) {
+      return false;
+    }
+
+    _errorMessage = message;
+    notifySafely();
+    return true;
+  }
+
+  /// Clears the current error.
+  void clearError() {
+    if (_errorMessage == null) {
+      return;
+    }
+
+    _errorMessage = null;
+    notifySafely();
   }
 
   // ===========================================================================
@@ -296,17 +275,272 @@ final class NotesProvider extends ChangeNotifier {
 
   void _resetPagination() {
     _currentPage = 1;
-
     _hasMore = true;
 
     _allNotes.clear();
-
     _notes.clear();
   }
 
   void _updatePagination({required int receivedCount}) {
-    if (receivedCount < _pageSize) {
-      _hasMore = false;
+    _hasMore = receivedCount >= _pageSize;
+  }
+
+  // ===========================================================================
+  // Cache Helpers
+  // ===========================================================================
+
+  void _replaceNote(Note note) {
+    final int index = _allNotes.indexWhere((Note item) => item.id == note.id);
+
+    if (index >= 0) {
+      _allNotes[index] = note;
+    } else {
+      _allNotes.insert(0, note);
+    }
+
+    if (_selectedNote?.id == note.id) {
+      _selectedNote = note;
+    }
+
+    _applySearchFilter();
+  }
+
+  void _removeNoteFromCache(int noteId) {
+    _allNotes.removeWhere((Note note) => note.id == noteId);
+
+    _notes.removeWhere((Note note) => note.id == noteId);
+
+    if (_selectedNote?.id == noteId) {
+      _selectedNote = null;
+    }
+  }
+
+  // ===========================================================================
+  // Search Helpers
+  // ===========================================================================
+
+  void _applySearchFilter() {
+    _notes.clear();
+
+    if (_searchQuery.isEmpty) {
+      _notes.addAll(_allNotes);
+      return;
+    }
+
+    final String query = _searchQuery.toLowerCase();
+
+    for (final Note note in _allNotes) {
+      final bool titleMatch = note.title.toLowerCase().contains(query);
+
+      if (titleMatch) {
+        _notes.add(note);
+        continue;
+      }
+
+      final String? content = note.content;
+
+      if (content != null && content.toLowerCase().contains(query)) {
+        _notes.add(note);
+      }
+    }
+  }
+
+  // ===========================================================================
+  // Image Helpers
+  // ===========================================================================
+
+  void _setSelectedImage(File? image) {
+    if (_selectedImage?.path == image?.path) {
+      return;
+    }
+
+    _selectedImage = image;
+    notifySafely();
+  }
+
+  void removeSelectedImage() {
+    if (_selectedImage == null) {
+      return;
+    }
+
+    _selectedImage = null;
+    notifySafely();
+  }
+
+  void clearSelectedImage() {
+    removeSelectedImage();
+  }
+
+  void _clearSelectedImageInternal() {
+    _selectedImage = null;
+  }
+
+  // ===========================================================================
+  // Selection Helpers
+  // ===========================================================================
+
+  void _setSelectedNote(Note? note) {
+    if (identical(_selectedNote, note)) {
+      return;
+    }
+
+    _selectedNote = note;
+    notifySafely();
+  }
+
+  // ===========================================================================
+  // Refresh
+  // ===========================================================================
+
+  Future<void> refreshNotes() {
+    return loadNotes(refresh: true);
+  }
+
+  // ===========================================================================
+  // Load Notes
+  // ===========================================================================
+
+  /// Loads notes from the backend.
+  ///
+  /// When [refresh] is true:
+  /// • Clears the local cache.
+  /// • Resets pagination.
+  /// • Reloads the first page.
+  Future<void> loadNotes({bool refresh = false}) async {
+    if (_isLoading && !refresh) {
+      return;
+    }
+
+    _setLoading(true);
+    _clearErrorInternal();
+
+    try {
+      if (refresh) {
+        _resetPagination();
+      }
+
+      final List<Note> notes = await _repository.getNotes(
+        page: _currentPage,
+        limit: _pageSize,
+      );
+
+      if (refresh) {
+        _allNotes
+          ..clear()
+          ..addAll(notes);
+      } else {
+        _allNotes.addAll(notes);
+      }
+
+      _updatePagination(receivedCount: notes.length);
+
+      _applySearchFilter();
+
+      LoggerService.info(
+        'Loaded ${notes.length} notes '
+        '(page: $_currentPage).',
+      );
+
+      notifyListeners();
+    } catch (error, stackTrace) {
+      LoggerService.error(
+        'Failed to load notes.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+      _setError(error.toString());
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // ===========================================================================
+  // Load More
+  // ===========================================================================
+
+  /// Loads the next page.
+  ///
+  /// Duplicate pagination requests are ignored.
+  Future<void> loadMore() async {
+    if (_isLoadingMore || !_hasMore || _isLoading) {
+      return;
+    }
+
+    _setLoadingMore(true);
+
+    try {
+      final int nextPage = _currentPage + 1;
+
+      final List<Note> notes = await _repository.getNotes(
+        page: nextPage,
+        limit: _pageSize,
+      );
+
+      if (notes.isEmpty) {
+        _hasMore = false;
+
+        LoggerService.info('No additional notes available.');
+
+        notifyListeners();
+        return;
+      }
+
+      _currentPage = nextPage;
+
+      _allNotes.addAll(notes);
+
+      _updatePagination(receivedCount: notes.length);
+
+      _applySearchFilter();
+
+      LoggerService.info(
+        'Loaded page $_currentPage '
+        '(${notes.length} notes).',
+      );
+
+      notifyListeners();
+    } catch (error, stackTrace) {
+      LoggerService.error(
+        'Failed to load more notes.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+      _setError(error.toString());
+    } finally {
+      _setLoadingMore(false);
+    }
+  }
+
+  // ===========================================================================
+  // Get Single Note
+  // ===========================================================================
+
+  /// Retrieves a single note by its identifier.
+  Future<Note?> getNote(int noteId) async {
+    _clearErrorInternal();
+
+    try {
+      final Note note = await _repository.getNoteById(noteId);
+
+      _selectedNote = note;
+
+      LoggerService.info('Loaded note $noteId.');
+
+      notifyListeners();
+
+      return note;
+    } catch (error, stackTrace) {
+      LoggerService.error(
+        'Failed to retrieve note.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+      _setError(error.toString());
+
+      return null;
     }
   }
 
@@ -315,41 +549,37 @@ final class NotesProvider extends ChangeNotifier {
   // ===========================================================================
 
   /// Creates a new note.
-
   Future<Note?> createNote(CreateNoteRequest request) async {
+    if (!request.isValid) {
+      _setError('Invalid note title.');
+      return null;
+    }
+
+    _setLoading(true);
+    _clearErrorInternal();
+
     try {
-      _setLoading(true);
+      final Note createdNote = await _repository.createNote(request);
 
-      clearError();
-
-      if (!request.isValid) {
-        throw Exception('Invalid note title.');
-      }
-
-      final Note note = await _repository.createNote(request);
-
-      _allNotes.insert(0, note);
+      _allNotes.insert(0, createdNote);
 
       _applySearchFilter();
 
-      _clearSelectedImage();
+      _clearSelectedImageInternal();
+
+      LoggerService.info('Created note ${createdNote.id}.');
 
       notifyListeners();
 
-      LoggerService.info(
-        'Note created successfully. '
-        'ID: ${note.id}',
-      );
-
-      return note;
-    } catch (exception, stackTrace) {
+      return createdNote;
+    } catch (error, stackTrace) {
       LoggerService.error(
         'Failed to create note.',
-        error: exception,
+        error: error,
         stackTrace: stackTrace,
       );
 
-      _setError(exception.toString());
+      _setError(error.toString());
 
       return null;
     } finally {
@@ -358,41 +588,37 @@ final class NotesProvider extends ChangeNotifier {
   }
 
   // ===========================================================================
-  // Update Note
+  // Update Note (PUT)
   // ===========================================================================
 
-  /// Updates an existing note using PUT.
-
+  /// Replaces an existing note.
   Future<Note?> updateNote(int noteId, UpdateNoteRequest request) async {
+    if (!request.hasUpdates) {
+      _setError('No changes provided.');
+      return null;
+    }
+
+    _setLoading(true);
+    _clearErrorInternal();
+
     try {
-      _setLoading(true);
-
-      clearError();
-
-      if (!request.hasUpdates) {
-        throw Exception('No changes provided.');
-      }
-
       final Note updatedNote = await _repository.updateNote(noteId, request);
 
       _replaceNote(updatedNote);
 
+      LoggerService.info('Updated note ${updatedNote.id}.');
+
       notifyListeners();
 
-      LoggerService.info(
-        'Note updated successfully. '
-        'ID: ${updatedNote.id}',
-      );
-
       return updatedNote;
-    } catch (exception, stackTrace) {
+    } catch (error, stackTrace) {
       LoggerService.error(
         'Failed to update note.',
-        error: exception,
+        error: error,
         stackTrace: stackTrace,
       );
 
-      _setError(exception.toString());
+      _setError(error.toString());
 
       return null;
     } finally {
@@ -401,41 +627,37 @@ final class NotesProvider extends ChangeNotifier {
   }
 
   // ===========================================================================
-  // Patch Note
+  // Patch Note (PATCH)
   // ===========================================================================
 
   /// Partially updates an existing note.
-
   Future<Note?> patchNote(int noteId, UpdateNoteRequest request) async {
+    if (!request.hasUpdates) {
+      _setError('No changes provided.');
+      return null;
+    }
+
+    _setLoading(true);
+    _clearErrorInternal();
+
     try {
-      _setLoading(true);
-
-      clearError();
-
-      if (!request.hasUpdates) {
-        throw Exception('No changes provided.');
-      }
-
       final Note updatedNote = await _repository.patchNote(noteId, request);
 
       _replaceNote(updatedNote);
 
+      LoggerService.info('Patched note ${updatedNote.id}.');
+
       notifyListeners();
 
-      LoggerService.info(
-        'Note patched successfully. '
-        'ID: ${updatedNote.id}',
-      );
-
       return updatedNote;
-    } catch (exception, stackTrace) {
+    } catch (error, stackTrace) {
       LoggerService.error(
         'Failed to patch note.',
-        error: exception,
+        error: error,
         stackTrace: stackTrace,
       );
 
-      _setError(exception.toString());
+      _setError(error.toString());
 
       return null;
     } finally {
@@ -447,34 +669,29 @@ final class NotesProvider extends ChangeNotifier {
   // Delete Note
   // ===========================================================================
 
-  /// Deletes note permanently.
-
+  /// Permanently deletes a note.
   Future<bool> deleteNote(int noteId) async {
+    _setLoading(true);
+    _clearErrorInternal();
+
     try {
-      _setLoading(true);
-
-      clearError();
-
       await _repository.deleteNote(noteId);
 
       _removeNoteFromCache(noteId);
 
+      LoggerService.info('Deleted note $noteId.');
+
       notifyListeners();
 
-      LoggerService.info(
-        'Note deleted successfully. '
-        'ID: $noteId',
-      );
-
       return true;
-    } catch (exception, stackTrace) {
+    } catch (error, stackTrace) {
       LoggerService.error(
         'Failed to delete note.',
-        error: exception,
+        error: error,
         stackTrace: stackTrace,
       );
 
-      _setError(exception.toString());
+      _setError(error.toString());
 
       return false;
     } finally {
@@ -483,61 +700,32 @@ final class NotesProvider extends ChangeNotifier {
   }
 
   // ===========================================================================
-  // Local Cache Helpers
-  // ===========================================================================
-
-  /// Replaces updated note inside local cache.
-
-  void _replaceNote(Note updatedNote) {
-    final int index = _allNotes.indexWhere((note) => note.id == updatedNote.id);
-
-    if (index == -1) {
-      _allNotes.add(updatedNote);
-    } else {
-      _allNotes[index] = updatedNote;
-    }
-
-    if (_selectedNote?.id == updatedNote.id) {
-      _selectedNote = updatedNote;
-    }
-
-    _applySearchFilter();
-  }
-
-  /// Removes deleted note from cache.
-
-  void _removeNoteFromCache(int noteId) {
-    _allNotes.removeWhere((note) => note.id == noteId);
-
-    _notes.removeWhere((note) => note.id == noteId);
-
-    if (_selectedNote?.id == noteId) {
-      _selectedNote = null;
-    }
-  }
-
-  // ===========================================================================
   // Search
   // ===========================================================================
 
-  /// Searches notes locally.
-
+  /// Filters notes locally.
+  ///
+  /// No network request is performed.
   void search(String query) {
-    _searchQuery = query.trim();
+    final String normalizedQuery = query.trim();
+
+    if (_searchQuery == normalizedQuery) {
+      return;
+    }
+
+    _searchQuery = normalizedQuery;
 
     _applySearchFilter();
 
     notifyListeners();
   }
 
-  /// Compatibility alias.
-
+  /// Backward-compatible alias.
   void searchNotes(String query) {
     search(query);
   }
 
-  /// Clears search.
-
+  /// Clears the active search.
   void clearSearch() {
     if (_searchQuery.isEmpty) {
       return;
@@ -550,38 +738,11 @@ final class NotesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Applies search filter.
-
-  void _applySearchFilter() {
-    if (_searchQuery.isEmpty) {
-      _notes
-        ..clear()
-        ..addAll(_allNotes);
-
-      return;
-    }
-
-    final String query = _searchQuery.toLowerCase();
-
-    _notes
-      ..clear()
-      ..addAll(
-        _allNotes.where((Note note) {
-          final String title = note.title.toLowerCase();
-
-          final String content = note.content?.toLowerCase() ?? '';
-
-          return title.contains(query) || content.contains(query);
-        }),
-      );
-  }
-
   // ===========================================================================
   // Image Picker
   // ===========================================================================
 
-  /// Picks image from gallery.
-
+  /// Picks an image from the gallery.
   Future<void> pickImageFromGallery() async {
     try {
       final File? image = await _imagePickerService.pickFromGallery();
@@ -590,24 +751,21 @@ final class NotesProvider extends ChangeNotifier {
         return;
       }
 
-      _selectedImage = image;
+      _setSelectedImage(image);
 
-      notifyListeners();
-
-      LoggerService.info('Image selected from gallery successfully.');
-    } catch (exception, stackTrace) {
+      LoggerService.info('Gallery image selected.');
+    } catch (error, stackTrace) {
       LoggerService.error(
-        'Failed to pick image from gallery.',
-        error: exception,
+        'Failed to pick gallery image.',
+        error: error,
         stackTrace: stackTrace,
       );
 
-      _setError(exception.toString());
+      _setError(error.toString());
     }
   }
 
-  /// Captures image using camera.
-
+  /// Captures an image using the camera.
   Future<void> pickImageFromCamera() async {
     try {
       final File? image = await _imagePickerService.pickFromCamera();
@@ -616,200 +774,104 @@ final class NotesProvider extends ChangeNotifier {
         return;
       }
 
-      _selectedImage = image;
+      _setSelectedImage(image);
 
-      notifyListeners();
-
-      LoggerService.info('Image captured successfully.');
-    } catch (exception, stackTrace) {
+      LoggerService.info('Camera image captured.');
+    } catch (error, stackTrace) {
       LoggerService.error(
         'Failed to capture image.',
-        error: exception,
+        error: error,
         stackTrace: stackTrace,
       );
 
-      _setError(exception.toString());
+      _setError(error.toString());
     }
-  }
-
-  /// Removes selected image.
-
-  void removeSelectedImage() {
-    if (_selectedImage == null) {
-      return;
-    }
-
-    _selectedImage = null;
-
-    notifyListeners();
-  }
-
-  /// Clears selected image.
-
-  void clearSelectedImage() {
-    if (_selectedImage == null) {
-      return;
-    }
-
-    _selectedImage = null;
-
-    notifyListeners();
-  }
-
-  /// Internal image cleanup.
-
-  void _clearSelectedImage() {
-    _selectedImage = null;
   }
 
   // ===========================================================================
   // Reminder Management
   // ===========================================================================
 
-  /// Creates a local reminder for a note.
-
+  /// Schedules a local reminder for a note.
   Future<void> scheduleNoteReminder({
     required Note note,
     required DateTime reminderTime,
   }) async {
+    _clearErrorInternal();
+
     try {
       final ReminderModel reminder = ReminderModel(
         notificationId: note.id,
-
         noteId: note.id,
-
         title: note.title,
-
         body: note.content ?? 'Reminder for your note',
-
         scheduledAt: reminderTime,
-
         payload: note.id.toString(),
       );
 
-      // IMPORTANT:
-      // ReminderManager exposes saveReminder()
-      // not scheduleReminder()
-
       await _reminderManager.saveReminder(reminder);
 
-      LoggerService.info(
-        'Reminder scheduled successfully. '
-        'Note ID: ${note.id}',
-      );
-    } catch (exception, stackTrace) {
+      LoggerService.info('Reminder scheduled. Note: ${note.id}');
+    } catch (error, stackTrace) {
       LoggerService.error(
         'Failed to schedule reminder.',
-        error: exception,
+        error: error,
         stackTrace: stackTrace,
       );
 
-      _setError(exception.toString());
+      _setError(error.toString());
     }
   }
 
-  /// Cancels reminder associated with note.
-
+  /// Cancels a reminder associated with a note.
   Future<void> cancelNoteReminder(int noteId) async {
+    _clearErrorInternal();
+
     try {
       await _reminderManager.deleteReminderByNote(noteId);
 
-      LoggerService.info(
-        'Reminder cancelled successfully. '
-        'Note ID: $noteId',
-      );
-    } catch (exception, stackTrace) {
+      LoggerService.info('Reminder cancelled. Note: $noteId');
+    } catch (error, stackTrace) {
       LoggerService.error(
         'Failed to cancel reminder.',
-        error: exception,
+        error: error,
         stackTrace: stackTrace,
       );
 
-      _setError(exception.toString());
+      _setError(error.toString());
     }
   }
 
   // ===========================================================================
-  // Error Handling
+  // Reset
   // ===========================================================================
 
-  /// Clears current error message.
-
-  void clearError() {
-    if (_errorMessage == null) {
-      return;
-    }
-
-    _errorMessage = null;
-
-    notifyListeners();
-  }
-
-  /// Internal error setter.
-
-  void _setError(String message) {
-    _errorMessage = message;
-
-    notifyListeners();
-  }
-
-  /// Updates loading state.
-
-  void _setLoading(bool value) {
-    if (_isLoading == value) {
-      return;
-    }
-
-    _isLoading = value;
-
-    notifyListeners();
-  }
-
-  // ===========================================================================
-  // Refresh
-  // ===========================================================================
-
-  /// Refreshes notes from first page.
-
-  Future<void> refreshNotes() async {
-    await loadNotes(refresh: true);
-  }
-
-  // ===========================================================================
-  // Reset Provider State
-  // ===========================================================================
-
-  /// Clears complete provider state.
+  /// Clears all provider state.
   ///
-  /// Used during:
-  /// - logout
-  /// - user switching
-  /// - session reset
-
+  /// Intended for:
+  /// • Logout
+  /// • Session expiration
+  /// • User switching
   void reset() {
     _allNotes.clear();
-
     _notes.clear();
 
     _selectedNote = null;
-
     _selectedImage = null;
 
     _searchQuery = '';
 
     _currentPage = 1;
-
     _hasMore = true;
 
     _errorMessage = null;
 
     _isLoading = false;
-
     _isLoadingMore = false;
 
-    notifyListeners();
+    LoggerService.info('NotesProvider reset.');
 
-    LoggerService.info('NotesProvider state reset.');
+    notifyListeners();
   }
 
   // ===========================================================================
@@ -819,8 +881,10 @@ final class NotesProvider extends ChangeNotifier {
   @override
   void dispose() {
     _allNotes.clear();
-
     _notes.clear();
+
+    _selectedNote = null;
+    _selectedImage = null;
 
     LoggerService.info('NotesProvider disposed.');
 

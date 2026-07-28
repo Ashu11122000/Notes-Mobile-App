@@ -14,7 +14,7 @@ import '../providers/notification_provider.dart';
 /// • Displays notification preference switch.
 /// • Reads state from NotificationProvider.
 /// • Updates notification preference.
-/// • Handles loading state.
+/// • Uses selective rebuilds for better performance.
 /// • Contains no business logic.
 ///
 /// Architecture
@@ -32,61 +32,55 @@ import '../providers/notification_provider.dart';
 final class NotificationToggle extends StatelessWidget {
   const NotificationToggle({super.key});
 
+  static const String _title = 'Enable Notifications';
+
+  static const String _enabledDescription = 'Receive reminders for your notes.';
+
+  static const String _disabledDescription = 'Notifications are disabled.';
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<NotificationProvider>(
-      builder: (context, provider, child) {
-        final bool isEnabled = provider.notificationsEnabled;
+    final bool isEnabled = context.select<NotificationProvider, bool>(
+      (NotificationProvider provider) => provider.notificationsEnabled,
+    );
 
-        return Card(
-          clipBehavior: Clip.antiAlias,
+    final bool isLoading = context.select<NotificationProvider, bool>(
+      (NotificationProvider provider) => provider.isLoading,
+    );
 
-          child: SwitchListTile(
-            // ===============================================================
-            // Icon
-            // ===============================================================
-            secondary: Tooltip(
-              message: isEnabled
-                  ? 'Notifications enabled'
-                  : 'Notifications disabled',
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Semantics(
+        container: true,
+        toggled: isEnabled,
+        child: SwitchListTile.adaptive(
+          value: isEnabled,
+          onChanged: isLoading
+              ? null
+              : (bool value) async {
+                  await context
+                      .read<NotificationProvider>()
+                      .setNotificationsEnabled(value);
+                },
 
-              child: Icon(
-                isEnabled
-                    ? Icons.notifications_active_outlined
-                    : Icons.notifications_off_outlined,
-              ),
-            ),
-
-            // ===============================================================
-            // Title
-            // ===============================================================
-            title: const Text('Enable Notifications'),
-
-            // ===============================================================
-            // Description
-            // ===============================================================
-            subtitle: Text(
+          secondary: Tooltip(
+            message: isEnabled
+                ? 'Notifications enabled'
+                : 'Notifications disabled',
+            child: Icon(
               isEnabled
-                  ? 'Receive reminders for your notes.'
-                  : 'Notifications are disabled.',
+                  ? Icons.notifications_active_outlined
+                  : Icons.notifications_off_outlined,
             ),
-
-            // ===============================================================
-            // Value
-            // ===============================================================
-            value: isEnabled,
-
-            // ===============================================================
-            // Action
-            // ===============================================================
-            onChanged: provider.isLoading
-                ? null
-                : (bool value) async {
-                    await provider.setNotificationsEnabled(value);
-                  },
           ),
-        );
-      },
+
+          title: const Text(_title),
+
+          subtitle: Text(
+            isEnabled ? _enabledDescription : _disabledDescription,
+          ),
+        ),
+      ),
     );
   }
 }

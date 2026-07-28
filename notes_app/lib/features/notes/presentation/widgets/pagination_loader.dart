@@ -8,8 +8,8 @@ import 'package:flutter/material.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Displays loading indicator during pagination.
-/// • Used by infinite scrolling lists/grids.
+/// • Displays a loading indicator during pagination.
+/// • Used by infinite scrolling lists and grids.
 /// • Contains no business logic.
 /// • Reusable across all paginated features.
 ///
@@ -27,8 +27,8 @@ final class PaginationLoader extends StatelessWidget {
   const PaginationLoader({
     super.key,
     this.message = 'Loading more...',
-    this.padding = const EdgeInsets.symmetric(vertical: 24),
-    this.indicatorSize = 28,
+    this.padding = const EdgeInsets.symmetric(vertical: 24.0),
+    this.indicatorSize = 28.0,
     this.strokeWidth = 2.5,
     this.showMessage = true,
   });
@@ -45,58 +45,51 @@ final class PaginationLoader extends StatelessWidget {
   /// Circular indicator thickness.
   final double strokeWidth;
 
-  /// Whether to show message.
+  /// Whether to show the loading message.
   final bool showMessage;
 
   // ===========================================================================
   // Constants
   // ===========================================================================
 
-  static const double _messageSpacing = 12;
-
-  // ===========================================================================
-  // Build
-  // ===========================================================================
+  static const double _messageSpacing = 12.0;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
+
+    final bool displayMessage = showMessage && message.trim().isNotEmpty;
 
     return Semantics(
+      container: true,
       liveRegion: true,
-
-      label: message,
-
+      readOnly: true,
+      label: displayMessage ? message : 'Loading',
       child: Padding(
         padding: padding,
-
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-
             children: <Widget>[
               SizedBox(
                 width: indicatorSize,
-
                 height: indicatorSize,
-
                 child: CircularProgressIndicator(
                   strokeWidth: strokeWidth,
-
-                  color: theme.colorScheme.primary,
+                  color: colorScheme.primary,
                 ),
               ),
 
-              if (showMessage) ...<Widget>[
+              if (displayMessage) ...<Widget>[
                 const SizedBox(height: _messageSpacing),
 
                 Text(
                   message,
-
                   textAlign: TextAlign.center,
-
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],

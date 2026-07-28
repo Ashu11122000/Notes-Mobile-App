@@ -4,22 +4,21 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_routes.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../../notifications/presentation/providers/notification_provider.dart';
 import '../providers/settings_provider.dart';
 
 /// ============================================================================
 /// File: settings_screen.dart
 /// ============================================================================
 ///
-/// Settings Screen
+/// Production Settings Screen.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Displays application settings.
-/// • Shows current user information.
 /// • Controls theme preference.
-/// • Opens notification settings.
-/// • Handles logout confirmation.
+/// • Shows user information.
+/// • Handles logout.
+/// • Navigates to notification settings.
 ///
 /// Does NOT:
 /// ----------------------------------------------------------------------------
@@ -41,33 +40,17 @@ import '../providers/settings_provider.dart';
 ///
 /// ============================================================================
 
-final class SettingsScreen extends StatefulWidget {
+final class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-final class _SettingsScreenState extends State<SettingsScreen> {
-  @override
-  void initState() {
-    super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await context.read<SettingsProvider>().initialize();
-
-      if (!mounted) {
-        return;
-      }
-
-      await context.read<NotificationProvider>().initialize();
-    });
-  }
+  // ===========================================================================
+  // Build
+  // ===========================================================================
 
   @override
   Widget build(BuildContext context) {
     return Consumer2<SettingsProvider, AuthProvider>(
-      builder: (context, settings, auth, child) {
+      builder: (BuildContext context, SettingsProvider settings, AuthProvider auth, Widget? child) {
         final ThemeData theme = Theme.of(context);
 
         final user = auth.currentUser;
@@ -78,15 +61,16 @@ final class _SettingsScreenState extends State<SettingsScreen> {
           body: ListView(
             padding: const EdgeInsets.all(16),
 
-            children: [
+            children: <Widget>[
               // ===============================================================
-              // Profile
+              // Profile Section
               // ===============================================================
               _SectionCard(
                 child: Row(
-                  children: [
+                  children: <Widget>[
                     Container(
                       width: 64,
+
                       height: 64,
 
                       decoration: BoxDecoration(
@@ -96,7 +80,7 @@ final class _SettingsScreenState extends State<SettingsScreen> {
                       ),
 
                       child: Icon(
-                        Icons.person_outline,
+                        Icons.person_outline_rounded,
 
                         size: 34,
 
@@ -110,9 +94,13 @@ final class _SettingsScreenState extends State<SettingsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
 
-                        children: [
+                        children: <Widget>[
                           Text(
                             user?.email ?? 'Guest User',
+
+                            maxLines: 1,
+
+                            overflow: TextOverflow.ellipsis,
 
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w600,
@@ -144,19 +132,19 @@ final class _SettingsScreenState extends State<SettingsScreen> {
 
               _SectionCard(
                 child: Column(
-                  children: ThemeMode.values.map((mode) {
+                  children: ThemeMode.values.map((ThemeMode mode) {
                     return RadioListTile<ThemeMode>(
-                      title: Text(_themeTitle(mode)),
-
-                      subtitle: Text(_themeSubtitle(mode)),
-
                       value: mode,
 
                       groupValue: settings.themeMode,
 
+                      title: Text(_themeTitle(mode)),
+
+                      subtitle: Text(_themeSubtitle(mode)),
+
                       onChanged: settings.isLoading
                           ? null
-                          : (value) {
+                          : (ThemeMode? value) {
                               if (value != null) {
                                 settings.setThemeMode(value);
                               }
@@ -183,7 +171,7 @@ final class _SettingsScreenState extends State<SettingsScreen> {
 
                   subtitle: const Text('Manage reminders and alerts.'),
 
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(Icons.chevron_right_rounded),
 
                   onTap: () {
                     context.push(AppRoutes.notificationSettings);
@@ -200,11 +188,11 @@ final class _SettingsScreenState extends State<SettingsScreen> {
 
               const SizedBox(height: 8),
 
-              _SectionCard(
-                child: const Column(
-                  children: [
+              const _SectionCard(
+                child: Column(
+                  children: <Widget>[
                     ListTile(
-                      leading: Icon(Icons.info_outline),
+                      leading: Icon(Icons.info_outline_rounded),
 
                       title: Text('Notes App'),
 
@@ -216,7 +204,7 @@ final class _SettingsScreenState extends State<SettingsScreen> {
                     Divider(height: 1),
 
                     ListTile(
-                      leading: Icon(Icons.code),
+                      leading: Icon(Icons.code_rounded),
 
                       title: Text('Version'),
 
@@ -251,7 +239,9 @@ final class _SettingsScreenState extends State<SettingsScreen> {
 
                   subtitle: const Text('Sign out from this device.'),
 
-                  onTap: () => _logout(context),
+                  onTap: () {
+                    _logout(context);
+                  },
                 ),
               ),
             ],
@@ -261,20 +251,24 @@ final class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ===========================================================================
+  // Logout
+  // ===========================================================================
+
   Future<void> _logout(BuildContext context) async {
-    final bool? confirm = await showDialog<bool>(
+    final bool? confirmed = await showDialog<bool>(
       context: context,
 
-      builder: (dialogContext) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Logout'),
 
           content: const Text('Are you sure you want to logout?'),
 
-          actions: [
+          actions: <Widget>[
             TextButton(
               onPressed: () {
-                Navigator.pop(dialogContext, false);
+                Navigator.of(dialogContext).pop(false);
               },
 
               child: const Text('Cancel'),
@@ -282,7 +276,7 @@ final class _SettingsScreenState extends State<SettingsScreen> {
 
             FilledButton(
               onPressed: () {
-                Navigator.pop(dialogContext, true);
+                Navigator.of(dialogContext).pop(true);
               },
 
               child: const Text('Logout'),
@@ -292,11 +286,13 @@ final class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
 
-    if (confirm != true || !context.mounted) {
+    if (confirmed != true || !context.mounted) {
       return;
     }
 
-    await context.read<AuthProvider>().logout();
+    final AuthProvider auth = context.read<AuthProvider>();
+
+    await auth.logout();
 
     if (!context.mounted) {
       return;
@@ -312,6 +308,10 @@ final class _SettingsScreenState extends State<SettingsScreen> {
 
     context.go(AppRoutes.login);
   }
+
+  // ===========================================================================
+  // Theme Helpers
+  // ===========================================================================
 
   String _themeTitle(ThemeMode mode) {
     switch (mode) {
@@ -339,6 +339,10 @@ final class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 }
+
+// ============================================================================
+// Section Card
+// ============================================================================
 
 final class _SectionCard extends StatelessWidget {
   const _SectionCard({required this.child});
