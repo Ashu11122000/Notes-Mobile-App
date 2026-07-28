@@ -1,69 +1,47 @@
 import 'package:flutter/foundation.dart';
 
-/// ============================================================================
+/// =============================================================================
 /// File: app_routes.dart
-/// ============================================================================
+/// =============================================================================
 ///
 /// Centralized application route definitions.
 ///
 /// Responsibilities
-/// ----------------------------------------------------------------------------
+/// -----------------------------------------------------------------------------
 /// • Defines all route paths.
-/// • Defines all route names.
+/// • Defines all GoRouter route names.
 /// • Prevents hardcoded route strings.
-/// • Provides a single source of truth for navigation.
-/// • Used by GoRouter throughout the application.
-/// • Supports future route expansion.
+/// • Provides route helper methods.
+/// • Supports dynamic routes.
+/// • Provides route classification helpers.
 ///
-/// This file intentionally contains only compile-time constants and lightweight
-/// helper methods to keep routing fast and maintainable.
-///
-/// Route Naming Convention
-/// ----------------------------------------------------------------------------
-/// Path:
-///   /notes
-///   /notes/add
-///
-/// Name:
-///   notes
-///   add-note
-///
-/// Dynamic routes should use helper methods instead of string concatenation.
-///
-/// Example:
-///
-/// ```dart
-/// context.go(AppRoutes.notes);
-///
-/// context.push(AppRoutes.addNote);
-///
-/// context.push(
-///   AppRoutes.noteDetailById(12),
-/// );
-/// ```
-/// ============================================================================
+/// =============================================================================
+
 @immutable
 final class AppRoutes {
   const AppRoutes._();
 
   // ===========================================================================
-  // Root
+  // Initial
   // ===========================================================================
 
-  /// Splash screen.
   static const String splash = '/';
+
+  static const String splashName = 'splash';
+
+  static const String initialRoute = splash;
 
   // ===========================================================================
   // Authentication
   // ===========================================================================
 
-  static const String authRoot = '';
-
-  /// Login screen.
   static const String login = '/login';
 
-  /// Register screen.
+  static const String loginName = 'login';
+
   static const String register = '/register';
+
+  static const String registerName = 'register';
 
   // ===========================================================================
   // Notes
@@ -71,17 +49,38 @@ final class AppRoutes {
 
   static const String notesRoot = '/notes';
 
-  /// Notes home.
   static const String notes = notesRoot;
 
-  /// Create note.
+  static const String notesName = 'notes';
+
   static const String addNote = '$notesRoot/add';
 
-  /// Edit note.
+  static const String addNoteName = 'add-note';
+
   static const String editNote = '$notesRoot/edit';
 
-  /// Note details.
+  static const String editNoteName = 'edit-note';
+
   static const String noteDetail = '$notesRoot/detail';
+
+  static const String noteDetailName = 'note-detail';
+
+  /// GoRouter parameter name.
+  static const String noteIdParam = 'id';
+
+  // ===========================================================================
+  // Profile
+  // ===========================================================================
+
+  static const String profileRoot = '/profile';
+
+  static const String profile = profileRoot;
+
+  static const String profileName = 'profile';
+
+  static const String editProfile = '$profileRoot/edit';
+
+  static const String editProfileName = 'edit-profile';
 
   // ===========================================================================
   // Settings
@@ -89,78 +88,46 @@ final class AppRoutes {
 
   static const String settingsRoot = '/settings';
 
-  /// Settings screen.
   static const String settings = settingsRoot;
 
-  /// Notification settings.
-  static const String notificationSettings = '$settingsRoot/notifications';
-
-  // ===========================================================================
-  // Route Names
-  // ===========================================================================
-
-  static const String splashName = 'splash';
-
-  // Authentication
-
-  static const String loginName = 'login';
-
-  static const String registerName = 'register';
-
-  // Notes
-
-  static const String notesName = 'notes';
-
-  static const String addNoteName = 'add-note';
-
-  static const String editNoteName = 'edit-note';
-
-  static const String noteDetailName = 'note-detail';
-
-  // Settings
-
   static const String settingsName = 'settings';
+
+  static const String notificationSettings = '$settingsRoot/notifications';
 
   static const String notificationSettingsName = 'notification-settings';
 
   // ===========================================================================
-  // Dynamic Route Helpers
+  // Public Routes
   // ===========================================================================
 
-  /// Returns a route for a specific note.
-  ///
-  /// Example:
-  ///
-  /// ```dart
-  /// context.push(AppRoutes.noteDetailById(25));
-  /// ```
-  static String noteDetailById(int id) => '$noteDetail/$id';
-
-  /// Returns a route for editing a specific note.
-  ///
-  /// Example:
-  ///
-  /// ```dart
-  /// context.push(AppRoutes.editNoteById(25));
-  /// ```
-  static String editNoteById(int id) => '$editNote/$id';
+  static const Set<String> publicRoutes = <String>{splash, login, register};
 
   // ===========================================================================
-  // Route Predicates
+  // Dynamic Helpers
   // ===========================================================================
 
-  /// Returns whether the given location belongs to the authentication flow.
-  static bool isAuthRoute(String location) {
-    return location == login || location == register;
-  }
+  static String noteDetailById(Object id) =>
+      '$noteDetail/${Uri.encodeComponent(id.toString())}';
 
-  /// Returns whether the given location belongs to the notes module.
-  static bool isNotesRoute(String location) {
-    return location.startsWith(notesRoot);
-  }
+  static String editNoteById(Object id) =>
+      '$editNote/${Uri.encodeComponent(id.toString())}';
 
-  /// Returns whether the given location belongs to the settings module.
-  static bool isSettingsRoute(String location) {
-    return location.startsWith(settingsRoot);
-  }
+  // ===========================================================================
+  // Route Helpers
+  // ===========================================================================
+
+  static bool isPublicRoute(String location) => publicRoutes.contains(location);
+
+  static bool isProtectedRoute(String location) => !isPublicRoute(location);
+
+  static bool isAuthRoute(String location) =>
+      location == login || location == register;
+
+  static bool isNotesRoute(String location) => location.startsWith(notesRoot);
+
+  static bool isProfileRoute(String location) =>
+      location.startsWith(profileRoot);
+
+  static bool isSettingsRoute(String location) =>
+      location.startsWith(settingsRoot);
 }
