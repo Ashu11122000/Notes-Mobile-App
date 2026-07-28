@@ -6,31 +6,26 @@ import 'package:flutter/material.dart';
 ///
 /// Enterprise Material 3 reusable card.
 ///
-/// Provides a centralized card implementation with consistent styling,
-/// interaction behavior, accessibility, and responsive behavior.
+/// Provides a consistent card surface across the application.
 ///
 /// Features:
 ///
 /// - Material 3 compliant
-/// - Theme-aware
+/// - Theme aware
 /// - Accessible
 /// - Ripple support
-/// - Hover support
-/// - Keyboard friendly
-/// - Lightweight rendering
-/// - Reusable across features
+/// - Lightweight
+/// - Reusable
 ///
-/// Common usage:
+/// Used for:
 ///
-/// - Note cards
-/// - Profile cards
-/// - Settings sections
+/// - Notes
 /// - Dashboard panels
+/// - Settings sections
 /// - Empty states
-/// - Statistics cards
+/// - Profile cards
 @immutable
 final class CustomCard extends StatelessWidget {
-  /// Creates a reusable application card.
   const CustomCard({
     super.key,
     required this.child,
@@ -48,22 +43,22 @@ final class CustomCard extends StatelessWidget {
     this.semanticLabel,
   });
 
-  /// Content displayed inside the card.
+  /// Card content.
   final Widget child;
 
-  /// Internal spacing.
+  /// Internal padding.
   final EdgeInsetsGeometry padding;
 
-  /// External spacing.
+  /// External margin.
   final EdgeInsetsGeometry margin;
 
-  /// Callback invoked when tapped.
+  /// Tap callback.
   final VoidCallback? onTap;
 
-  /// Whether the card is interactive.
+  /// Enables interaction.
   final bool enabled;
 
-  /// Card elevation.
+  /// Elevation.
   final double elevation;
 
   /// Corner radius.
@@ -75,13 +70,13 @@ final class CustomCard extends StatelessWidget {
   /// Background color.
   final Color? color;
 
-  /// Optional border.
+  /// Border.
   final BorderSide? border;
 
   /// Shadow color.
   final Color? shadowColor;
 
-  /// Material 3 surface tint.
+  /// Surface tint.
   final Color? surfaceTintColor;
 
   /// Accessibility label.
@@ -95,33 +90,53 @@ final class CustomCard extends StatelessWidget {
 
     final effectiveOnTap = enabled ? onTap : null;
 
+    final shape = RoundedRectangleBorder(
+      borderRadius: radius,
+
+      side:
+          border ??
+          BorderSide(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
+          ),
+    );
+
+    Widget content = Padding(padding: padding, child: child);
+
+    if (effectiveOnTap != null) {
+      content = InkWell(
+        onTap: effectiveOnTap,
+
+        borderRadius: radius,
+
+        mouseCursor: SystemMouseCursors.click,
+
+        child: content,
+      );
+    }
+
     return Semantics(
       container: true,
+
       button: effectiveOnTap != null,
-      enabled: enabled,
+
+      enabled: effectiveOnTap != null,
+
       label: semanticLabel,
+
       child: Material(
         color: color ?? theme.colorScheme.surfaceContainerLow,
+
         elevation: elevation,
+
         shadowColor: shadowColor,
+
         surfaceTintColor: surfaceTintColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: radius,
-          side:
-              border ??
-              BorderSide(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
-              ),
-        ),
+
+        shape: shape,
+
         clipBehavior: clipBehavior,
-        child: InkWell(
-          onTap: effectiveOnTap,
-          borderRadius: radius,
-          mouseCursor: effectiveOnTap != null
-              ? SystemMouseCursors.click
-              : MouseCursor.defer,
-          child: Padding(padding: padding, child: child),
-        ),
+
+        child: content,
       ),
     );
   }
