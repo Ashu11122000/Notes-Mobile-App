@@ -1,20 +1,25 @@
-import java.util.Properties
-
 pluginManagement {
-    val flutterSdkPath =
-        run {
-            val properties = Properties()
+    val flutterSdkPath = run {
+        val properties = java.util.Properties()
 
-            file("local.properties")
-                .inputStream()
-                .use(properties::load)
+        val localPropertiesFile = file("local.properties")
 
-            require(properties.containsKey("flutter.sdk")) {
-                "flutter.sdk not set in local.properties"
-            }
-
-            properties.getProperty("flutter.sdk")
+        if (!localPropertiesFile.exists()) {
+            error("local.properties file not found")
         }
+
+        java.io.FileInputStream(localPropertiesFile).use { inputStream ->
+            properties.load(inputStream)
+        }
+
+        val flutterSdk = properties.getProperty("flutter.sdk")
+
+        require(!flutterSdk.isNullOrBlank()) {
+            "flutter.sdk not set in local.properties"
+        }
+
+        flutterSdk
+    }
 
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
 
@@ -28,9 +33,9 @@ pluginManagement {
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
 
-    id("com.android.application") version "9.0.1" apply false
+    id("com.android.application") version "8.9.1" apply false
 
-    id("org.jetbrains.kotlin.android") version "2.3.20" apply false
+    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
 }
 
 include(":app")

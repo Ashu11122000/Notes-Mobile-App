@@ -1,13 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Required on Android 13+ for local notifications -->
+    <!-- Required for Android 13+ local notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name="${applicationName}"
         android:allowBackup="true"
-        android:fullBackupContent="@xml/backup_rules"
-        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="Notes App"
         android:supportsRtl="true">
@@ -46,7 +44,7 @@
 
         </activity>
 
-        <!-- Flutter Embedding V2 -->
+        <!-- Flutter embedding version -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
