@@ -11,20 +11,24 @@ typedef LoginSubmitted = Future<void> Function(String email, String password);
 /// File: login_form.dart
 /// ============================================================================
 ///
-/// Reusable login form.
+/// Reusable Login Form
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Collects user credentials.
-/// • Performs lightweight input validation.
-/// • Handles keyboard navigation.
+/// • Performs lightweight validation.
 /// • Supports platform autofill.
+/// • Handles keyboard navigation.
 /// • Delegates authentication to the parent widget.
 ///
-/// No business logic exists in this widget.
+/// Notes
+/// ----------------------------------------------------------------------------
+/// • Contains no business logic.
+/// • Optimized for minimal rebuilds.
+/// • Material 3 compliant.
 /// ============================================================================
 
-class LoginForm extends StatefulWidget {
+final class LoginForm extends StatefulWidget {
   const LoginForm({super.key, required this.onSubmit, this.isLoading = false});
 
   final LoginSubmitted onSubmit;
@@ -35,9 +39,9 @@ class LoginForm extends StatefulWidget {
   State<LoginForm> createState() => _LoginFormState();
 }
 
-class _LoginFormState extends State<LoginForm> {
-  static const SizedBox _vertical16 = SizedBox(height: 16);
-  static const SizedBox _vertical24 = SizedBox(height: 24);
+final class _LoginFormState extends State<LoginForm> {
+  static const SizedBox _spacing16 = SizedBox(height: 16);
+  static const SizedBox _spacing24 = SizedBox(height: 24);
 
   static final RegExp _emailRegex = RegExp(
     r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
@@ -65,25 +69,52 @@ class _LoginFormState extends State<LoginForm> {
   }
 
   Future<void> _submit() async {
+    if (widget.isLoading) {
+      return;
+    }
+
     final form = _formKey.currentState;
 
     if (form == null || !form.validate()) {
       return;
     }
 
-    form.save();
+    final focusScope = FocusScope.of(context);
 
-    FocusScope.of(context).unfocus();
+    focusScope.unfocus();
 
     TextInput.finishAutofillContext();
 
-    final String email = _emailController.text.trim();
-
-    final String password = _passwordController.text;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
     await widget.onSubmit(email, password);
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
+  }
+
+  String? _validateEmail(String? value) {
+    final email = value?.trim() ?? '';
+
+    if (email.isEmpty) {
+      return 'Email is required.';
+    }
+
+    if (!_emailRegex.hasMatch(email)) {
+      return 'Please enter a valid email address.';
+    }
+
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if ((value ?? '').isEmpty) {
+      return 'Password is required.';
+    }
+
+    return null;
   }
 
   @override
@@ -94,7 +125,8 @@ class _LoginFormState extends State<LoginForm> {
         child: Form(
           key: _formKey,
           child: Column(
-            children: [
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
               CustomTextField(
                 controller: _emailController,
                 focusNode: _emailFocusNode,
@@ -103,29 +135,17 @@ class _LoginFormState extends State<LoginForm> {
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 prefixIcon: Icons.email_outlined,
-                autofillHints: const [
+                autofillHints: const <String>[
                   AutofillHints.email,
                   AutofillHints.username,
                 ],
                 onFieldSubmitted: (_) {
                   _passwordFocusNode.requestFocus();
                 },
-                validator: (value) {
-                  final email = value?.trim() ?? '';
-
-                  if (email.isEmpty) {
-                    return 'Email is required.';
-                  }
-
-                  if (!_emailRegex.hasMatch(email)) {
-                    return 'Please enter a valid email address.';
-                  }
-
-                  return null;
-                },
+                validator: _validateEmail,
               ),
 
-              _vertical16,
+              _spacing16,
 
               CustomTextField(
                 controller: _passwordController,
@@ -135,21 +155,16 @@ class _LoginFormState extends State<LoginForm> {
                 obscureText: true,
                 textInputAction: TextInputAction.done,
                 prefixIcon: Icons.lock_outline,
-                autofillHints: const [AutofillHints.password],
+                autofillHints: const <String>[AutofillHints.password],
                 onFieldSubmitted: (_) => _submit(),
-                validator: (value) {
-                  if ((value ?? '').isEmpty) {
-                    return 'Password is required.';
-                  }
-
-                  return null;
-                },
+                validator: _validatePassword,
               ),
 
-              _vertical24,
+              _spacing24,
 
               Semantics(
                 button: true,
+                enabled: !widget.isLoading,
                 child: PrimaryButton(
                   text: 'Sign In',
                   isLoading: widget.isLoading,

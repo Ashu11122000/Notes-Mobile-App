@@ -9,15 +9,16 @@ import 'package:flutter/foundation.dart';
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Represents the authenticated user returned by the FastAPI API.
-/// • Converts between JSON and Dart objects.
-/// • Remains immutable and free of business logic.
-/// • Provides lightweight state updates through [copyWith].
+/// • Converts between Map/JSON and Dart objects.
+/// • Remains immutable.
+/// • Contains no business logic.
+/// • Supports lightweight updates through [copyWith].
 ///
 /// FastAPI Endpoint
 /// ----------------------------------------------------------------------------
 /// GET /api/v1/auth/me
 ///
-/// Response Body
+/// Example Response
 /// ----------------------------------------------------------------------------
 /// {
 ///   "id": 1,
@@ -29,8 +30,7 @@ import 'package:flutter/foundation.dart';
 /// Notes
 /// ----------------------------------------------------------------------------
 /// • This model contains only user profile information.
-/// • Authentication tokens are managed separately by
-///   [LoginResponseModel] and [SessionManager].
+/// • Authentication tokens are managed separately.
 /// • Fully compatible with the FastAPI UserResponse schema.
 /// ============================================================================
 
@@ -58,14 +58,23 @@ final class UserModel {
   /// User role.
   ///
   /// Common values:
-  /// - admin
-  /// - user
+  /// • admin
+  /// • user
   final String role;
 
-  /// Indicates whether the user account is active.
+  /// Indicates whether the account is active.
   final bool isActive;
 
-  /// Returns a new instance with the provided values replaced.
+  /// Returns true when the user has a valid identifier.
+  bool get hasValidId => id > 0;
+
+  /// Returns true when the user is an administrator.
+  bool get isAdmin => role.toLowerCase() == 'admin';
+
+  /// Returns true when the user is a regular user.
+  bool get isUser => role.toLowerCase() == 'user';
+
+  /// Returns a new immutable instance with updated values.
   UserModel copyWith({int? id, String? email, String? role, bool? isActive}) {
     return UserModel(
       id: id ?? this.id,
@@ -75,27 +84,53 @@ final class UserModel {
     );
   }
 
-  /// Creates a model from a JSON object.
-  factory UserModel.fromJson(Map<String, dynamic> json) {
+  /// Creates a model from a Map.
+  factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
-      id: (json[_idKey] as num?)?.toInt() ?? 0,
-      email: (json[_emailKey] ?? '') as String,
-      role: (json[_roleKey] ?? '') as String,
-      isActive: json[_isActiveKey] as bool? ?? false,
+      id: switch (map[_idKey]) {
+        final int value => value,
+        final num value => value.toInt(),
+        final String value => int.tryParse(value) ?? 0,
+        _ => 0,
+      },
+      email: map[_emailKey]?.toString() ?? '',
+      role: map[_roleKey]?.toString() ?? '',
+      isActive: switch (map[_isActiveKey]) {
+        final bool value => value,
+        final String value => value.toLowerCase() == 'true',
+        final num value => value != 0,
+        _ => false,
+      },
     );
   }
 
-  /// Converts this model into a JSON object.
-  Map<String, dynamic> toJson() => <String, dynamic>{
-    _idKey: id,
-    _emailKey: email,
-    _roleKey: role,
-    _isActiveKey: isActive,
-  };
+  /// Alias for [fromMap].
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+    return UserModel.fromMap(json);
+  }
+
+  /// Converts this model into a Map.
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      _idKey: id,
+      _emailKey: email,
+      _roleKey: role,
+      _isActiveKey: isActive,
+    };
+  }
+
+  /// Alias for [toMap].
+  Map<String, dynamic> toJson() => toMap();
 
   @override
-  String toString() =>
-      'UserModel(id: $id, email: $email, role: $role, isActive: $isActive)';
+  String toString() {
+    return 'UserModel('
+        'id: $id, '
+        'email: $email, '
+        'role: $role, '
+        'isActive: $isActive'
+        ')';
+  }
 
   @override
   bool operator ==(Object other) {

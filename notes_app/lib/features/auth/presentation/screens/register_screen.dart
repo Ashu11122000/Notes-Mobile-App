@@ -21,14 +21,19 @@ import '../widgets/register_form.dart';
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Displays the registration UI.
-/// • Coordinates with [AuthProvider].
-/// • Shows success and error snackbars.
+/// • Delegates registration to AuthProvider.
+/// • Displays success and error messages.
 /// • Navigates to the login screen after successful registration.
 ///
-/// Business logic remains inside [AuthProvider].
+/// Notes
+/// ----------------------------------------------------------------------------
+/// • Contains no business logic.
+/// • Optimized for minimal rebuilds.
+/// • Material 3 compliant.
+/// • Lightweight and production-ready.
 /// ============================================================================
 
-class RegisterScreen extends StatelessWidget {
+final class RegisterScreen extends StatelessWidget {
   /// Creates a register screen.
   const RegisterScreen({super.key});
 
@@ -45,7 +50,7 @@ class RegisterScreen extends StatelessWidget {
     required String email,
     required String password,
   }) async {
-    final AuthProvider provider = context.read<AuthProvider>();
+    final provider = context.read<AuthProvider>();
 
     provider.clearError();
 
@@ -82,10 +87,12 @@ class RegisterScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AuthProvider provider = context.watch<AuthProvider>();
+    final bool isLoading = context.select<AuthProvider, bool>(
+      (provider) => provider.isLoading,
+    );
 
     return LoadingOverlay(
-      isLoading: provider.isLoading,
+      isLoading: isLoading,
       message: 'Creating account...',
       child: Scaffold(
         appBar: AppBar(),
@@ -95,9 +102,12 @@ class RegisterScreen extends StatelessWidget {
               container: true,
               child: SingleChildScrollView(
                 padding: _pagePadding,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
                       const AuthHeader(
@@ -109,12 +119,14 @@ class RegisterScreen extends StatelessWidget {
                       _spacing32,
 
                       RegisterForm(
-                        isLoading: provider.isLoading,
-                        onSubmit: (email, password) => _register(
-                          context,
-                          email: email,
-                          password: password,
-                        ),
+                        isLoading: isLoading,
+                        onSubmit: (email, password) {
+                          return _register(
+                            context,
+                            email: email,
+                            password: password,
+                          );
+                        },
                       ),
 
                       _spacing24,
