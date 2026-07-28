@@ -7,15 +7,15 @@ import '../../../../core/services/logger_service.dart';
 /// File: settings_provider.dart
 /// ============================================================================
 ///
-/// Settings Provider
+/// Enterprise Settings Provider.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Manages application settings.
 /// • Persists theme preference locally.
 /// • Exposes current ThemeMode.
-/// • Handles settings initialization.
-/// • Contains no UI logic.
+/// • Handles initialization lifecycle.
+/// • Maintains lightweight local cache.
 ///
 /// Does NOT:
 /// ----------------------------------------------------------------------------
@@ -52,6 +52,10 @@ final class SettingsProvider extends ChangeNotifier {
 
   bool _isLoading = false;
 
+  String? _errorMessage;
+
+  SharedPreferences? _preferences;
+
   // ===========================================================================
   // Getters
   // ===========================================================================
@@ -62,11 +66,23 @@ final class SettingsProvider extends ChangeNotifier {
 
   bool get isLoading => _isLoading;
 
+  bool get hasError => _errorMessage != null;
+
+  String? get errorMessage => _errorMessage;
+
   bool get isDarkMode => _themeMode == ThemeMode.dark;
 
   bool get isLightMode => _themeMode == ThemeMode.light;
 
   bool get isSystemMode => _themeMode == ThemeMode.system;
+
+  // ===========================================================================
+  // Shared Preferences Helper
+  // ===========================================================================
+
+  Future<SharedPreferences> get _prefs async {
+    return _preferences ??= await SharedPreferences.getInstance();
+  }
 
   // ===========================================================================
   // Initialize
@@ -80,8 +96,9 @@ final class SettingsProvider extends ChangeNotifier {
     try {
       _setLoading(true);
 
-      final SharedPreferences preferences =
-          await SharedPreferences.getInstance();
+      _clearError();
+
+      final SharedPreferences preferences = await _prefs;
 
       final String? storedMode = preferences.getString(_themeModeKey);
 
@@ -93,9 +110,13 @@ final class SettingsProvider extends ChangeNotifier {
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to initialize settings.',
+
         error: exception,
+
         stackTrace: stackTrace,
       );
+
+      _setError(exception.toString());
     } finally {
       _setLoading(false);
     }
@@ -113,12 +134,13 @@ final class SettingsProvider extends ChangeNotifier {
     try {
       _setLoading(true);
 
+      _clearError();
+
       _themeMode = mode;
 
       notifyListeners();
 
-      final SharedPreferences preferences =
-          await SharedPreferences.getInstance();
+      final SharedPreferences preferences = await _prefs;
 
       await preferences.setString(_themeModeKey, _toStorageValue(mode));
 
@@ -126,12 +148,32 @@ final class SettingsProvider extends ChangeNotifier {
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to update theme mode.',
+
         error: exception,
+
         stackTrace: stackTrace,
       );
+
+      _setError(exception.toString());
     } finally {
       _setLoading(false);
     }
+  }
+
+  // ===========================================================================
+  // Theme Shortcuts
+  // ===========================================================================
+
+  Future<void> enableDarkMode() async {
+    await setThemeMode(ThemeMode.dark);
+  }
+
+  Future<void> enableLightMode() async {
+    await setThemeMode(ThemeMode.light);
+  }
+
+  Future<void> enableSystemMode() async {
+    await setThemeMode(ThemeMode.system);
   }
 
   // ===========================================================================
@@ -140,8 +182,11 @@ final class SettingsProvider extends ChangeNotifier {
 
   Future<void> reset() async {
     try {
-      final SharedPreferences preferences =
-          await SharedPreferences.getInstance();
+      _setLoading(true);
+
+      _clearError();
+
+      final SharedPreferences preferences = await _prefs;
 
       await preferences.remove(_themeModeKey);
 
@@ -153,9 +198,15 @@ final class SettingsProvider extends ChangeNotifier {
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to reset settings.',
+
         error: exception,
+
         stackTrace: stackTrace,
       );
+
+      _setError(exception.toString());
+    } finally {
+      _setLoading(false);
     }
   }
 
@@ -191,6 +242,34 @@ final class SettingsProvider extends ChangeNotifier {
   }
 
   // ===========================================================================
+  // Error Handling
+  // ===========================================================================
+
+  void clearError() {
+    if (_errorMessage == null) {
+      return;
+    }
+
+    _errorMessage = null;
+
+    notifyListeners();
+  }
+
+  void _setError(String message) {
+    _errorMessage = message;
+
+    notifyListeners();
+  }
+
+  void _clearError() {
+    if (_errorMessage == null) {
+      return;
+    }
+
+    _errorMessage = null;
+  }
+
+  // ===========================================================================
   // Loading Helper
   // ===========================================================================
 
@@ -205,12 +284,32 @@ final class SettingsProvider extends ChangeNotifier {
   }
 
   // ===========================================================================
+  // Reset Provider State
+  // ===========================================================================
+
+  void clearState() {
+    _themeMode = ThemeMode.system;
+
+    _initialized = false;
+
+    _isLoading = false;
+
+    _errorMessage = null;
+
+    notifyListeners();
+
+    LoggerService.info('SettingsProvider state cleared.');
+  }
+
+  // ===========================================================================
   // Dispose
   // ===========================================================================
 
   @override
   void dispose() {
     LoggerService.info('SettingsProvider disposed.');
+
+    _preferences = null;
 
     super.dispose();
   }

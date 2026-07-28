@@ -9,23 +9,12 @@ import 'package:flutter/material.dart';
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Displays delete confirmation UI.
-/// • Handles only user interaction.
-/// • Contains no business logic.
 /// • Returns:
-///
 ///     true  → User confirmed deletion.
 ///     false → User cancelled.
 ///     null  → Dialog dismissed.
 ///
-/// Architecture
-/// ----------------------------------------------------------------------------
-/// UI
-///  ↓
-/// DeleteNoteDialog
-///  ↓
-/// User Decision
-///  ↓
-/// NotesProvider
+/// Contains no business logic.
 ///
 /// ============================================================================
 
@@ -36,27 +25,28 @@ final class DeleteNoteDialog {
   // Show Dialog
   // ===========================================================================
 
-  /// Displays the delete confirmation dialog.
   static Future<bool?> show(BuildContext context, {String? noteTitle}) {
     final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
 
     return showDialog<bool>(
       context: context,
       barrierDismissible: true,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          icon: Icon(
-            Icons.delete_outline_rounded,
-            size: 36,
-            color: theme.colorScheme.error,
+          icon: Semantics(
+            label: 'Delete note warning',
+            child: Icon(
+              Icons.delete_outline_rounded,
+              size: 36,
+              color: colorScheme.error,
+            ),
           ),
 
           title: const Text('Delete Note'),
 
-          content: Text(
-            _buildMessage(noteTitle),
-            style: theme.textTheme.bodyMedium,
-          ),
+          content: Text(_buildMessage(noteTitle), style: textTheme.bodyMedium),
 
           actionsPadding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -65,21 +55,17 @@ final class DeleteNoteDialog {
 
           actions: <Widget>[
             TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(false);
-              },
+              onPressed: () => Navigator.of(dialogContext).pop(false),
               child: const Text('Cancel'),
             ),
 
             FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.error,
-                foregroundColor: theme.colorScheme.onError,
-              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
 
-              onPressed: () {
-                Navigator.of(dialogContext).pop(true);
-              },
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.error,
+                foregroundColor: colorScheme.onError,
+              ),
 
               icon: const Icon(Icons.delete_rounded),
 
@@ -92,7 +78,7 @@ final class DeleteNoteDialog {
   }
 
   // ===========================================================================
-  // Private Helpers
+  // Helpers
   // ===========================================================================
 
   static String _buildMessage(String? noteTitle) {

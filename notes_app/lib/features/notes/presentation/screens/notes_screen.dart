@@ -3,14 +3,16 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_routes.dart';
+import '../../../../shared/enums/snackbar_type.dart';
+import '../../../../shared/widgets/custom_snackbar.dart';
 
 import '../../constants/notes_constants.dart';
 import '../../domain/entities/note.dart';
 import '../providers/notes_provider.dart';
 import '../widgets/delete_note_dialog.dart';
 import '../widgets/empty_notes_widget.dart';
-import '../widgets/notes_fab.dart';
 import '../widgets/notes_list.dart';
+import '../widgets/notes_fab.dart';
 import '../widgets/notes_search_bar.dart';
 
 /// ============================================================================
@@ -21,28 +23,14 @@ import '../widgets/notes_search_bar.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Displays notes list.
+/// • Displays notes.
 /// • Handles searching.
-/// • Handles pagination.
 /// • Handles refresh.
+/// • Handles pagination.
 /// • Handles navigation.
 /// • Delegates state management to NotesProvider.
 ///
-/// Does NOT:
-/// ----------------------------------------------------------------------------
-/// • Call repository.
-/// • Call API.
-/// • Handle business logic.
-///
-/// Architecture
-/// ----------------------------------------------------------------------------
-/// UI
-///    ↓
-/// NotesProvider
-///    ↓
-/// NotesRepository
-///    ↓
-/// FastAPI
+/// Contains no business logic.
 ///
 /// ============================================================================
 
@@ -54,6 +42,12 @@ final class NotesScreen extends StatefulWidget {
 }
 
 final class _NotesScreenState extends State<NotesScreen> {
+  // ===========================================================================
+  // Constants
+  // ===========================================================================
+
+  static const EdgeInsets _searchPadding = EdgeInsets.fromLTRB(16, 16, 16, 8);
+
   // ===========================================================================
   // Controllers
   // ===========================================================================
@@ -75,6 +69,10 @@ final class _NotesScreenState extends State<NotesScreen> {
     _searchController = TextEditingController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
       context.read<NotesProvider>().loadNotes();
     });
   }
@@ -99,14 +97,14 @@ final class _NotesScreenState extends State<NotesScreen> {
       return;
     }
 
-    final NotesProvider provider = context.read<NotesProvider>();
-
     final ScrollPosition position = _scrollController.position;
 
-    if (position.pixels >=
+    if (position.pixels <
         position.maxScrollExtent - NotesConstants.paginationThreshold) {
-      provider.loadMore();
+      return;
     }
+
+    context.read<NotesProvider>().loadMore();
   }
 
   // ===========================================================================
@@ -118,7 +116,6 @@ final class _NotesScreenState extends State<NotesScreen> {
 
     if (query.trim().isEmpty) {
       provider.clearSearch();
-
       return;
     }
 
@@ -131,18 +128,36 @@ final class _NotesScreenState extends State<NotesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isLoading = context.select<NotesProvider, bool>(
+      (provider) => provider.isLoading,
+    );
+
+    final bool isLoadingMore = context.select<NotesProvider, bool>(
+      (provider) => provider.isLoadingMore,
+    );
+
+    final bool hasError = context.select<NotesProvider, bool>(
+      (provider) => provider.hasError,
+    );
+
+    final String? errorMessage = context.select<NotesProvider, String?>(
+      (provider) => provider.errorMessage,
+    );
+
+    final List<Note> notes = context.select<NotesProvider, List<Note>>(
+      (provider) => provider.notes,
+    );
+
+    final double screenHeight = MediaQuery.sizeOf(context).height;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Notes'),
-
         centerTitle: true,
-
-        actions: [
+        actions: <Widget>[
           IconButton(
             tooltip: 'Settings',
-
             icon: const Icon(Icons.settings_outlined),
-
             onPressed: _navigateToSettings,
           ),
         ],
@@ -151,105 +166,84 @@ final class _NotesScreenState extends State<NotesScreen> {
       floatingActionButton: NotesFab(onPressed: _navigateToAddNote),
 
       body: Column(
-        children: [
-          // ===============================================================
-          // Search
-          // ===============================================================
+        children: <Widget>[
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-
+            padding: _searchPadding,
             child: NotesSearchBar(
               controller: _searchController,
-
               onChanged: _onSearchChanged,
-
               onClear: () {
                 context.read<NotesProvider>().clearSearch();
               },
             ),
           ),
 
-          // ===============================================================
-          // Notes Content
-          // ===============================================================
           Expanded(
-            child: Consumer<NotesProvider>(
-              builder: (context, provider, child) {
-                // =========================================================
-                // Initial Loading
-                // =========================================================
-
-                if (provider.isLoading && provider.notes.isEmpty) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                // =========================================================
-                // Error State
-                // =========================================================
-
-                if (provider.hasError && provider.notes.isEmpty) {
-                  return _ErrorView(
-                    message: provider.errorMessage ?? 'Unable to load notes.',
-
-                    onRetry: () {
-                      provider.loadNotes(refresh: true);
-                    },
-                  );
-                }
-
-                // =========================================================
-                // Empty State
-                // =========================================================
-
-                if (provider.notes.isEmpty) {
-                  return RefreshIndicator(
-                    onRefresh: () async {
-                      await provider.loadNotes(refresh: true);
-                    },
-
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.72,
-
-                          child: EmptyNotesWidget(
-                            onCreatePressed: _navigateToAddNote,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                // =========================================================
-                // Notes List
-                // =========================================================
-
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    await provider.loadNotes(refresh: true);
-                  },
-
-                  child: NoteList(
-                    notes: provider.notes,
-
-                    controller: _scrollController,
-
-                    isLoadingMore: provider.isLoadingMore,
-
-                    onNoteTap: _openNoteDetails,
-
-                    onEdit: _navigateToEditNote,
-
-                    onDelete: _deleteNote,
-                  ),
-                );
-              },
+            child: _buildBody(
+              context,
+              screenHeight,
+              notes,
+              isLoading,
+              isLoadingMore,
+              hasError,
+              errorMessage,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    double screenHeight,
+    List<Note> notes,
+    bool isLoading,
+    bool isLoadingMore,
+    bool hasError,
+    String? errorMessage,
+  ) {
+    if (isLoading && notes.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (hasError && notes.isEmpty) {
+      return _ErrorView(
+        message: errorMessage ?? 'Unable to load notes.',
+        onRetry: () {
+          context.read<NotesProvider>().loadNotes(refresh: true);
+        },
+      );
+    }
+
+    if (notes.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: () {
+          return context.read<NotesProvider>().loadNotes(refresh: true);
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: <Widget>[
+            SizedBox(
+              height: screenHeight * .72,
+              child: EmptyNotesWidget(onCreatePressed: _navigateToAddNote),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () {
+        return context.read<NotesProvider>().loadNotes(refresh: true);
+      },
+      child: NoteList(
+        notes: notes,
+        controller: _scrollController,
+        isLoadingMore: isLoadingMore,
+        onNoteTap: _openNoteDetails,
+        onEdit: _navigateToEditNote,
+        onDelete: _deleteNote,
       ),
     );
   }
@@ -258,30 +252,23 @@ final class _NotesScreenState extends State<NotesScreen> {
   // Navigation
   // ===========================================================================
 
-  Future<void> _navigateToSettings() async {
-    await context.push(AppRoutes.settings);
-  }
+  Future<void> _navigateToSettings() => context.push(AppRoutes.settings);
 
-  Future<void> _navigateToAddNote() async {
-    await context.push(AppRoutes.addNote);
-  }
+  Future<void> _navigateToAddNote() => context.push(AppRoutes.addNote);
 
-  Future<void> _navigateToEditNote(Note note) async {
-    await context.push(AppRoutes.editNote, extra: note);
-  }
+  Future<void> _navigateToEditNote(Note note) =>
+      context.push(AppRoutes.editNote, extra: note);
 
-  Future<void> _openNoteDetails(Note note) async {
-    await context.push(AppRoutes.noteDetail, extra: note);
-  }
+  Future<void> _openNoteDetails(Note note) =>
+      context.push(AppRoutes.noteDetail, extra: note);
 
   // ===========================================================================
-  // Delete Note
+  // Delete
   // ===========================================================================
 
   Future<void> _deleteNote(Note note) async {
     final bool? confirmed = await DeleteNoteDialog.show(
       context,
-
       noteTitle: note.title,
     );
 
@@ -300,31 +287,18 @@ final class _NotesScreenState extends State<NotesScreen> {
     }
 
     if (!deleted) {
-      _showSnackBar(
-        provider.errorMessage ?? 'Failed to delete note.',
-
-        isError: true,
+      CustomSnackBar.show(
+        context,
+        message: provider.errorMessage ?? 'Failed to delete note.',
+        type: SnackbarType.error,
       );
-
       return;
     }
 
-    _showSnackBar('Note deleted successfully.');
-  }
-
-  // ===========================================================================
-  // Snackbar
-  // ===========================================================================
-
-  void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-
-        behavior: SnackBarBehavior.floating,
-
-        backgroundColor: isError ? Theme.of(context).colorScheme.error : null,
-      ),
+    CustomSnackBar.show(
+      context,
+      message: 'Note deleted successfully.',
+      type: SnackbarType.success,
     );
   }
 }
@@ -347,16 +321,12 @@ final class _ErrorView extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-
-          children: [
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
             Icon(
               Icons.error_outline_rounded,
-
               size: 72,
-
               color: theme.colorScheme.error,
             ),
 
@@ -364,9 +334,7 @@ final class _ErrorView extends StatelessWidget {
 
             Text(
               'Unable to load notes',
-
               style: theme.textTheme.titleLarge,
-
               textAlign: TextAlign.center,
             ),
 
@@ -374,9 +342,7 @@ final class _ErrorView extends StatelessWidget {
 
             Text(
               message,
-
               textAlign: TextAlign.center,
-
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -386,9 +352,7 @@ final class _ErrorView extends StatelessWidget {
 
             FilledButton.icon(
               onPressed: onRetry,
-
               icon: const Icon(Icons.refresh),
-
               label: const Text('Retry'),
             ),
           ],

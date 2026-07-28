@@ -24,56 +24,36 @@ import '../widgets/note_form.dart';
 /// • Handles navigation after success.
 /// • Shows user feedback.
 ///
-/// Does NOT:
-/// ----------------------------------------------------------------------------
-/// • Call API directly.
-/// • Access repository.
-/// • Handle business rules.
-///
-/// Architecture
-/// ----------------------------------------------------------------------------
-/// UI
-///   ↓
-/// NotesProvider
-///   ↓
-/// NotesRepository
-///   ↓
-/// FastAPI
+/// Contains no business logic.
 ///
 /// ============================================================================
 
 final class AddNoteScreen extends StatelessWidget {
   const AddNoteScreen({super.key});
 
+  static const EdgeInsets _padding = EdgeInsets.all(16);
+
   @override
   Widget build(BuildContext context) {
-    final NotesProvider provider = context.watch<NotesProvider>();
+    final bool isLoading = context.select<NotesProvider, bool>(
+      (NotesProvider provider) => provider.isLoading,
+    );
 
     return PopScope(
       onPopInvokedWithResult: (_, __) {
         context.read<NotesProvider>().clearSelectedImage();
       },
-
       child: Scaffold(
         appBar: AppBar(title: const Text('Create Note'), centerTitle: true),
-
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(16),
-
+            padding: _padding,
             child: NoteForm(
               submitLabel: 'Create Note',
-
-              isLoading: provider.isLoading,
-
+              isLoading: isLoading,
               onSubmit:
-                  (
-                    String title,
-                    String? content,
-                    ReminderModel? reminder,
-                  ) async {
-                    await _createNote(context, title, content, reminder);
-                  },
+                  (String title, String? content, ReminderModel? reminder) =>
+                      _createNote(context, title, content, reminder),
             ),
           ),
         ),
@@ -93,12 +73,14 @@ final class AddNoteScreen extends StatelessWidget {
   ) async {
     final NotesProvider provider = context.read<NotesProvider>();
 
-    // Clear old error before new operation.
     provider.clearError();
 
-    final Note? createdNote = await provider.createNote(
-      CreateNoteRequest(title: title, content: content),
+    final CreateNoteRequest request = CreateNoteRequest(
+      title: title,
+      content: content,
     );
+
+    final Note? createdNote = await provider.createNote(request);
 
     if (!context.mounted) {
       return;
@@ -107,37 +89,35 @@ final class AddNoteScreen extends StatelessWidget {
     if (createdNote == null) {
       CustomSnackBar.show(
         context,
-
         message: provider.errorMessage ?? 'Failed to create note.',
-
         type: SnackbarType.error,
       );
-
       return;
     }
 
-    // ===============================================================
-    // Reminder Handling
-    // ===============================================================
-
     if (reminder != null) {
-      await provider.scheduleNoteReminder(
-        note: createdNote,
-
-        reminderTime: reminder.scheduledAt,
-      );
+      try {
+        await provider.scheduleNoteReminder(
+          note: createdNote,
+          reminderTime: reminder.scheduledAt,
+        );
+      } catch (_) {
+        // Reminder failure should not block successful note creation.
+      }
     }
 
     provider.clearSelectedImage();
 
+    if (!context.mounted) {
+      return;
+    }
+
     CustomSnackBar.show(
       context,
-
       message: 'Note created successfully.',
-
       type: SnackbarType.success,
     );
 
-    context.pop();
+    context.pop(createdNote);
   }
 }

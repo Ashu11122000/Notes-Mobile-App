@@ -13,11 +13,10 @@ import '../models/update_note_request.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Implements the domain [NotesRepository] contract.
-/// • Coordinates data source communication.
+/// • Implements the domain [NotesRepository].
+/// • Delegates data retrieval to the remote data source.
 /// • Converts data models into domain entities.
-/// • Keeps presentation independent from networking.
-/// • Contains only data-layer logic.
+/// • Keeps networking details out of the domain and presentation layers.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -40,15 +39,13 @@ final class NotesRepositoryImpl implements NotesRepository {
   final NotesRemoteDataSource _remoteDataSource;
 
   // ===========================================================================
-  // Private Helpers
+  // Mapping Helpers
   // ===========================================================================
 
-  Note _mapModelToEntity(NoteModel model) {
-    return model.toEntity();
-  }
+  static Note _toEntity(NoteModel model) => model.toEntity();
 
-  List<Note> _mapModelsToEntities(List<NoteModel> models) {
-    return models.map(_mapModelToEntity).toList(growable: false);
+  static List<Note> _toEntities(List<NoteModel> models) {
+    return List<Note>.unmodifiable(models.map(_toEntity));
   }
 
   // ===========================================================================
@@ -62,7 +59,7 @@ final class NotesRepositoryImpl implements NotesRepository {
       limit: limit,
     );
 
-    return _mapModelsToEntities(models);
+    return _toEntities(models);
   }
 
   // ===========================================================================
@@ -71,9 +68,7 @@ final class NotesRepositoryImpl implements NotesRepository {
 
   @override
   Future<Note> getNoteById(int noteId) async {
-    final NoteModel model = await _remoteDataSource.getNoteById(noteId);
-
-    return _mapModelToEntity(model);
+    return _toEntity(await _remoteDataSource.getNoteById(noteId));
   }
 
   // ===========================================================================
@@ -82,9 +77,7 @@ final class NotesRepositoryImpl implements NotesRepository {
 
   @override
   Future<Note> createNote(CreateNoteRequest request) async {
-    final NoteModel model = await _remoteDataSource.createNote(request);
-
-    return _mapModelToEntity(model);
+    return _toEntity(await _remoteDataSource.createNote(request));
   }
 
   // ===========================================================================
@@ -93,9 +86,7 @@ final class NotesRepositoryImpl implements NotesRepository {
 
   @override
   Future<Note> updateNote(int noteId, UpdateNoteRequest request) async {
-    final NoteModel model = await _remoteDataSource.updateNote(noteId, request);
-
-    return _mapModelToEntity(model);
+    return _toEntity(await _remoteDataSource.updateNote(noteId, request));
   }
 
   // ===========================================================================
@@ -104,9 +95,7 @@ final class NotesRepositoryImpl implements NotesRepository {
 
   @override
   Future<Note> patchNote(int noteId, UpdateNoteRequest request) async {
-    final NoteModel model = await _remoteDataSource.patchNote(noteId, request);
-
-    return _mapModelToEntity(model);
+    return _toEntity(await _remoteDataSource.patchNote(noteId, request));
   }
 
   // ===========================================================================

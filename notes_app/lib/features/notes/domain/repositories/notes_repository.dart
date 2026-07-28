@@ -6,14 +6,14 @@ import '../entities/note.dart';
 /// File: notes_repository.dart
 /// ============================================================================
 ///
-/// Abstract contract for Notes repository.
+/// Contract for the Notes repository.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Defines Notes business operations.
+/// • Defines all Notes-related business operations.
 /// • Hides data source implementation details.
-/// • Keeps presentation independent from networking.
-/// • Provides a stable contract for the data layer.
+/// • Keeps the presentation layer independent from networking.
+/// • Serves as the abstraction implemented by the data layer.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -36,37 +36,37 @@ abstract interface class NotesRepository {
   // Read Operations
   // ===========================================================================
 
-  /// Retrieves paginated notes.
+  /// Retrieves a paginated list of notes.
   Future<List<Note>> getNotes({int page = 1, int limit = 10});
 
-  /// Retrieves a single note by identifier.
+  /// Retrieves a single note by its identifier.
   Future<Note> getNoteById(int noteId);
 
   // ===========================================================================
-  // Create Operation
+  // Create
   // ===========================================================================
 
   /// Creates a new note.
   Future<Note> createNote(CreateNoteRequest request);
 
   // ===========================================================================
-  // Update Operations
+  // Update
   // ===========================================================================
 
   /// Replaces an existing note.
   ///
-  /// Used for PUT requests.
+  /// Uses the HTTP PUT operation.
   Future<Note> updateNote(int noteId, UpdateNoteRequest request);
 
   /// Partially updates an existing note.
   ///
-  /// Used for PATCH requests.
+  /// Uses the HTTP PATCH operation.
   Future<Note> patchNote(int noteId, UpdateNoteRequest request);
 
   // ===========================================================================
-  // Delete Operation
+  // Delete
   // ===========================================================================
 
-  /// Deletes a note permanently.
+  /// Permanently deletes a note.
   Future<void> deleteNote(int noteId);
 }
