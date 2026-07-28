@@ -1,107 +1,113 @@
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 
-/// ============================================================================
+import '../config/app_config.dart';
+
+/// =============================================================================
 /// File: logger_service.dart
-/// ============================================================================
+/// =============================================================================
 ///
 /// Enterprise logging service.
 ///
 /// Responsibilities
-/// ----------------------------------------------------------------------------
+/// -----------------------------------------------------------------------------
 /// • Provides a centralized logging API.
-/// • Wraps the third-party `logger` package.
-/// • Ensures consistent log formatting.
-/// • Avoids direct dependency on the logging package throughout the app.
-/// • Supports future integration with Crashlytics, Sentry, or remote logging.
+/// • Wraps the `logger` package.
+/// • Ensures consistent logging across the application.
+/// • Prevents direct dependency on third-party logging.
+/// • Ready for future Crashlytics/Sentry integration.
 ///
-/// This service intentionally contains no business logic.
+/// Logging Strategy
+/// -----------------------------------------------------------------------------
+/// • Debug/Profile:
+///     Pretty formatted logs.
 ///
-/// In release builds, verbose logging is automatically disabled to avoid
-/// unnecessary overhead.
-/// ============================================================================
+/// • Release:
+///     Production filter with minimal overhead.
+///
+/// =============================================================================
 @immutable
 final class LoggerService {
   LoggerService._();
 
-  static Logger? _logger;
+  static final Logger _logger = Logger(
+    filter: AppConfig.isRelease ? ProductionFilter() : DevelopmentFilter(),
+    printer: PrettyPrinter(
+      methodCount: 0,
+      errorMethodCount: 8,
+      lineLength: 100,
+      colors: true,
+      printEmojis: true,
+      dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
+    ),
+  );
+
+  /// Shared logger instance.
+  static Logger get instance => _logger;
 
   // ===========================================================================
-  // Initialization
+  // Trace
   // ===========================================================================
 
-  /// Initializes the logger.
-  ///
-  /// Safe to call multiple times.
-  static void initialize() {
-    _logger ??= Logger(
-      filter: kReleaseMode ? ProductionFilter() : DevelopmentFilter(),
-      printer: PrettyPrinter(
-        methodCount: 0,
-        errorMethodCount: 8,
-        lineLength: 100,
-        colors: true,
-        printEmojis: true,
-        dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
-      ),
-    );
-  }
-
-  /// Returns the shared logger instance.
-  static Logger get instance {
-    initialize();
-    return _logger!;
+  static void trace(Object? message, {Object? error, StackTrace? stackTrace}) {
+    _logger.t(message, error: error, stackTrace: stackTrace);
   }
 
   // ===========================================================================
-  // Logging
+  // Debug
   // ===========================================================================
 
-  /// Trace log.
-  static void trace(dynamic message, {Object? error, StackTrace? stackTrace}) {
-    instance.t(message, error: error, stackTrace: stackTrace);
+  static void debug(Object? message, {Object? error, StackTrace? stackTrace}) {
+    _logger.d(message, error: error, stackTrace: stackTrace);
   }
 
-  /// Debug log.
-  static void debug(dynamic message, {Object? error, StackTrace? stackTrace}) {
-    instance.d(message, error: error, stackTrace: stackTrace);
+  // ===========================================================================
+  // Information
+  // ===========================================================================
+
+  static void info(Object? message, {Object? error, StackTrace? stackTrace}) {
+    _logger.i(message, error: error, stackTrace: stackTrace);
   }
 
-  /// Information log.
-  static void info(dynamic message, {Object? error, StackTrace? stackTrace}) {
-    instance.i(message, error: error, stackTrace: stackTrace);
-  }
+  // ===========================================================================
+  // Warning
+  // ===========================================================================
 
-  /// Warning log.
   static void warning(
-    dynamic message, {
+    Object? message, {
     Object? error,
     StackTrace? stackTrace,
   }) {
-    instance.w(message, error: error, stackTrace: stackTrace);
+    _logger.w(message, error: error, stackTrace: stackTrace);
   }
 
-  /// Error log.
-  static void error(dynamic message, {Object? error, StackTrace? stackTrace}) {
-    instance.e(message, error: error, stackTrace: stackTrace);
+  // ===========================================================================
+  // Error
+  // ===========================================================================
+
+  static void error(Object? message, {Object? error, StackTrace? stackTrace}) {
+    _logger.e(message, error: error, stackTrace: stackTrace);
   }
 
-  /// Fatal log.
-  static void fatal(dynamic message, {Object? error, StackTrace? stackTrace}) {
-    instance.f(message, error: error, stackTrace: stackTrace);
+  // ===========================================================================
+  // Fatal
+  // ===========================================================================
+
+  static void fatal(Object? message, {Object? error, StackTrace? stackTrace}) {
+    _logger.f(message, error: error, stackTrace: stackTrace);
   }
 
   // ===========================================================================
   // Cleanup
   // ===========================================================================
 
-  /// Closes the logger.
-  ///
   /// Reserved for future custom outputs such as:
-  /// - File logging
-  /// - Remote logging
-  /// - Crash reporting
-  static Future<void> close() async {
-    await instance.close();
+  ///
+  /// • File logging
+  /// • Remote logging
+  /// • Crashlytics
+  /// • Sentry
+  static Future<void> close() {
+    return _logger.close();
   }
 }
