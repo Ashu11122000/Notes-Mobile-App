@@ -16,7 +16,7 @@ Responsibilities
 Compatible with:
 - FastAPI
 - python-jose
-- Passlib
+- pwdlib
 ===============================================================================
 """
 
@@ -24,7 +24,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping
 
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
 
 from app.core.config import settings
 
@@ -39,10 +39,7 @@ __all__ = (
 # Password Hashing
 # =============================================================================
 
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-)
+password_hash = PasswordHash.recommended()
 
 # =============================================================================
 # JWT Configuration
@@ -62,7 +59,11 @@ _DEFAULT_TOKEN_EXPIRY = timedelta(
 
 def hash_password(password: str) -> str:
     """Hash a plain-text password."""
-    return pwd_context.hash(password)
+
+    if not password:
+        raise ValueError("Password cannot be empty.")
+
+    return password_hash.hash(password)
 
 
 def verify_password(
@@ -70,7 +71,11 @@ def verify_password(
     hashed_password: str,
 ) -> bool:
     """Verify a password."""
-    return pwd_context.verify(
+
+    if not plain_password or not hashed_password:
+        return False
+
+    return password_hash.verify(
         plain_password,
         hashed_password,
     )
