@@ -53,50 +53,34 @@ _DEFAULT_EXPIRY = timedelta(
     minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
 )
 
-
 # =============================================================================
 # Password Helpers
 # =============================================================================
 
+
 def hash_password(password: str) -> str:
-<<<<<<< HEAD
-    """Hash a plain-text password."""
-=======
     """
     Hash a plain-text password.
     """
->>>>>>> 6fb5e89694c310e32404379d19bdd263cdc15e8d
 
     if not password:
         raise ValueError("Password cannot be empty.")
 
-<<<<<<< HEAD
     return password_hash.hash(password)
-=======
-    return pwd_context.hash(password)
->>>>>>> 6fb5e89694c310e32404379d19bdd263cdc15e8d
 
 
 def verify_password(
     plain_password: str,
     hashed_password: str,
 ) -> bool:
-<<<<<<< HEAD
-    """Verify a password."""
-=======
     """
     Verify a plain password against a stored hash.
     """
->>>>>>> 6fb5e89694c310e32404379d19bdd263cdc15e8d
 
     if not plain_password or not hashed_password:
         return False
 
-<<<<<<< HEAD
     return password_hash.verify(
-=======
-    return pwd_context.verify(
->>>>>>> 6fb5e89694c310e32404379d19bdd263cdc15e8d
         plain_password,
         hashed_password,
     )
@@ -105,6 +89,7 @@ def verify_password(
 # =============================================================================
 # JWT Helpers
 # =============================================================================
+
 
 def create_access_token(
     data: dict[str, Any],
