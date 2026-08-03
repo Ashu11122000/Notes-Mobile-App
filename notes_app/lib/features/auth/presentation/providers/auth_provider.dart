@@ -476,37 +476,38 @@ class AuthProvider extends ChangeNotifier {
   // ===========================================================================
 
   Future<bool> autoLogin() async {
-    final hasSession = SessionManager.isLoggedIn() == true;
+  final bool hasSession = await SessionManager.isLoggedIn();
 
-    if (!hasSession) {
-      LoggerService.info('No stored authentication session found.');
+  if (!hasSession) {
+    LoggerService.info(
+      'No stored authentication session found.',
+    );
 
-      return false;
-    }
-
-    try {
-      await loadCurrentUser();
-
-      return _isAuthenticated;
-    } on DioException catch (error, stackTrace) {
-      LoggerService.error(
-        'Automatic login failed.',
-        error: error,
-        stackTrace: stackTrace,
-      );
-
-      return false;
-    } catch (error, stackTrace) {
-      LoggerService.error(
-        'Unexpected error during automatic login.',
-        error: error,
-        stackTrace: stackTrace,
-      );
-
-      return false;
-    }
+    return false;
   }
 
+  try {
+    await loadCurrentUser();
+
+    return _isAuthenticated;
+  } on DioException catch (error, stackTrace) {
+    LoggerService.error(
+      'Automatic login failed.',
+      error: error,
+      stackTrace: stackTrace,
+    );
+
+    return false;
+  } catch (error, stackTrace) {
+    LoggerService.error(
+      'Unexpected error during automatic login.',
+      error: error,
+      stackTrace: stackTrace,
+    );
+
+    return false;
+  }
+}
   // ===========================================================================
   // Logout
   // ===========================================================================
