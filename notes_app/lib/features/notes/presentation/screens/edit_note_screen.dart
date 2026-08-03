@@ -18,17 +18,13 @@ import '../widgets/note_form.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Displays pre-filled note form.
+/// • Displays a pre-filled note form.
 /// • Creates UpdateNoteRequest.
 /// • Delegates update to NotesProvider.
 /// • Handles navigation after success.
 /// • Shows user feedback.
 ///
-/// Does NOT:
-/// ----------------------------------------------------------------------------
-/// • Call API.
-/// • Access repository.
-/// • Handle business rules.
+/// Contains no business logic.
 ///
 /// ============================================================================
 
@@ -38,39 +34,31 @@ final class EditNoteScreen extends StatelessWidget {
   /// Note being edited.
   final Note note;
 
+  static const EdgeInsets _pagePadding = EdgeInsets.all(16);
+
   @override
   Widget build(BuildContext context) {
-    final NotesProvider provider = context.watch<NotesProvider>();
+    final bool isLoading = context.select<NotesProvider, bool>(
+      (NotesProvider provider) => provider.isLoading,
+    );
 
     return PopScope(
       onPopInvokedWithResult: (_, __) {
         context.read<NotesProvider>().clearSelectedImage();
       },
-
       child: Scaffold(
         appBar: AppBar(title: const Text('Edit Note'), centerTitle: true),
-
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(16),
-
+            padding: _pagePadding,
             child: NoteForm(
               initialTitle: note.title,
-
               initialContent: note.content ?? '',
-
               submitLabel: 'Update Note',
-
-              isLoading: provider.isLoading,
-
+              isLoading: isLoading,
               onSubmit:
-                  (
-                    String title,
-                    String? content,
-                    ReminderModel? reminder,
-                  ) async {
-                    await _updateNote(context, title, content, reminder);
-                  },
+                  (String title, String? content, ReminderModel? reminder) =>
+                      _updateNote(context, title, content, reminder),
             ),
           ),
         ),
@@ -90,14 +78,14 @@ final class EditNoteScreen extends StatelessWidget {
   ) async {
     final NotesProvider provider = context.read<NotesProvider>();
 
-    // Clear previous error state.
     provider.clearError();
 
-    final Note? updatedNote = await provider.updateNote(
-      note.id,
-
-      UpdateNoteRequest(title: title, content: content),
+    final UpdateNoteRequest request = UpdateNoteRequest(
+      title: title,
+      content: content,
     );
+
+    final Note? updatedNote = await provider.updateNote(note.id, request);
 
     if (!context.mounted) {
       return;
@@ -106,37 +94,36 @@ final class EditNoteScreen extends StatelessWidget {
     if (updatedNote == null) {
       CustomSnackBar.show(
         context,
-
         message: provider.errorMessage ?? 'Failed to update note.',
-
         type: SnackbarType.error,
       );
-
       return;
     }
 
-    // ===============================================================
-    // Reminder Handling
-    // ===============================================================
-
     if (reminder != null) {
-      await provider.scheduleNoteReminder(
-        note: updatedNote,
-
-        reminderTime: reminder.scheduledAt,
-      );
+      try {
+        await provider.scheduleNoteReminder(
+          note: updatedNote,
+          reminderTime: reminder.scheduledAt,
+        );
+      } catch (_) {
+        // Reminder scheduling failure should not prevent
+        // successful note update.
+      }
     }
 
     provider.clearSelectedImage();
 
+    if (!context.mounted) {
+      return;
+    }
+
     CustomSnackBar.show(
       context,
-
       message: 'Note updated successfully.',
-
       type: SnackbarType.success,
     );
 
-    context.pop();
+    context.pop(updatedNote);
   }
 }

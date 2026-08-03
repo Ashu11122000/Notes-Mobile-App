@@ -1,54 +1,32 @@
 import 'package:flutter/material.dart';
 
+import 'button_content.dart';
+
 /// ============================================================================
 /// File: secondary_button.dart
 /// ============================================================================
 ///
 /// Enterprise Material 3 secondary button.
 ///
-/// A reusable wrapper around [OutlinedButton] that provides a consistent
-/// secondary action button throughout the application.
+/// Wrapper around [OutlinedButton] providing a consistent secondary action
+/// button throughout the application.
 ///
-/// Typical use cases:
+/// Used for:
 ///
-/// • Register
-/// • Cancel
-/// • Skip
-/// • Back
-/// • Secondary actions
-/// • Optional actions
+/// - Cancel actions
+/// - Register actions
+/// - Back navigation
+/// - Optional actions
 ///
 /// Features:
 ///
-/// • Material 3
-/// • Theme aware
-/// • Accessible
-/// • Loading state
-/// • Responsive
-/// • Desktop/Web friendly
-/// • Lightweight
-/// • Reusable
-///
-/// Example:
-///
-/// ```dart
-/// SecondaryButton(
-///   text: 'Create Account',
-///   onPressed: _register,
-/// )
-/// ```
-///
-/// ```dart
-/// SecondaryButton(
-///   text: 'Cancel',
-///   icon: Icons.close_rounded,
-///   onPressed: () {},
-/// )
-/// ```
-/// ============================================================================
+/// - Material 3
+/// - Accessible
+/// - Loading state
+/// - Responsive
+/// - Lightweight
 @immutable
 final class SecondaryButton extends StatelessWidget {
-  /// Creates a reusable secondary button.
   const SecondaryButton({
     super.key,
     required this.text,
@@ -63,45 +41,47 @@ final class SecondaryButton extends StatelessWidget {
     this.autofocus = false,
     this.mouseCursor,
     this.semanticLabel,
+    this.minimumSize,
   });
 
   /// Button label.
   final String text;
 
-  /// Callback invoked when the button is pressed.
+  /// Button callback.
   final VoidCallback? onPressed;
 
   /// Optional icon.
   final IconData? icon;
 
-  /// Whether to display the loading state.
+  /// Loading state.
   final bool isLoading;
 
-  /// Whether the button expands to fill the available width.
+  /// Expand width.
   final bool isExpanded;
 
-  /// Optional loading label.
-  ///
-  /// When omitted, [text] is displayed.
+  /// Loading label.
   final String? loadingText;
 
-  /// Whether the icon should appear after the text.
+  /// Icon position.
   final bool iconOnTrailing;
 
-  /// Optional button style.
+  /// Button style.
   final ButtonStyle? style;
 
-  /// Optional focus node.
+  /// Focus node.
   final FocusNode? focusNode;
 
-  /// Whether the button should receive focus automatically.
+  /// Autofocus.
   final bool autofocus;
 
-  /// Optional desktop/web mouse cursor.
+  /// Mouse cursor.
   final MouseCursor? mouseCursor;
 
-  /// Optional accessibility label.
+  /// Accessibility label.
   final String? semanticLabel;
+
+  /// Minimum button size.
+  final Size? minimumSize;
 
   @override
   Widget build(BuildContext context) {
@@ -109,19 +89,31 @@ final class SecondaryButton extends StatelessWidget {
 
     Widget button = Semantics(
       button: true,
+
       enabled: effectiveOnPressed != null,
-      label: semanticLabel ?? text,
+
+      label: semanticLabel ?? (isLoading ? loadingText ?? text : text),
+
       child: OutlinedButton(
         onPressed: effectiveOnPressed,
-        style: style,
+
+        style: style ?? OutlinedButton.styleFrom(minimumSize: minimumSize),
+
         focusNode: focusNode,
+
         autofocus: autofocus,
+
         clipBehavior: Clip.antiAlias,
-        child: _ButtonContent(
+
+        child: ButtonContent(
           text: text,
+
           loadingText: loadingText,
+
           icon: icon,
+
           isLoading: isLoading,
+
           iconOnTrailing: iconOnTrailing,
         ),
       ),
@@ -136,80 +128,5 @@ final class SecondaryButton extends StatelessWidget {
     }
 
     return button;
-  }
-}
-
-/// Internal reusable button content.
-///
-/// Displays one of the following:
-///
-/// • Loading indicator
-/// • Icon + text
-/// • Text + icon
-/// • Text only
-@immutable
-final class _ButtonContent extends StatelessWidget {
-  /// Creates button content.
-  const _ButtonContent({
-    required this.text,
-    required this.loadingText,
-    required this.icon,
-    required this.isLoading,
-    required this.iconOnTrailing,
-  });
-
-  /// Button label.
-  final String text;
-
-  /// Optional loading label.
-  final String? loadingText;
-
-  /// Optional icon.
-  final IconData? icon;
-
-  /// Whether to display the loading state.
-  final bool isLoading;
-
-  /// Whether the icon should appear after the text.
-  final bool iconOnTrailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final textWidget = Flexible(
-      child: Text(
-        isLoading ? (loadingText ?? text) : text,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
-
-    if (isLoading) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-          ),
-          const SizedBox(width: 12),
-          textWidget,
-        ],
-      );
-    }
-
-    if (icon == null) {
-      return textWidget;
-    }
-
-    final iconWidget = Icon(icon, size: 20);
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (!iconOnTrailing) ...[iconWidget, const SizedBox(width: 8)],
-        textWidget,
-        if (iconOnTrailing) ...[const SizedBox(width: 8), iconWidget],
-      ],
-    );
   }
 }

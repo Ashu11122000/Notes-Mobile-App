@@ -12,20 +12,25 @@ typedef RegisterSubmitted =
 /// File: register_form.dart
 /// ============================================================================
 ///
-/// Reusable registration form.
+/// Reusable Registration Form
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Collects registration credentials.
-/// • Performs lightweight input validation.
-/// • Handles keyboard navigation.
+/// • Collects user registration credentials.
+/// • Performs lightweight client-side validation.
+/// • Supports keyboard navigation.
 /// • Supports platform autofill.
 /// • Delegates registration to the parent widget.
 ///
-/// No business logic exists in this widget.
+/// Notes
+/// ----------------------------------------------------------------------------
+/// • Contains no business logic.
+/// • Optimized for minimal rebuilds.
+/// • Material 3 compliant.
+/// • Lightweight and production-ready.
 /// ============================================================================
 
-class RegisterForm extends StatefulWidget {
+final class RegisterForm extends StatefulWidget {
   /// Creates a registration form.
   const RegisterForm({
     super.key,
@@ -43,9 +48,9 @@ class RegisterForm extends StatefulWidget {
   State<RegisterForm> createState() => _RegisterFormState();
 }
 
-class _RegisterFormState extends State<RegisterForm> {
-  static const SizedBox _vertical16 = SizedBox(height: 16);
-  static const SizedBox _vertical24 = SizedBox(height: 24);
+final class _RegisterFormState extends State<RegisterForm> {
+  static const SizedBox _spacing16 = SizedBox(height: 16);
+  static const SizedBox _spacing24 = SizedBox(height: 24);
 
   static final RegExp _emailRegex = RegExp(
     r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
@@ -54,12 +59,16 @@ class _RegisterFormState extends State<RegisterForm> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final TextEditingController _emailController = TextEditingController();
+
   final TextEditingController _passwordController = TextEditingController();
+
   final TextEditingController _confirmPasswordController =
       TextEditingController();
 
   final FocusNode _emailFocusNode = FocusNode();
+
   final FocusNode _passwordFocusNode = FocusNode();
+
   final FocusNode _confirmPasswordFocusNode = FocusNode();
 
   @override
@@ -76,20 +85,22 @@ class _RegisterFormState extends State<RegisterForm> {
   }
 
   Future<void> _submit() async {
-    final FormState? form = _formKey.currentState;
+    if (widget.isLoading) {
+      return;
+    }
+
+    final form = _formKey.currentState;
 
     if (form == null || !form.validate()) {
       return;
     }
 
-    form.save();
-
     FocusScope.of(context).unfocus();
 
     TextInput.finishAutofillContext();
 
-    final String email = _emailController.text.trim();
-    final String password = _passwordController.text;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
     await widget.onSubmit(email, password);
 
@@ -99,7 +110,7 @@ class _RegisterFormState extends State<RegisterForm> {
   }
 
   String? _validateEmail(String? value) {
-    final String email = value?.trim() ?? '';
+    final email = value?.trim() ?? '';
 
     if (email.isEmpty) {
       return 'Email is required.';
@@ -113,7 +124,7 @@ class _RegisterFormState extends State<RegisterForm> {
   }
 
   String? _validatePassword(String? value) {
-    final String password = value ?? '';
+    final password = value ?? '';
 
     if (password.isEmpty) {
       return 'Password is required.';
@@ -127,7 +138,7 @@ class _RegisterFormState extends State<RegisterForm> {
   }
 
   String? _validateConfirmPassword(String? value) {
-    final String confirmPassword = value ?? '';
+    final confirmPassword = value ?? '';
 
     if (confirmPassword.isEmpty) {
       return 'Please confirm your password.';
@@ -148,6 +159,7 @@ class _RegisterFormState extends State<RegisterForm> {
         child: Form(
           key: _formKey,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               CustomTextField(
                 controller: _emailController,
@@ -167,7 +179,7 @@ class _RegisterFormState extends State<RegisterForm> {
                 validator: _validateEmail,
               ),
 
-              _vertical16,
+              _spacing16,
 
               CustomTextField(
                 controller: _passwordController,
@@ -184,7 +196,7 @@ class _RegisterFormState extends State<RegisterForm> {
                 validator: _validatePassword,
               ),
 
-              _vertical16,
+              _spacing16,
 
               CustomTextField(
                 controller: _confirmPasswordController,
@@ -199,10 +211,11 @@ class _RegisterFormState extends State<RegisterForm> {
                 onFieldSubmitted: (_) => _submit(),
               ),
 
-              _vertical24,
+              _spacing24,
 
               Semantics(
                 button: true,
+                enabled: !widget.isLoading,
                 child: PrimaryButton(
                   text: 'Create Account',
                   isLoading: widget.isLoading,

@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 /// • Opens Material Time Picker.
 /// • Returns selected time through callback.
 /// • Contains no business logic.
-/// • Reusable across notification settings.
+/// • Optimized for minimal rebuilds.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -43,9 +43,27 @@ final class ReminderTimePicker extends StatelessWidget {
   /// Whether picker is interactive.
   final bool enabled;
 
+  // ===========================================================================
+  // Constants
+  // ===========================================================================
+
+  static const String _title = 'Reminder Time';
+
+  static const IconData _leadingIcon = Icons.schedule_outlined;
+
+  static const IconData _arrowIcon = Icons.chevron_right_rounded;
+
+  // ===========================================================================
+  // Build
+  // ===========================================================================
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+
+    final Color iconColor = enabled
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -53,32 +71,37 @@ final class ReminderTimePicker extends StatelessWidget {
       child: ListTile(
         enabled: enabled,
 
-        leading: Icon(
-          Icons.schedule_outlined,
-          color: enabled
-              ? theme.colorScheme.primary
-              : theme.colorScheme.onSurfaceVariant,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
 
-        title: const Text('Reminder Time'),
+        leading: Icon(_leadingIcon, color: iconColor),
+
+        title: const Text(_title),
 
         subtitle: Text(selectedTime.format(context)),
 
-        trailing: const Icon(Icons.chevron_right),
+        trailing: const Icon(_arrowIcon),
 
-        onTap: enabled ? () => _pickTime(context) : null,
+        onTap: enabled ? () => _showTimePicker(context) : null,
       ),
     );
   }
 
   // ===========================================================================
-  // Pick Time
+  // Time Picker
   // ===========================================================================
 
-  Future<void> _pickTime(BuildContext context) async {
+  Future<void> _showTimePicker(BuildContext context) async {
     final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
+
       initialTime: selectedTime,
+
+      builder: (BuildContext context, Widget? child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
 
     if (pickedTime == null) {

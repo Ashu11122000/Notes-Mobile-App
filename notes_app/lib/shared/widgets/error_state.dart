@@ -6,51 +6,24 @@ import 'package:flutter/material.dart';
 ///
 /// Enterprise Material 3 error state widget.
 ///
-/// Displays a polished and reusable UI whenever an operation fails.
+/// Displays reusable error feedback UI for failed operations.
 ///
-/// Typical use cases:
+/// Typical usage:
 ///
-/// • Network errors
-/// • API failures
-/// • Server errors
-/// • Permission denied
-/// • Unexpected exceptions
-/// • Loading failures
+/// - Network failures
+/// - API errors
+/// - Permission issues
+/// - Loading failures
 ///
 /// Features:
 ///
-/// • Material 3
-/// • Theme aware
-/// • Responsive
-/// • Accessible
-/// • Lightweight
-/// • Reusable
-///
-/// Example:
-///
-/// ```dart
-/// ErrorState(
-///   title: 'Something went wrong',
-///   message: 'Unable to load your notes.',
-///   action: FilledButton(
-///     onPressed: retry,
-///     child: const Text('Retry'),
-///   ),
-/// )
-/// ```
-///
-/// You may also replace the default icon with a custom illustration:
-///
-/// ```dart
-/// ErrorState(
-///   title: 'No Connection',
-///   message: 'Please check your internet connection.',
-///   illustration: Icon(Icons.wifi_off_rounded),
-/// )
-/// ```
+/// - Material 3
+/// - Theme aware
+/// - Responsive
+/// - Accessible
+/// - Lightweight
 @immutable
 final class ErrorState extends StatelessWidget {
-  /// Creates an enterprise error state.
   const ErrorState({
     super.key,
     required this.title,
@@ -61,92 +34,127 @@ final class ErrorState extends StatelessWidget {
     this.iconSize = 72,
     this.maxWidth = 420,
     this.padding = const EdgeInsets.all(24),
+    this.titleSpacing = 24,
+    this.messageSpacing = 12,
+    this.actionSpacing = 28,
+    this.textAlign = TextAlign.center,
     this.semanticLabel,
   });
 
   /// Error title.
   final String title;
 
-  /// Supporting error message.
+  /// Error description.
   final String message;
 
-  /// Icon displayed above the title.
-  ///
-  /// Ignored when [illustration] is supplied.
+  /// Default icon.
   final IconData icon;
 
-  /// Optional custom illustration.
-  ///
-  /// This allows future SVGs, Lottie animations or branded illustrations
-  /// without changing the widget API.
+  /// Custom illustration.
   final Widget? illustration;
 
-  /// Optional action widget.
-  ///
-  /// Examples:
-  ///
-  /// • Retry button
-  /// • Refresh button
-  /// • Login button
-  /// • Contact support button
+  /// Optional action.
   final Widget? action;
 
-  /// Size of the icon.
+  /// Icon size.
   final double iconSize;
 
-  /// Maximum width on larger screens.
+  /// Maximum content width.
   final double maxWidth;
 
   /// Outer padding.
   final EdgeInsetsGeometry padding;
 
-  /// Optional accessibility label.
+  /// Space between icon and title.
+  final double titleSpacing;
+
+  /// Space between title and message.
+  final double messageSpacing;
+
+  /// Space before action.
+  final double actionSpacing;
+
+  /// Text alignment.
+  final TextAlign textAlign;
+
+  /// Accessibility label.
   final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
 
     return Center(
       child: Semantics(
         container: true,
         liveRegion: true,
-        label: semanticLabel ?? title,
+        label: semanticLabel ?? '$title. $message',
+
         child: Padding(
           padding: padding,
+
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
+
             child: Column(
               mainAxisSize: MainAxisSize.min,
+
               children: [
                 illustration ??
-                    Icon(icon, size: iconSize, color: colorScheme.error),
+                    Container(
+                      width: iconSize * 1.35,
+                      height: iconSize * 1.35,
 
-                const SizedBox(height: 24),
+                      decoration: BoxDecoration(
+                        color: colorScheme.errorContainer,
+
+                        borderRadius: BorderRadius.circular(iconSize * .35),
+                      ),
+
+                      child: Icon(
+                        icon,
+
+                        size: iconSize,
+
+                        color: colorScheme.onErrorContainer,
+                      ),
+                    ),
+
+                SizedBox(height: titleSpacing),
 
                 Text(
                   title,
-                  textAlign: TextAlign.center,
-                  style: textTheme.titleLarge?.copyWith(
+
+                  textAlign: textAlign,
+
+                  style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
+
                     letterSpacing: -0.2,
                   ),
                 ),
 
-                const SizedBox(height: 12),
+                SizedBox(height: messageSpacing),
 
                 Text(
                   message,
-                  textAlign: TextAlign.center,
-                  style: textTheme.bodyMedium?.copyWith(
+
+                  textAlign: textAlign,
+
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
+
                     height: 1.5,
                   ),
                 ),
 
-                if (action != null) ...[const SizedBox(height: 28), action!],
+                if (action != null) ...[
+                  SizedBox(height: actionSpacing),
+
+                  action!,
+                ],
               ],
             ),
           ),

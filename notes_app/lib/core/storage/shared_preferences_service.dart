@@ -13,10 +13,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// • Prevents direct SharedPreferences usage throughout the application.
 /// • Provides strongly typed read/write helpers.
 /// • Ensures a single initialized instance.
+/// • Supports unit testing by allowing the cached instance to be refreshed.
 ///
 /// This service intentionally contains no business logic.
 ///
 /// Features should interact with local storage only through this service.
+///
+/// Testing
+/// ----------------------------------------------------------------------------
+/// • Provides [resetForTesting] to allow unit tests to reset the singleton.
+/// • Calling [initialize] always refreshes the SharedPreferences instance,
+///   ensuring each unit test gets a fresh mocked instance.
 /// ============================================================================
 @immutable
 final class SharedPreferencesService {
@@ -31,8 +38,12 @@ final class SharedPreferencesService {
   /// Initializes SharedPreferences.
   ///
   /// Safe to call multiple times.
+  ///
+  /// Unlike the previous implementation, this always refreshes the cached
+  /// instance. This is required because SharedPreferences.setMockInitialValues()
+  /// creates a new mock instance for every test.
   static Future<void> initialize() async {
-    _preferences ??= await SharedPreferences.getInstance();
+    _preferences = await SharedPreferences.getInstance();
   }
 
   /// Returns whether the service has been initialized.
@@ -42,7 +53,7 @@ final class SharedPreferencesService {
   ///
   /// Throws a descriptive error if initialization was forgotten.
   static SharedPreferences get instance {
-    final preferences = _preferences;
+    final SharedPreferences? preferences = _preferences;
 
     if (preferences == null) {
       throw StateError(
@@ -52,6 +63,18 @@ final class SharedPreferencesService {
     }
 
     return preferences;
+  }
+
+  // ===========================================================================
+  // Testing
+  // ===========================================================================
+
+  /// Resets the cached SharedPreferences instance.
+  ///
+  /// Intended only for unit/widget tests.
+  @visibleForTesting
+  static void resetForTesting() {
+    _preferences = null;
   }
 
   // ===========================================================================

@@ -1,10 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 
 /// ============================================================================
 /// File: pagination_meta.dart
 /// ============================================================================
 ///
-/// Represents metadata returned by paginated API endpoints.
+/// Represents pagination metadata returned by paginated API endpoints.
 ///
 /// This model is intentionally generic and reusable across any feature that
 /// supports pagination, including:
@@ -16,7 +18,7 @@ import 'package:flutter/foundation.dart';
 /// - Notifications
 ///
 /// It contains only pagination metadata and is independent of any specific
-/// API implementation.
+/// backend implementation.
 ///
 /// Example JSON:
 ///
@@ -38,37 +40,47 @@ final class PaginationMeta {
     required this.pages,
   });
 
+  /// Creates an empty pagination metadata instance.
+  const PaginationMeta.empty() : page = 1, size = 10, total = 0, pages = 0;
+
   /// Creates pagination metadata from JSON.
+  ///
+  /// Invalid or missing values are normalized to sensible defaults.
   factory PaginationMeta.fromJson(Map<String, dynamic> json) {
-    return PaginationMeta(
-      page: (json['page'] as num?)?.toInt() ?? 1,
-      size: (json['size'] as num?)?.toInt() ?? 10,
-      total: (json['total'] as num?)?.toInt() ?? 0,
-      pages: (json['pages'] as num?)?.toInt() ?? 0,
-    );
+    final page = math.max(1, (json['page'] as num?)?.toInt() ?? 1);
+    final size = math.max(1, (json['size'] as num?)?.toInt() ?? 10);
+    final total = math.max(0, (json['total'] as num?)?.toInt() ?? 0);
+
+    final rawPages = (json['pages'] as num?)?.toInt();
+
+    final pages = rawPages != null && rawPages > 0
+        ? rawPages
+        : (total == 0 ? 0 : (total / size).ceil());
+
+    return PaginationMeta(page: page, size: size, total: total, pages: pages);
   }
 
   /// Current page (1-based).
   final int page;
 
-  /// Number of items requested per page.
+  /// Number of requested items per page.
   final int size;
 
-  /// Total number of records.
+  /// Total number of available records.
   final int total;
 
   /// Total number of available pages.
   final int pages;
 
   /// Converts this object into JSON.
-  Map<String, dynamic> toJson() => {
+  Map<String, dynamic> toJson() => <String, dynamic>{
     'page': page,
     'size': size,
     'total': total,
     'pages': pages,
   };
 
-  /// Returns a copy with updated values.
+  /// Creates a copy with updated values.
   PaginationMeta copyWith({int? page, int? size, int? total, int? pages}) {
     return PaginationMeta(
       page: page ?? this.page,
@@ -88,45 +100,44 @@ final class PaginationMeta {
   bool get isFirstPage => page == 1;
 
   /// Whether this is the last page.
-  bool get isLastPage => page >= pages;
+  bool get isLastPage => pages == 0 || page >= pages;
 
   /// Whether the paginated collection contains no records.
   bool get isEmpty => total == 0;
 
-  /// Whether the paginated collection contains records.
+  /// Whether the paginated collection contains at least one record.
   bool get isNotEmpty => !isEmpty;
 
-  /// Number of items skipped before this page.
+  /// Number of items skipped before the current page.
   int get skippedItems => (page - 1) * size;
 
-  /// Next page number.
+  /// Number of the next page.
   ///
-  /// Returns the current page if already at the last page.
+  /// Returns the current page if already on the last page.
   int get nextPage => hasNextPage ? page + 1 : page;
 
-  /// Previous page number.
+  /// Number of the previous page.
   ///
-  /// Returns the current page if already at the first page.
+  /// Returns the current page if already on the first page.
   int get previousPage => hasPreviousPage ? page - 1 : page;
 
-  /// Number of items that have been loaded up to the current page.
+  /// Number of items loaded up to and including the current page.
   ///
-  /// The value never exceeds [total].
-  int get loadedItems {
-    final loaded = page * size;
-    return loaded > total ? total : loaded;
-  }
+  /// Never exceeds [total].
+  int get loadedItems => math.min(page * size, total);
 
-  /// Number of remaining items that have not yet been loaded.
-  int get remainingItems => total - loadedItems;
+  /// Number of items remaining after the current page.
+  ///
+  /// Never becomes negative.
+  int get remainingItems => math.max(0, total - loadedItems);
 
   @override
   String toString() {
-    return '$runtimeType('
+    return 'PaginationMeta('
         'page: $page, '
+        'pages: $pages, '
         'size: $size, '
-        'total: $total, '
-        'pages: $pages'
+        'total: $total'
         ')';
   }
 

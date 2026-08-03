@@ -6,44 +6,34 @@ import 'package:flutter/material.dart';
 ///
 /// Enterprise Material 3 reusable filter chip.
 ///
-/// This widget standardizes the appearance and behavior of selectable chips
-/// throughout the application while remaining lightweight and highly
-/// customizable.
+/// Standardizes selectable chips across the application while remaining:
 ///
-/// Features:
-/// - Material 3 compliant
-/// - Theme-aware
+/// - Lightweight
 /// - Accessible
-/// - Tooltip support
-/// - Desktop/Web friendly
-/// - Reusable across features
+/// - Theme aware
+/// - Performance optimized
 ///
-/// Typical use cases:
+/// Common usage:
+///
 /// - Note filters
 /// - Categories
 /// - Tags
 /// - Search suggestions
 /// - Sort options
 /// - Settings
-///
-/// Example:
-///
-/// ```dart
-/// CustomChip(
-///   label: 'All',
-///   selected: true,
-///   onSelected: (_) {},
-/// )
-/// ```
+/// ============================================================================
+
 @immutable
 final class CustomChip extends StatelessWidget {
-  /// Creates a reusable Material 3 filter chip.
   const CustomChip({
     super.key,
     required this.label,
     required this.selected,
     required this.onSelected,
+    this.enabled = true,
     this.avatar,
+    this.deleteIcon,
+    this.onDeleted,
     this.tooltip,
     this.semanticLabel,
     this.labelStyle,
@@ -52,76 +42,133 @@ final class CustomChip extends StatelessWidget {
     this.elevation = 0,
     this.selectedColor,
     this.backgroundColor,
+    this.disabledColor,
+    this.shape,
+    this.mouseCursor,
   });
 
-  /// Text displayed inside the chip.
+  /// Chip text.
   final String label;
 
-  /// Whether the chip is currently selected.
+  /// Whether chip is selected.
   final bool selected;
 
-  /// Invoked when the chip selection changes.
+  /// Whether chip interaction is enabled.
+  final bool enabled;
+
+  /// Selection callback.
   final ValueChanged<bool> onSelected;
 
-  /// Optional leading widget.
+  /// Leading widget.
   final Widget? avatar;
 
-  /// Optional tooltip shown on long press or hover.
+  /// Delete icon.
+  final Widget? deleteIcon;
+
+  /// Delete callback.
+  ///
+  /// Useful for removable tags.
+  final VoidCallback? onDeleted;
+
+  /// Tooltip text.
   final String? tooltip;
 
-  /// Optional accessibility label.
+  /// Accessibility label.
   final String? semanticLabel;
 
-  /// Optional label text style.
+  /// Label text style.
   final TextStyle? labelStyle;
 
-  /// Internal chip padding.
+  /// Internal padding.
   final EdgeInsetsGeometry padding;
 
-  /// Visual density of the chip.
+  /// Visual density.
   final VisualDensity visualDensity;
 
   /// Chip elevation.
   final double elevation;
 
-  /// Optional selected background color.
+  /// Selected background color.
   final Color? selectedColor;
 
-  /// Optional unselected background color.
+  /// Default background color.
   final Color? backgroundColor;
+
+  /// Disabled background color.
+  final Color? disabledColor;
+
+  /// Custom shape.
+  final OutlinedBorder? shape;
+
+  /// Mouse cursor.
+  final MouseCursor? mouseCursor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    Widget chip = Semantics(
-      button: true,
+    final chipEnabled = enabled;
+
+    Widget chip = FilterChip(
+      label: Text(label, style: labelStyle),
+
       selected: selected,
-      label: semanticLabel ?? label,
-      child: FilterChip(
-        label: Text(label, style: labelStyle),
-        selected: selected,
-        onSelected: onSelected,
-        avatar: avatar,
-        padding: padding,
-        elevation: elevation,
-        showCheckmark: false,
-        visualDensity: visualDensity,
-        mouseCursor: SystemMouseCursors.click,
-        backgroundColor:
-            backgroundColor ?? theme.colorScheme.surfaceContainerLow,
-        selectedColor: selectedColor ?? theme.colorScheme.secondaryContainer,
-        side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+
+      onSelected: chipEnabled ? onSelected : null,
+
+      onDeleted: chipEnabled ? onDeleted : null,
+
+      deleteIcon: deleteIcon,
+
+      avatar: avatar,
+
+      padding: padding,
+
+      elevation: elevation,
+
+      showCheckmark: false,
+
+      visualDensity: visualDensity,
+
+      mouseCursor:
+          mouseCursor ??
+          (chipEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic),
+
+      backgroundColor: backgroundColor ?? theme.colorScheme.surfaceContainerLow,
+
+      selectedColor: selectedColor ?? theme.colorScheme.secondaryContainer,
+
+      disabledColor: disabledColor ?? theme.colorScheme.surfaceContainerHighest,
+
+      side: BorderSide(
+        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
       ),
+
+      shape:
+          shape ??
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
+
+    chip = Semantics(
+      container: true,
+
+      enabled: chipEnabled,
+
+      selected: selected,
+
+      button: chipEnabled,
+
+      label: semanticLabel ?? label,
+
+      child: chip,
     );
 
     if (tooltip != null && tooltip!.trim().isNotEmpty) {
       chip = Tooltip(
         message: tooltip!,
+
         waitDuration: const Duration(milliseconds: 500),
+
         child: chip,
       );
     }

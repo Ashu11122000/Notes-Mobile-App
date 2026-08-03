@@ -1,40 +1,24 @@
-"""
-===============================================================================
-File: note.py
-===============================================================================
+from __future__ import annotations
 
-Note Model
-
-Responsibilities
-----------------------------------------------------------------------------
-- Represent the Notes table in PostgreSQL.
-- Store note information owned by authenticated users.
-- Define relationships with the User model.
-- Provide automatic timestamp management.
-
-Relationships
-----------------------------------------------------------------------------
-User (1) ──────────────── (*) Notes
-
-Each user can own multiple notes.
-Each note belongs to exactly one user.
-
-Notes
-----------------------------------------------------------------------------
-- Compatible with SQLAlchemy 2.x Typed ORM.
-- Uses cascading delete when a user is removed.
-- Automatically maintains creation and update timestamps.
-"""
-
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+)
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 from app.db.base import Base
-
-__all__ = ("Note",)
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -42,24 +26,31 @@ if TYPE_CHECKING:
 
 class Note(Base):
     """
-    SQLAlchemy model representing a user's note.
+    User Note model.
     """
 
     __tablename__ = "notes"
 
-    # =========================================================================
+    __table_args__ = (
+        Index(
+            "ix_notes_owner_created",
+            "owner_id",
+            "created_at",
+        ),
+    )
+
+    # ==========================================================================
     # Primary Key
-    # =========================================================================
+    # ==========================================================================
 
     id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
-        index=True,
     )
 
-    # =========================================================================
-    # Note Information
-    # =========================================================================
+    # ==========================================================================
+    # Note
+    # ==========================================================================
 
     title: Mapped[str] = mapped_column(
         String(255),
@@ -67,13 +58,13 @@ class Note(Base):
     )
 
     content: Mapped[str | None] = mapped_column(
-        String,
+        Text,
         nullable=True,
     )
 
-    # =========================================================================
+    # ==========================================================================
     # Ownership
-    # =========================================================================
+    # ==========================================================================
 
     owner_id: Mapped[int] = mapped_column(
         ForeignKey(
@@ -84,39 +75,41 @@ class Note(Base):
         index=True,
     )
 
-    # =========================================================================
-    # Audit Fields
-    # =========================================================================
+    # ==========================================================================
+    # Audit
+    # ==========================================================================
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
         nullable=False,
+        server_default=func.now(),
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
-    # =========================================================================
+    # ==========================================================================
     # Relationships
-    # =========================================================================
+    # ==========================================================================
 
     owner: Mapped["User"] = relationship(
         back_populates="notes",
         lazy="selectin",
     )
 
-    # =========================================================================
-    # Debug Representation
-    # =========================================================================
+    # ==========================================================================
+    # Representation
+    # ==========================================================================
 
     def __repr__(self) -> str:
         return (
-            f"Note(id={self.id!r}, "
+            f"Note("
+            f"id={self.id}, "
             f"title={self.title!r}, "
-            f"owner_id={self.owner_id!r})"
+            f"owner_id={self.owner_id}"
+            f")"
         )

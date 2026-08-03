@@ -4,11 +4,11 @@
 ///
 /// Defines the supported image acquisition sources within the application.
 ///
-/// This enum intentionally belongs to the domain layer and remains completely
-/// independent of Flutter plugins such as `image_picker`.
+/// This enum belongs to the domain layer and intentionally has no dependency
+/// on Flutter or third-party plugins such as `image_picker`.
 ///
-/// The infrastructure or service layer is responsible for mapping these values
-/// to platform-specific implementations, preserving Clean Architecture
+/// Infrastructure code is responsible for mapping these values to
+/// platform-specific implementations, preserving Clean Architecture
 /// boundaries and improving testability.
 ///
 /// Responsibilities:
@@ -16,20 +16,6 @@
 /// - Support persistence and serialization.
 /// - Drive Settings and UI selections.
 /// - Decouple business logic from third-party packages.
-///
-/// Example:
-///
-/// ```dart
-/// switch (source) {
-///   case ImageSourceType.camera:
-///     // ImageSource.camera
-///     break;
-///
-///   case ImageSourceType.gallery:
-///     // ImageSource.gallery
-///     break;
-/// }
-/// ```
 enum ImageSourceType {
   /// Capture a new image using the device camera.
   camera(value: 'camera', displayName: 'Camera'),
@@ -40,62 +26,53 @@ enum ImageSourceType {
   /// Creates an image source.
   const ImageSourceType({required this.value, required this.displayName});
 
-  /// Value used for persistence and serialization.
-  ///
-  /// Examples:
-  /// - `camera`
-  /// - `gallery`
+  /// Stable value used for persistence and serialization.
   final String value;
 
   /// Human-readable label displayed in the UI.
+  ///
+  /// Note: When localization is introduced, UI should provide localized
+  /// strings while this enum continues to expose stable identifiers.
   final String displayName;
 
-  /// Returns whether the selected source is the device camera.
+  /// Returns whether this source is the device camera.
   bool get isCamera => this == ImageSourceType.camera;
 
-  /// Returns whether the selected source is the device gallery.
+  /// Returns whether this source is the device gallery.
   bool get isGallery => this == ImageSourceType.gallery;
 
   /// Converts a persisted value into an [ImageSourceType].
   ///
-  /// If the supplied value is:
-  /// - `null`
-  /// - empty
-  /// - unsupported
-  ///
-  /// the default value ([ImageSourceType.gallery]) is returned.
+  /// Returns [ImageSourceType.gallery] for `null`, empty, or unsupported
+  /// values.
   static ImageSourceType fromValue(String? value) {
-    if (value == null || value.trim().isEmpty) {
+    final normalized = value?.trim().toLowerCase();
+
+    if (normalized == null || normalized.isEmpty) {
       return ImageSourceType.gallery;
     }
 
-    final normalizedValue = value.trim().toLowerCase();
-
-    return ImageSourceType.values.firstWhere(
-      (source) => source.value == normalizedValue,
+    return values.firstWhere(
+      (source) => source.value == normalized,
       orElse: () => ImageSourceType.gallery,
     );
   }
 
-  /// Returns whether the provided value represents a supported image source.
+  /// Returns whether a persisted value is supported.
   static bool isSupported(String? value) {
-    if (value == null || value.trim().isEmpty) {
+    final normalized = value?.trim().toLowerCase();
+
+    if (normalized == null || normalized.isEmpty) {
       return false;
     }
 
-    final normalizedValue = value.trim().toLowerCase();
-
-    return ImageSourceType.values.any(
-      (source) => source.value == normalizedValue,
-    );
+    return values.any((source) => source.value == normalized);
   }
 
-  /// List of all supported persisted values.
-  ///
-  /// Useful for:
-  /// - validation
-  /// - serialization
-  /// - analytics
-  /// - Settings
-  static const List<String> supportedValues = ['camera', 'gallery'];
+  /// Returns the display name for a persisted value.
+  static String displayNameOf(String? value) => fromValue(value).displayName;
+
+  /// All supported persisted values.
+  static List<String> get supportedValues =>
+      values.map((source) => source.value).toList(growable: false);
 }

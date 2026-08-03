@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 ///
 /// Represents the outcome of an application operation.
 ///
-/// This model is intentionally **independent of backend response models** and
+/// This model is intentionally independent of backend response models and
 /// serves as a lightweight wrapper for repository and service results.
 ///
 /// It communicates only three things:
@@ -23,7 +23,7 @@ import 'package:flutter/foundation.dart';
 /// ```dart
 /// final response = await repository.getCurrentUser();
 ///
-/// if (response.hasResult) {
+/// if (response.hasData) {
 ///   final user = response.requireData();
 /// }
 /// ```
@@ -43,70 +43,118 @@ final class ApiResponse<T> {
 
   /// Data returned from the operation.
   ///
-  /// Will typically be `null` for failed responses.
+  /// This is typically `null` for failed responses, but may also be `null`
+  /// for successful operations that intentionally return no payload
+  /// (for example, DELETE requests).
   final T? data;
 
   /// Optional success or error message.
   final String? message;
 
-  /// Returns `true` if the response contains data.
-  bool get hasData => data != null;
+  /// Returns `true` if the operation completed successfully.
+  bool get isSuccessful => isSuccess;
 
   /// Returns `true` if the operation failed.
   bool get isFailure => !isSuccess;
 
-  /// Returns `true` if the operation both succeeded and contains data.
-  bool get hasResult => isSuccess && data != null;
+  /// Returns `true` if the response succeeded and contains data.
+  bool get hasData => isSuccess && data != null;
 
-  /// Returns whether a message exists.
+  /// Alias for [hasData].
+  bool get hasResult => hasData;
+
+  /// Returns whether a non-empty message exists.
   bool get hasMessage => message != null && message!.trim().isNotEmpty;
 
   /// Returns the contained data.
   ///
   /// Throws a [StateError] if no data exists.
   T requireData() {
-    if (data == null) {
-      throw StateError('ApiResponse does not contain data.');
+    final value = data;
+
+    if (value == null) {
+      throw StateError('ApiResponse<$T> does not contain any data.');
     }
 
-    return data as T;
+    return value;
   }
 
   /// Maps the contained data into another type while preserving the response
   /// status and message.
   ///
-  /// This is particularly useful inside repositories when converting DTOs into
-  /// domain entities.
+  /// Useful for converting DTOs into domain entities inside repositories.
   ApiResponse<R> map<R>(R Function(T value) mapper) {
-    if (data == null) {
-      return ApiResponse<R>(isSuccess: isSuccess, message: message);
-    }
+    final value = data;
 
     return ApiResponse<R>(
       isSuccess: isSuccess,
-      data: mapper(data as T),
+      data: value == null ? null : mapper(value),
       message: message,
     );
   }
 
-  /// Creates a copy of this response with updated values.
+  /// Executes [action] only when the response contains successful data.
+  void whenSuccess(void Function(T value) action) {
+    final value = data;
+
+    if (isSuccess && value != null) {
+      action(value);
+    }
+  }
+
+  /// Executes [action] only when the response represents a failure.
+  void whenFailure(void Function(String? message) action) {
+    if (isFailure) {
+      action(message);
+    }
+  }
+
+  /// Transforms this response into a single value.
+  R fold<R>({
+    required R Function(T value, String? message) onSuccess,
+    required R Function(String? message) onFailure,
+  }) {
+    if (hasData) {
+      return onSuccess(requireData(), message);
+    }
+
+    return onFailure(message);
+  }
+
+  static const Object _sentinel = Object();
+
+  /// Creates a copy of this response.
   ///
-  /// Nullable fields intentionally retain their current value when omitted.
-  ApiResponse<T> copyWith({bool? isSuccess, T? data, String? message}) {
+  /// Pass `null` explicitly to clear nullable fields.
+  ///
+  /// Example:
+  ///
+  /// ```dart
+  /// response.copyWith(message: null);
+  /// response.copyWith(data: null);
+  /// ```
+  ApiResponse<T> copyWith({
+    bool? isSuccess,
+    Object? data = _sentinel,
+    Object? message = _sentinel,
+  }) {
     return ApiResponse<T>(
       isSuccess: isSuccess ?? this.isSuccess,
-      data: data ?? this.data,
-      message: message ?? this.message,
+      data: identical(data, _sentinel) ? this.data : data as T?,
+      message: identical(message, _sentinel)
+          ? this.message
+          : message as String?,
     );
   }
 
   @override
-  String toString() =>
-      'ApiResponse<$T>('
-      'isSuccess: $isSuccess, '
-      'data: $data, '
-      'message: $message'
-      ')';
+  String toString() {
+    return 'ApiResponse<$T>('
+        'isSuccess: $isSuccess, '
+        'data: $data, '
+        'message: $message'
+        ')';
+  }
 
   @override
   bool operator ==(Object other) {

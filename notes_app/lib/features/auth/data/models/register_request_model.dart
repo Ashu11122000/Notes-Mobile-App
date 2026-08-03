@@ -9,15 +9,16 @@ import 'package:flutter/foundation.dart';
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Represents the request payload sent to the FastAPI registration endpoint.
-/// • Converts between Dart objects and JSON.
-/// • Remains immutable and free of business logic.
-/// • Supports lightweight state updates through [copyWith].
+/// • Converts between Map/JSON and Dart objects.
+/// • Remains immutable.
+/// • Contains no business logic or validation.
+/// • Supports lightweight updates through [copyWith].
 ///
 /// FastAPI Endpoint
 /// ----------------------------------------------------------------------------
 /// POST /api/v1/auth/register
 ///
-/// Request Body
+/// Example Request
 /// ----------------------------------------------------------------------------
 /// {
 ///   "email": "ashish@example.com",
@@ -26,10 +27,10 @@ import 'package:flutter/foundation.dart';
 ///
 /// Notes
 /// ----------------------------------------------------------------------------
-/// • This model intentionally contains no validation logic.
-/// • Validation belongs to the presentation layer (Forms/Validators).
+/// • Validation belongs to the presentation layer.
 /// • Fully compatible with the FastAPI UserCreate schema.
-/// • Password is intentionally excluded from [toString] for security.
+/// • Password is intentionally excluded from [toString]
+///   to prevent accidental logging.
 /// ============================================================================
 
 @immutable
@@ -46,7 +47,13 @@ final class RegisterRequestModel {
   /// User's account password.
   final String password;
 
-  /// Returns a new instance with the provided values replaced.
+  /// Returns true when both fields are empty.
+  bool get isEmpty => email.isEmpty && password.isEmpty;
+
+  /// Returns true when at least one field contains a value.
+  bool get isNotEmpty => !isEmpty;
+
+  /// Returns a new immutable instance with updated values.
   RegisterRequestModel copyWith({String? email, String? password}) {
     return RegisterRequestModel(
       email: email ?? this.email,
@@ -54,22 +61,31 @@ final class RegisterRequestModel {
     );
   }
 
-  /// Creates a model from a JSON object.
-  factory RegisterRequestModel.fromJson(Map<String, dynamic> json) {
+  /// Creates a model from a Map.
+  factory RegisterRequestModel.fromMap(Map<String, dynamic> map) {
     return RegisterRequestModel(
-      email: (json[_emailKey] ?? '') as String,
-      password: (json[_passwordKey] ?? '') as String,
+      email: map[_emailKey]?.toString() ?? '',
+      password: map[_passwordKey]?.toString() ?? '',
     );
   }
 
-  /// Converts this model into a JSON object.
-  Map<String, dynamic> toJson() => <String, dynamic>{
-    _emailKey: email,
-    _passwordKey: password,
-  };
+  /// Alias for [fromMap].
+  factory RegisterRequestModel.fromJson(Map<String, dynamic> json) {
+    return RegisterRequestModel.fromMap(json);
+  }
+
+  /// Converts this model into a Map.
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{_emailKey: email, _passwordKey: password};
+  }
+
+  /// Alias for [toMap].
+  Map<String, dynamic> toJson() => toMap();
 
   @override
-  String toString() => 'RegisterRequestModel(email: $email)';
+  String toString() {
+    return 'RegisterRequestModel(email: $email)';
+  }
 
   @override
   bool operator ==(Object other) {

@@ -6,14 +6,13 @@ import 'package:flutter/material.dart';
 ///
 /// Enterprise Material 3 divider.
 ///
-/// A lightweight, reusable divider that standardizes separators throughout
+/// A lightweight reusable divider that standardizes separators throughout
 /// the application while respecting the active [DividerTheme].
 ///
-/// This widget intentionally remains minimal. Most visual customization should
-/// be performed globally through the application's theme, ensuring a
-/// consistent design language.
+/// Most visual customization should be handled globally through the app theme
+/// to maintain a consistent design system.
 ///
-/// Typical use cases:
+/// Typical usage:
 ///
 /// - Settings sections
 /// - Lists
@@ -21,19 +20,6 @@ import 'package:flutter/material.dart';
 /// - Bottom sheets
 /// - Profile screens
 /// - Forms
-///
-/// Example:
-///
-/// ```dart
-/// const CustomDivider();
-/// ```
-///
-/// ```dart
-/// const CustomDivider(
-///   indent: 16,
-///   endIndent: 16,
-/// );
-/// ```
 @immutable
 final class CustomDivider extends StatelessWidget {
   /// Creates a reusable Material 3 divider.
@@ -44,49 +30,39 @@ final class CustomDivider extends StatelessWidget {
     this.indent = 0,
     this.endIndent = 0,
     this.color,
-    this.radius,
   });
 
-  /// Total height occupied by the divider.
+  /// Total vertical space occupied by the divider.
   final double height;
 
-  /// Thickness of the divider.
+  /// Divider thickness.
   ///
-  /// When omitted, the value from the active [DividerTheme] is used.
+  /// Uses [DividerTheme] when omitted.
   final double? thickness;
 
-  /// Empty space before the divider begins.
+  /// Empty space before the divider starts.
   final double indent;
 
   /// Empty space after the divider ends.
   final double endIndent;
 
-  /// Optional divider color.
+  /// Optional custom color.
   ///
-  /// Prefer configuring the application's [DividerTheme] instead of setting
-  /// this property unless a specific screen requires a custom appearance.
+  /// Prefer configuring [DividerTheme] globally.
   final Color? color;
-
-  /// Optional border radius.
-  ///
-  /// Useful when creating premium section separators that integrate with
-  /// rounded surfaces.
-  final BorderRadiusGeometry? radius;
 
   @override
   Widget build(BuildContext context) {
-    Widget divider = Divider(
-      height: height,
-      thickness: thickness,
-      indent: indent,
-      endIndent: endIndent,
-      color: color,
-    );
+    return const _DividerContent();
+  }
+}
 
-    if (radius != null) {
-      divider = ClipRRect(borderRadius: radius!, child: divider);
-    }
+@immutable
+final class _DividerContent extends StatelessWidget {
+  const _DividerContent({super.key});
 
-    return ExcludeSemantics(child: divider);
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(child: Divider());
   }
 }

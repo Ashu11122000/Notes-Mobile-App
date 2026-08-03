@@ -4,32 +4,24 @@ import 'package:flutter/foundation.dart';
 /// File: create_note_request.dart
 /// ============================================================================
 ///
-/// Request model for creating a new note.
+/// Immutable request model for creating a new note.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Represents the Create Note request body.
-/// • Provides lightweight validation.
-/// • Normalizes user input.
+/// • Represents the request body for the Create Note API.
+/// • Performs lightweight input normalization.
+/// • Provides simple validation helpers.
 /// • Serializes data for the FastAPI backend.
-/// • Remains immutable and strongly typed.
+/// • Contains no business logic.
 ///
 /// Example JSON
 /// ----------------------------------------------------------------------------
-///
-/// With content:
-///
 /// {
 ///   "title": "Shopping List",
 ///   "content": "Buy milk and eggs."
 /// }
 ///
-/// Without content:
-///
-/// {
-///   "title": "Shopping List"
-/// }
-///
+/// Content is omitted when it is null or contains only whitespace.
 /// ============================================================================
 
 @immutable
@@ -40,83 +32,75 @@ final class CreateNoteRequest {
   // Fields
   // ===========================================================================
 
-  /// Note title.
+  /// Raw note title entered by the user.
   final String title;
 
-  /// Optional note content.
+  /// Raw optional note content.
   final String? content;
 
   // ===========================================================================
-  // Computed Properties
+  // Normalized Values
   // ===========================================================================
 
-  /// Returns normalized title.
-  ///
-  /// Removes leading and trailing spaces.
-  String get normalizedTitle {
-    return title.trim();
-  }
+  /// Title with surrounding whitespace removed.
+  String get normalizedTitle => title.trim();
 
-  /// Returns normalized content.
+  /// Content with surrounding whitespace removed.
   ///
-  /// Returns null when:
-  /// • Content is missing.
-  /// • Content contains only spaces.
+  /// Returns `null` when:
+  /// - content is null
+  /// - content contains only whitespace
   String? get normalizedContent {
     final String? value = content?.trim();
 
-    if (value == null || value.isEmpty) {
-      return null;
-    }
-
-    return value;
+    return (value == null || value.isEmpty) ? null : value;
   }
 
-  /// Returns true when title is valid.
-  bool get isValid {
-    return normalizedTitle.isNotEmpty;
-  }
+  // ===========================================================================
+  // Validation
+  // ===========================================================================
 
-  /// Returns true when note contains content.
-  bool get hasContent {
-    return normalizedContent != null;
-  }
+  /// Returns true when the title contains at least one non-whitespace character.
+  bool get isValid => normalizedTitle.isNotEmpty;
 
-  /// Returns true when request can be submitted.
-  bool get canSubmit {
-    return isValid;
-  }
+  /// Returns true when content exists after normalization.
+  bool get hasContent => normalizedContent != null;
+
+  /// Returns true when the request is ready to be submitted.
+  bool get canSubmit => isValid;
 
   // ===========================================================================
   // Serialization
   // ===========================================================================
 
-  /// Converts request into FastAPI compatible JSON.
+  /// Converts this request into the JSON payload expected by the FastAPI backend.
   ///
-  /// Empty content is intentionally removed from payload.
-  /// This keeps API requests cleaner.
+  /// Empty content is intentionally omitted.
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> json = <String, dynamic>{
+    final String normalizedTitle = this.normalizedTitle;
+    final String? normalizedContent = this.normalizedContent;
+
+    return <String, dynamic>{
       'title': normalizedTitle,
+      if (normalizedContent != null) 'content': normalizedContent,
     };
-
-    final String? cleanContent = normalizedContent;
-
-    if (cleanContent != null) {
-      json['content'] = cleanContent;
-    }
-
-    return json;
   }
 
   // ===========================================================================
   // Copy
   // ===========================================================================
 
-  CreateNoteRequest copyWith({String? title, String? content}) {
+  /// Creates a modified copy of this request.
+  ///
+  /// Use [clearContent] to explicitly remove existing content.
+  CreateNoteRequest copyWith({
+    String? title,
+    String? content,
+    bool clearContent = false,
+  }) {
     return CreateNoteRequest(
       title: title ?? this.title,
-      content: content ?? this.content,
+      content: clearContent ? null : (content ?? this.content),
     );
   }
 
@@ -127,15 +111,13 @@ final class CreateNoteRequest {
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
-        other is CreateNoteRequest &&
+        (other is CreateNoteRequest &&
             other.title == title &&
-            other.content == content;
+            other.content == content);
   }
 
   @override
-  int get hashCode {
-    return Object.hash(title, content);
-  }
+  int get hashCode => Object.hash(title, content);
 
   // ===========================================================================
   // Debugging

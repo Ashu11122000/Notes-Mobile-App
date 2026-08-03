@@ -9,8 +9,8 @@ import 'package:flutter/foundation.dart';
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Represents the core business object of the Notes feature.
-/// • Independent from API, JSON, Dio, database, and Flutter infrastructure.
-/// • Used by domain and presentation layers.
+/// • Independent of API, JSON, Dio, database, and Flutter infrastructure.
+/// • Used by the domain and presentation layers only.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -38,7 +38,7 @@ class Note {
   /// Unique note identifier.
   final int id;
 
-  /// User identifier who owns this note.
+  /// Identifier of the user who owns this note.
   final int ownerId;
 
   /// Note title.
@@ -54,49 +54,60 @@ class Note {
   final DateTime updatedAt;
 
   // ===========================================================================
+  // Helpers
+  // ===========================================================================
+
+  static String? _normalize(String? value) {
+    final String? normalized = value?.trim();
+
+    return (normalized == null || normalized.isEmpty) ? null : normalized;
+  }
+
+  // ===========================================================================
   // Computed Properties
   // ===========================================================================
 
-  /// Returns true when this note contains content.
-  bool get hasContent {
-    final String? value = content?.trim();
+  /// Returns the normalized title.
+  String get normalizedTitle => title.trim();
 
-    return value != null && value.isNotEmpty;
-  }
+  /// Returns the normalized content.
+  String? get normalizedContent => _normalize(content);
 
-  /// Returns true when the note has no meaningful text.
-  bool get isEmpty {
-    return title.trim().isEmpty && !hasContent;
-  }
+  /// Returns true when the note contains content.
+  bool get hasContent => normalizedContent != null;
 
-  /// Returns true when the note contains useful data.
+  /// Returns true when the note contains no meaningful data.
+  bool get isEmpty => normalizedTitle.isEmpty && normalizedContent == null;
+
+  /// Returns true when the note contains either a title or content.
   bool get isNotEmpty => !isEmpty;
 
   /// Returns a shortened title preview.
   ///
-  /// Useful for list cards and compact UI components.
+  /// Useful for compact list items.
   String get titlePreview {
     const int maxLength = 40;
 
-    final String value = title.trim();
+    final String value = normalizedTitle;
 
-    if (value.length <= maxLength) {
-      return value;
-    }
-
-    return '${value.substring(0, maxLength)}...';
+    return value.length <= maxLength
+        ? value
+        : '${value.substring(0, maxLength)}...';
   }
 
   // ===========================================================================
   // Copy
   // ===========================================================================
 
-  /// Creates a copy with updated values.
+  /// Creates a modified copy of this note.
+  ///
+  /// Use [clearContent] to explicitly remove the content.
   Note copyWith({
     int? id,
     int? ownerId,
     String? title,
     String? content,
+    bool clearContent = false,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -104,7 +115,7 @@ class Note {
       id: id ?? this.id,
       ownerId: ownerId ?? this.ownerId,
       title: title ?? this.title,
-      content: content ?? this.content,
+      content: clearContent ? null : (content ?? this.content),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -117,20 +128,19 @@ class Note {
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
-        other is Note &&
+        (other is Note &&
             runtimeType == other.runtimeType &&
             id == other.id &&
             ownerId == other.ownerId &&
             title == other.title &&
             content == other.content &&
             createdAt == other.createdAt &&
-            updatedAt == other.updatedAt;
+            updatedAt == other.updatedAt);
   }
 
   @override
-  int get hashCode {
-    return Object.hash(id, ownerId, title, content, createdAt, updatedAt);
-  }
+  int get hashCode =>
+      Object.hash(id, ownerId, title, content, createdAt, updatedAt);
 
   // ===========================================================================
   // Debug
@@ -142,7 +152,7 @@ class Note {
         'id: $id, '
         'ownerId: $ownerId, '
         'title: $title, '
-        'content: $content, '
+        'hasContent: $hasContent, '
         'createdAt: $createdAt, '
         'updatedAt: $updatedAt'
         ')';

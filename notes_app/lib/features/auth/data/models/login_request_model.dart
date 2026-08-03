@@ -10,25 +10,18 @@ import 'package:flutter/foundation.dart';
 /// ----------------------------------------------------------------------------
 /// • Represents the request payload sent to the FastAPI login endpoint.
 /// • Converts between Dart objects and JSON.
-/// • Remains immutable and free of business logic.
-/// • Supports lightweight state updates through [copyWith].
+/// • Remains immutable.
+/// • Contains no business logic or validation.
+/// • Supports lightweight updates through [copyWith].
 ///
 /// FastAPI Endpoint
 /// ----------------------------------------------------------------------------
 /// POST /api/v1/auth/login
 ///
-/// Request Body
-/// ----------------------------------------------------------------------------
-/// {
-///   "email": "ashish@example.com",
-///   "password": "Password@123"
-/// }
-///
 /// Notes
 /// ----------------------------------------------------------------------------
-/// • This model intentionally contains no validation logic.
-/// • Validation belongs to the presentation layer (Forms/Validators).
-/// • Fully compatible with the FastAPI UserLogin schema.
+/// • Validation belongs to the presentation layer.
+/// • Fully compatible with the FastAPI login schema.
 /// • Password is intentionally excluded from [toString] for security.
 /// ============================================================================
 
@@ -46,7 +39,13 @@ final class LoginRequestModel {
   /// User's account password.
   final String password;
 
-  /// Returns a new instance with the provided values replaced.
+  /// Returns true when both fields are empty.
+  bool get isEmpty => email.isEmpty && password.isEmpty;
+
+  /// Returns true when at least one field contains a value.
+  bool get isNotEmpty => !isEmpty;
+
+  /// Returns a new immutable instance with updated values.
   LoginRequestModel copyWith({String? email, String? password}) {
     return LoginRequestModel(
       email: email ?? this.email,
@@ -54,22 +53,31 @@ final class LoginRequestModel {
     );
   }
 
-  /// Creates a model from a JSON object.
-  factory LoginRequestModel.fromJson(Map<String, dynamic> json) {
+  /// Creates a model from a Map.
+  factory LoginRequestModel.fromMap(Map<String, dynamic> map) {
     return LoginRequestModel(
-      email: (json[_emailKey] ?? '') as String,
-      password: (json[_passwordKey] ?? '') as String,
+      email: map[_emailKey]?.toString() ?? '',
+      password: map[_passwordKey]?.toString() ?? '',
     );
   }
 
-  /// Converts this model into a JSON object.
-  Map<String, dynamic> toJson() => <String, dynamic>{
-    _emailKey: email,
-    _passwordKey: password,
-  };
+  /// Alias for [fromMap].
+  factory LoginRequestModel.fromJson(Map<String, dynamic> json) {
+    return LoginRequestModel.fromMap(json);
+  }
+
+  /// Converts this model into a Map.
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{_emailKey: email, _passwordKey: password};
+  }
+
+  /// Alias for [toMap].
+  Map<String, dynamic> toJson() => toMap();
 
   @override
-  String toString() => 'LoginRequestModel(email: $email)';
+  String toString() {
+    return 'LoginRequestModel(email: $email)';
+  }
 
   @override
   bool operator ==(Object other) {

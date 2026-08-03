@@ -6,22 +6,21 @@ import 'package:flutter/foundation.dart';
 ///
 /// Represents the authenticated user within the application.
 ///
-/// This is a shared domain model that can be safely used across multiple
+/// This is a shared domain model that can safely be used across multiple
 /// features without introducing dependencies on data-transfer objects (DTOs)
 /// or backend response models.
 ///
 /// Typical consumers include:
-///
 /// - Authentication
+/// - Authorization
 /// - Notes
+/// - Profile
 /// - Settings
 /// - Notifications
-/// - Authorization
-/// - Profile
 ///
 /// This model intentionally contains **no JSON serialization logic**.
-/// Serialization belongs to feature-specific data models located in the data
-/// layer, preserving Clean Architecture boundaries.
+/// Serialization belongs to feature-specific data models in the data layer,
+/// preserving Clean Architecture boundaries.
 ///
 /// This class should represent only the information required by the domain
 /// and presentation layers.
@@ -51,20 +50,40 @@ final class AppUser {
   /// Indicates whether the user account is active.
   final bool isActive;
 
+  /// Returns the normalized role.
+  String get normalizedRole => role.trim().toLowerCase();
+
   /// Returns `true` if the authenticated user has the administrator role.
-  bool get isAdmin => role.toLowerCase() == 'admin';
+  bool get isAdmin => normalizedRole == 'admin';
 
   /// Returns `true` if the authenticated user has the standard user role.
-  bool get isRegularUser => role.toLowerCase() == 'user';
+  bool get isRegularUser => normalizedRole == 'user';
 
   /// Returns `true` if the account is inactive.
   bool get isInactive => !isActive;
 
+  /// Returns `true` if the user has a valid identifier.
+  ///
+  /// Useful for lightweight domain checks.
+  bool get isAuthenticatedUser => id > 0;
+
+  /// Returns `true` if the email is not empty.
+  ///
+  /// This is intentionally lightweight and is not a full email validator.
+  bool get hasValidEmail => email.trim().isNotEmpty;
+
+  /// A user-friendly identifier suitable for display.
+  ///
+  /// Currently returns the email address. This getter allows future
+  /// enhancements (for example, supporting a full name) without changing
+  /// consumers.
+  String get displayName => email;
+
   /// Returns whether the user matches the supplied role.
   ///
-  /// Comparison is case-insensitive.
+  /// Comparison is case-insensitive and ignores surrounding whitespace.
   bool hasRole(String roleName) =>
-      role.toLowerCase() == roleName.trim().toLowerCase();
+      normalizedRole == roleName.trim().toLowerCase();
 
   /// Creates a copy of this user with updated values.
   AppUser copyWith({int? id, String? email, String? role, bool? isActive}) {
@@ -78,7 +97,7 @@ final class AppUser {
 
   @override
   String toString() {
-    return '$runtimeType('
+    return 'AppUser('
         'id: $id, '
         'email: $email, '
         'role: $role, '

@@ -6,87 +6,80 @@ import 'package:flutter/material.dart';
 ///
 /// Enterprise Material 3 reusable card.
 ///
-/// This widget provides a centralized implementation of cards used throughout
-/// the application, ensuring a consistent appearance, interaction model, and
-/// accessibility.
+/// Provides a consistent card surface across the application.
 ///
 /// Features:
 ///
 /// - Material 3 compliant
-/// - Theme-aware
+/// - Theme aware
 /// - Accessible
-/// - Keyboard friendly
-/// - Hover support
-/// - Proper ripple effects
-/// - Responsive
+/// - Ripple support
 /// - Lightweight
+/// - Reusable
 ///
-/// Typical use cases:
+/// Used for:
 ///
-/// - Note cards
-/// - Profile cards
-/// - Settings sections
+/// - Notes
 /// - Dashboard panels
+/// - Settings sections
 /// - Empty states
-/// - Statistics cards
-///
-/// Example:
-///
-/// ```dart
-/// CustomCard(
-///   onTap: () {},
-///   child: Text('Hello'),
-/// )
-/// ```
+/// - Profile cards
 @immutable
 final class CustomCard extends StatelessWidget {
-  /// Creates a reusable application card.
   const CustomCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16),
     this.margin = EdgeInsets.zero,
     this.onTap,
+    this.enabled = true,
     this.elevation = 0,
     this.borderRadius = 20,
     this.clipBehavior = Clip.antiAlias,
     this.color,
     this.border,
     this.shadowColor,
+    this.surfaceTintColor,
     this.semanticLabel,
   });
 
-  /// Content displayed inside the card.
+  /// Card content.
   final Widget child;
 
-  /// Internal spacing.
+  /// Internal padding.
   final EdgeInsetsGeometry padding;
 
-  /// External spacing.
+  /// External margin.
   final EdgeInsetsGeometry margin;
 
-  /// Callback invoked when the card is tapped.
+  /// Tap callback.
   final VoidCallback? onTap;
 
-  /// Card elevation.
+  /// Enables interaction.
+  final bool enabled;
+
+  /// Elevation.
   final double elevation;
 
-  /// Card corner radius.
+  /// Corner radius.
   final double borderRadius;
 
   /// Clip behavior.
   final Clip clipBehavior;
 
-  /// Optional background color.
+  /// Background color.
   final Color? color;
 
-  /// Optional border.
+  /// Border.
   final BorderSide? border;
 
-  /// Optional shadow color.
+  /// Shadow color.
   final Color? shadowColor;
 
-  /// Optional accessibility label.
+  /// Surface tint.
+  final Color? surfaceTintColor;
+
+  /// Accessibility label.
   final String? semanticLabel;
 
   @override
@@ -95,35 +88,55 @@ final class CustomCard extends StatelessWidget {
 
     final radius = BorderRadius.circular(borderRadius);
 
+    final effectiveOnTap = enabled ? onTap : null;
+
+    final shape = RoundedRectangleBorder(
+      borderRadius: radius,
+
+      side:
+          border ??
+          BorderSide(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
+          ),
+    );
+
+    Widget content = Padding(padding: padding, child: child);
+
+    if (effectiveOnTap != null) {
+      content = InkWell(
+        onTap: effectiveOnTap,
+
+        borderRadius: radius,
+
+        mouseCursor: SystemMouseCursors.click,
+
+        child: content,
+      );
+    }
+
     return Semantics(
       container: true,
-      button: onTap != null,
+
+      button: effectiveOnTap != null,
+
+      enabled: effectiveOnTap != null,
+
       label: semanticLabel,
-      child: Card(
-        margin: margin,
+
+      child: Material(
+        color: color ?? theme.colorScheme.surfaceContainerLow,
+
         elevation: elevation,
-        clipBehavior: clipBehavior,
-        color: color,
+
         shadowColor: shadowColor,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: radius,
-          side: border != null
-              ? BorderSide(color: border!.color, width: border!.width)
-              : BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.35,
-                  ),
-                ),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radius,
-          mouseCursor: onTap != null
-              ? SystemMouseCursors.click
-              : MouseCursor.defer,
-          child: Padding(padding: padding, child: child),
-        ),
+
+        surfaceTintColor: surfaceTintColor,
+
+        shape: shape,
+
+        clipBehavior: clipBehavior,
+
+        child: content,
       ),
     );
   }

@@ -6,32 +6,25 @@ File: auth.py
 Authentication Routes
 
 Responsibilities
-----------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 - Register new users.
-- Authenticate existing users.
-- Generate JWT access tokens.
+- Authenticate users.
+- Issue JWT access tokens.
 - Return authenticated user information.
-- Delegate business logic to the service layer.
+- Keep HTTP concerns separate from business logic.
 
-Architecture
-----------------------------------------------------------------------------
-Client
-   │
-   ▼
-Authentication Routes
-   │
-   ▼
-User Service
-   │
-   ▼
-Database
-
-Notes
-----------------------------------------------------------------------------
-- Compatible with FastAPI.
-- JWT Authentication.
-- Swagger/OpenAPI documented.
+Compatible With
+-------------------------------------------------------------------------------
+- FastAPI 0.136+
+- SQLAlchemy 2.x
+- Pydantic V2
+- JWT Authentication
+===============================================================================
 """
+
+from __future__ import annotations
+
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -41,19 +34,20 @@ from app.core.security import create_access_token, verify_password
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, UserResponse
-from app.services.user_service import create_user, get_user_by_email
+from app.services.user_service import (
+    UserAlreadyExistsError,
+    create_user,
+    get_user_by_email,
+)
 
 __all__ = ("router",)
 
 # =============================================================================
-# Constants
+# Dependency Aliases
 # =============================================================================
 
-_AUTH_HEADERS = {"WWW-Authenticate": "Bearer"}
-
-_INVALID_CREDENTIALS = "Invalid email or password."
-_USER_INACTIVE = "User account is inactive."
-_REGISTER_SUCCESS = "User registered successfully."
+DBSession = Annotated[Session, Depends(get_db)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
 
 # =============================================================================
 # Router
@@ -65,6 +59,18 @@ router = APIRouter(
 )
 
 # =============================================================================
+# Constants
+# =============================================================================
+
+_AUTH_HEADERS = {
+    "WWW-Authenticate": "Bearer",
+}
+
+_INVALID_CREDENTIALS = "Invalid email or password."
+_USER_INACTIVE = "User account is inactive."
+_REGISTER_SUCCESS = "User registered successfully."
+
+# =============================================================================
 # Register
 # =============================================================================
 
@@ -72,25 +78,30 @@ router = APIRouter(
 @router.post(
     "/register",
     status_code=status.HTTP_201_CREATED,
+    response_model=dict[str, str | int],
     summary="Register User",
-    description="Create a new user account.",
+    description="Register a new user account.",
 )
 def register(
     user: UserCreate,
-    db: Session = Depends(get_db),
+    db: DBSession,
 ) -> dict[str, str | int]:
     """
     Register a new user.
-
-    Business validation (including duplicate email detection)
-    is delegated to the service layer.
     """
 
-    new_user = create_user(
-        db=db,
-        email=user.email,
-        password=user.password,
-    )
+    try:
+        new_user = create_user(
+            db=db,
+            email=user.email,
+            password=user.password,
+        )
+
+    except UserAlreadyExistsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
 
     return {
         "message": _REGISTER_SUCCESS,
@@ -105,12 +116,13 @@ def register(
 
 @router.post(
     "/login",
+    response_model=dict[str, str],
     summary="Login User",
     description="Authenticate a user and return a JWT access token.",
 )
 def login(
     user: UserLogin,
-    db: Session = Depends(get_db),
+    db: DBSession,
 ) -> dict[str, str]:
     """
     Authenticate a user and return a JWT access token.
@@ -161,14 +173,14 @@ def login(
 @router.get(
     "/me",
     response_model=UserResponse,
-    summary="Get Current User",
-    description="Return the currently authenticated user.",
+    summary="Current User",
+    description="Return the authenticated user's profile.",
 )
 def get_me(
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser,
 ) -> User:
     """
-    Retrieve the authenticated user's profile.
+    Return the authenticated user.
     """
 
     return current_user

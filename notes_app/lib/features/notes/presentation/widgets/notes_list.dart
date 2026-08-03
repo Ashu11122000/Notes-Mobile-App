@@ -13,18 +13,17 @@ import 'pagination_loader.dart';
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Displays a scrollable list of notes.
-/// • Supports infinite scrolling.
-/// • Displays pagination loading state.
+/// • Supports pagination loading.
 /// • Delegates user interactions.
 /// • Contains no business logic.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
 /// NotesScreen
-///        ↓
-///     NoteList
-///        ↓
-///     NoteCard
+///      ↓
+/// NoteList
+///      ↓
+/// NoteCard
 ///
 /// ============================================================================
 
@@ -34,7 +33,7 @@ final class NoteList extends StatelessWidget {
     required this.notes,
     this.controller,
     this.isLoadingMore = false,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(16.0),
     this.onNoteTap,
     this.onEdit,
     this.onDelete,
@@ -49,29 +48,26 @@ final class NoteList extends StatelessWidget {
   /// Indicates pagination loading.
   final bool isLoadingMore;
 
-  /// Outer list padding.
+  /// List padding.
   final EdgeInsetsGeometry padding;
 
-  /// Note tap callback.
+  /// Note tapped.
   final ValueChanged<Note>? onNoteTap;
 
-  /// Edit callback.
+  /// Edit note.
   final ValueChanged<Note>? onEdit;
 
-  /// Delete callback.
+  /// Delete note.
   final ValueChanged<Note>? onDelete;
 
   // ===========================================================================
   // Constants
   // ===========================================================================
 
-  static const double _cacheExtent = 800;
+  /// Optimized for 8 GB RAM laptops.
+  static const double _cacheExtent = 500.0;
 
-  static const double _itemSpacing = 12;
-
-  // ===========================================================================
-  // Build
-  // ===========================================================================
+  static const double _itemSpacing = 12.0;
 
   @override
   Widget build(BuildContext context) {
@@ -82,13 +78,13 @@ final class NoteList extends StatelessWidget {
 
       cacheExtent: _cacheExtent,
 
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+
       physics: const AlwaysScrollableScrollPhysics(),
 
       itemCount: notes.length + (isLoadingMore ? 1 : 0),
 
-      separatorBuilder: (BuildContext context, int index) {
-        return const SizedBox(height: _itemSpacing);
-      },
+      separatorBuilder: (_, _) => const SizedBox(height: _itemSpacing),
 
       itemBuilder: (BuildContext context, int index) {
         if (index >= notes.length) {
@@ -97,17 +93,20 @@ final class NoteList extends StatelessWidget {
 
         final Note note = notes[index];
 
-        return Semantics(
-          label: 'Note item ${index + 1}',
+        return KeyedSubtree(
+          key: ValueKey<int>(note.id),
+          child: Semantics(
+            container: true,
+            label: 'Note ${index + 1}: ${note.title}',
+            child: NoteCard(
+              note: note,
 
-          child: NoteCard(
-            note: note,
+              onTap: onNoteTap == null ? null : () => onNoteTap!(note),
 
-            onTap: onNoteTap == null ? null : () => onNoteTap!(note),
+              onEdit: onEdit == null ? null : () => onEdit!(note),
 
-            onEdit: onEdit == null ? null : () => onEdit!(note),
-
-            onDelete: onDelete == null ? null : () => onDelete!(note),
+              onDelete: onDelete == null ? null : () => onDelete!(note),
+            ),
           ),
         );
       },

@@ -22,55 +22,23 @@
 /// Keeping this enum independent of Flutter widgets preserves Clean
 /// Architecture boundaries and allows the application's visual design to evolve
 /// without affecting business logic.
-///
-/// Typical mapping:
-///
-/// ```text
-/// success  → Green + Check icon
-/// info     → Blue + Info icon
-/// warning  → Amber + Warning icon
-/// error    → Red + Error icon
-/// ```
-///
-/// This enum should remain lightweight and framework-agnostic.
 enum SnackbarType {
   /// Indicates that an operation completed successfully.
-  ///
-  /// Examples:
-  /// - User logged in successfully.
-  /// - Registration completed.
-  /// - Note created.
-  /// - Note updated.
-  /// - Note deleted.
   success,
 
   /// Indicates an informational message.
-  ///
-  /// Examples:
-  /// - Session restored.
-  /// - Synchronization completed.
-  /// - New application version available.
   info,
 
   /// Indicates a non-blocking warning.
-  ///
-  /// The user may continue using the application, but some attention may be
-  /// required.
-  ///
-  /// Examples:
-  /// - Weak internet connection.
-  /// - Unsaved changes.
-  /// - Storage almost full.
   warning,
 
   /// Indicates that an operation failed.
-  ///
-  /// Examples:
-  /// - Invalid credentials.
-  /// - Network request failed.
-  /// - Server error.
-  /// - Validation failed.
   error;
+
+  /// Stable string representation.
+  ///
+  /// Useful for logging, analytics, debugging, and telemetry.
+  String get value => name;
 
   /// Returns `true` if this snackbar represents a successful operation.
   bool get isSuccess => this == SnackbarType.success;
@@ -84,16 +52,27 @@ enum SnackbarType {
   /// Returns `true` if this snackbar represents an error.
   bool get isError => this == SnackbarType.error;
 
-  /// Returns whether the snackbar represents a negative outcome.
-  ///
-  /// Useful when applying shared styling or analytics to warning and error
-  /// notifications.
+  /// Returns whether the snackbar represents a warning or error.
   bool get isNegative =>
       this == SnackbarType.warning || this == SnackbarType.error;
 
-  /// Returns whether the snackbar represents a positive or neutral outcome.
-  ///
-  /// Useful for applying shared styling to success and informational messages.
-  bool get isPositive =>
+  /// Returns whether the snackbar represents a success or informational message.
+  bool get isNonNegative =>
       this == SnackbarType.success || this == SnackbarType.info;
+
+  /// Converts a persisted string into a [SnackbarType].
+  ///
+  /// Returns [SnackbarType.info] for `null`, empty, or unsupported values.
+  static SnackbarType fromValue(String? value) {
+    final normalized = value?.trim().toLowerCase();
+
+    if (normalized == null || normalized.isEmpty) {
+      return SnackbarType.info;
+    }
+
+    return values.firstWhere(
+      (type) => type.name == normalized,
+      orElse: () => SnackbarType.info,
+    );
+  }
 }

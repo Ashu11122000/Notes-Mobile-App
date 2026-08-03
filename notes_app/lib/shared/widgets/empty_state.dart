@@ -6,48 +6,25 @@ import 'package:flutter/material.dart';
 ///
 /// Enterprise Material 3 empty state widget.
 ///
-/// Displays a polished, reusable empty state when no content is available.
+/// Displays a reusable empty content state.
 ///
-/// Typical use cases:
+/// Designed for:
 ///
-/// • No notes
-/// • No search results
-/// • No notifications
-/// • No internet
-/// • Empty favorites
-/// • Empty dashboard
+/// - Notes
+/// - Search results
+/// - Notifications
+/// - Offline states
+/// - Dashboards
 ///
 /// Features:
 ///
-/// • Material 3
-/// • Theme aware
-/// • Responsive
-/// • Accessible
-/// • Lightweight
-/// • Highly reusable
-///
-/// Example:
-///
-/// ```dart
-/// const EmptyState(
-///   icon: Icons.note_alt_outlined,
-///   title: 'No Notes',
-///   message: 'Create your first note to get started.',
-/// )
-/// ```
-///
-/// You may also replace the default icon with a custom illustration:
-///
-/// ```dart
-/// EmptyState(
-///   title: 'No Internet',
-///   message: 'Please check your connection.',
-///   illustration: Icon(Icons.wifi_off_rounded),
-/// )
-/// ```
+/// - Material 3
+/// - Theme aware
+/// - Responsive
+/// - Accessible
+/// - Lightweight
 @immutable
 final class EmptyState extends StatelessWidget {
-  /// Creates an enterprise empty state.
   const EmptyState({
     super.key,
     this.icon,
@@ -58,94 +35,112 @@ final class EmptyState extends StatelessWidget {
     this.iconSize = 72,
     this.maxWidth = 420,
     this.padding = const EdgeInsets.all(24),
+    this.titleSpacing = 24,
+    this.messageSpacing = 12,
+    this.actionSpacing = 28,
+    this.textAlign = TextAlign.center,
     this.semanticLabel,
   }) : assert(
          icon != null || illustration != null,
          'Either icon or illustration must be provided.',
        );
 
-  /// Icon displayed above the title.
-  ///
-  /// Ignored when [illustration] is supplied.
+  /// Default icon.
   final IconData? icon;
 
-  /// Optional custom illustration.
-  ///
-  /// Allows replacing the icon with an SVG, Lottie, image,
-  /// or any custom widget without changing the public API.
+  /// Custom illustration widget.
   final Widget? illustration;
 
-  /// Primary title.
+  /// Main title.
   final String title;
 
-  /// Supporting description.
+  /// Description.
   final String message;
 
-  /// Optional action widget.
-  ///
-  /// Examples:
-  ///
-  /// • Retry button
-  /// • Create note button
-  /// • Refresh button
-  /// • Login button
+  /// Optional action.
   final Widget? action;
 
-  /// Size of the icon.
+  /// Icon size.
   final double iconSize;
 
-  /// Maximum width on large screens.
+  /// Maximum content width.
   final double maxWidth;
 
   /// Outer padding.
   final EdgeInsetsGeometry padding;
 
-  /// Optional accessibility label.
+  /// Space between icon and title.
+  final double titleSpacing;
+
+  /// Space between title and message.
+  final double messageSpacing;
+
+  /// Space before action.
+  final double actionSpacing;
+
+  /// Text alignment.
+  final TextAlign textAlign;
+
+  /// Accessibility label.
   final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
+
+    final effectiveLabel = semanticLabel ?? '$title. $message';
 
     return Center(
       child: Semantics(
         container: true,
-        label: semanticLabel ?? title,
+        label: effectiveLabel,
+
         child: Padding(
           padding: padding,
+
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
+
             child: Column(
               mainAxisSize: MainAxisSize.min,
+
               children: [
                 illustration ??
-                    Icon(icon, size: iconSize, color: colorScheme.outline),
+                    Icon(icon, size: iconSize, color: colorScheme.primary),
 
-                const SizedBox(height: 24),
+                SizedBox(height: titleSpacing),
 
                 Text(
                   title,
-                  textAlign: TextAlign.center,
-                  style: textTheme.titleLarge?.copyWith(
+                  textAlign: textAlign,
+
+                  style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
+
                     letterSpacing: -0.2,
                   ),
                 ),
 
-                const SizedBox(height: 12),
+                SizedBox(height: messageSpacing),
 
                 Text(
                   message,
-                  textAlign: TextAlign.center,
-                  style: textTheme.bodyMedium?.copyWith(
+                  textAlign: textAlign,
+
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
+
                     height: 1.5,
                   ),
                 ),
 
-                if (action != null) ...[const SizedBox(height: 28), action!],
+                if (action != null) ...[
+                  SizedBox(height: actionSpacing),
+
+                  action!,
+                ],
               ],
             ),
           ),

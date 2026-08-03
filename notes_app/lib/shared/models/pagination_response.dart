@@ -6,10 +6,10 @@ import 'pagination_meta.dart';
 /// File: pagination_response.dart
 /// ============================================================================
 ///
-/// Represents a generic paginated response returned by an API.
+/// Represents a generic paginated response.
 ///
-/// This model is intentionally feature-independent and reusable across
-/// multiple modules including:
+/// This model is feature-independent and reusable across multiple modules,
+/// including:
 ///
 /// - Notes
 /// - Tasks
@@ -26,25 +26,6 @@ import 'pagination_meta.dart';
 ///
 /// This class intentionally contains no business logic and remains independent
 /// of any specific backend implementation.
-///
-/// Example JSON:
-///
-/// ```json
-/// {
-///   "items": [
-///     { ... }
-///   ],
-///   "meta": {
-///     "page": 1,
-///     "size": 10,
-///     "total": 42,
-///     "pages": 5
-///   }
-/// }
-/// ```
-///
-/// Although the current Notes API returns only a `List<NoteResponse>`, this
-/// model is retained as a reusable foundation for future paginated endpoints.
 @immutable
 final class PaginationResponse<T> {
   /// Creates an immutable paginated response.
@@ -55,18 +36,24 @@ final class PaginationResponse<T> {
     Map<String, dynamic> json,
     T Function(Map<String, dynamic>) fromJsonT,
   ) {
-    final itemsJson = (json['items'] as List<dynamic>?) ?? const <dynamic>[];
+    final rawItems = json['items'];
+
+    final items = rawItems is List
+        ? List<T>.unmodifiable(
+            rawItems.map(
+              (item) => fromJsonT(Map<String, dynamic>.from(item as Map)),
+            ),
+          )
+        : <T>[];
+
+    final rawMeta = json['meta'];
 
     return PaginationResponse<T>(
-      items: List<T>.unmodifiable(
-        itemsJson.map(
-          (item) => fromJsonT(Map<String, dynamic>.from(item as Map)),
-        ),
-      ),
+      items: items,
       meta: PaginationMeta.fromJson(
-        Map<String, dynamic>.from(
-          (json['meta'] as Map?) ?? const <String, dynamic>{},
-        ),
+        rawMeta is Map
+            ? Map<String, dynamic>.from(rawMeta)
+            : const <String, dynamic>{},
       ),
     );
   }
@@ -79,7 +66,7 @@ final class PaginationResponse<T> {
 
   /// Converts this response into JSON.
   Map<String, dynamic> toJson(Map<String, dynamic> Function(T item) toJsonT) {
-    return {
+    return <String, dynamic>{
       'items': items.map<Map<String, dynamic>>(toJsonT).toList(growable: false),
       'meta': meta.toJson(),
     };
@@ -88,7 +75,7 @@ final class PaginationResponse<T> {
   /// Creates a copy with updated values.
   PaginationResponse<T> copyWith({List<T>? items, PaginationMeta? meta}) {
     return PaginationResponse<T>(
-      items: items != null ? List<T>.unmodifiable(items) : this.items,
+      items: items == null ? this.items : List<T>.unmodifiable(items),
       meta: meta ?? this.meta,
     );
   }
@@ -102,6 +89,28 @@ final class PaginationResponse<T> {
       meta: meta,
     );
   }
+
+  /// Returns a filtered view while preserving pagination metadata.
+  PaginationResponse<T> where(bool Function(T item) test) {
+    return PaginationResponse<T>(
+      items: List<T>.unmodifiable(items.where(test)),
+      meta: meta,
+    );
+  }
+
+  /// Casts every item to another compatible type.
+  PaginationResponse<R> cast<R>() {
+    return PaginationResponse<R>(
+      items: List<R>.unmodifiable(items.cast<R>()),
+      meta: meta,
+    );
+  }
+
+  /// Returns the first item, or `null` if empty.
+  T? get firstOrNull => isEmpty ? null : items.first;
+
+  /// Returns the last item, or `null` if empty.
+  T? get lastOrNull => isEmpty ? null : items.last;
 
   /// Returns whether another page exists.
   bool get hasNextPage => meta.hasNextPage;
@@ -134,11 +143,13 @@ final class PaginationResponse<T> {
   int get previousPage => meta.previousPage;
 
   @override
-  String toString() =>
-      '$runtimeType('
-      'itemCount: $itemCount, '
-      'meta: $meta'
-      ')';
+  String toString() {
+    return 'PaginationResponse<$T>('
+        'itemCount: $itemCount, '
+        'page: $currentPage/$totalPages, '
+        'totalItems: $totalItems'
+        ')';
+  }
 
   @override
   bool operator ==(Object other) {

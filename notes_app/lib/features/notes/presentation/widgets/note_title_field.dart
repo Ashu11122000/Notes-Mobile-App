@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../constants/notes_constants.dart';
 
@@ -6,11 +7,10 @@ import '../../constants/notes_constants.dart';
 /// File: note_title_field.dart
 /// ============================================================================
 ///
-/// Note Title Field.
+/// Reusable title input for Notes forms.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Reusable title input for Notes forms.
 /// • Used by Create Note and Edit Note screens.
 /// • Handles only presentation validation.
 /// • Contains no business logic.
@@ -18,11 +18,11 @@ import '../../constants/notes_constants.dart';
 /// Architecture
 /// ----------------------------------------------------------------------------
 /// Screen
-///    ↓
+///      ↓
 /// NoteTitleField
-///    ↓
+///      ↓
 /// Form Controller
-///    ↓
+///      ↓
 /// NotesProvider
 ///
 /// ============================================================================
@@ -76,50 +76,43 @@ final class NoteTitleField extends StatelessWidget {
 
   static const String _hint = 'Enter note title';
 
-  // ===========================================================================
-  // Build
-  // ===========================================================================
+  static const InputDecoration _decoration = InputDecoration(
+    labelText: _label,
+    hintText: _hint,
+    prefixIcon: Icon(Icons.title_rounded),
+  );
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Note title input',
-
+      label: 'Note title',
+      textField: true,
       child: TextFormField(
         controller: controller,
-
         focusNode: focusNode,
 
         enabled: enabled,
-
         autofocus: autofocus,
-
         readOnly: readOnly,
 
-        textInputAction: textInputAction,
-
         keyboardType: TextInputType.text,
-
+        textInputAction: textInputAction,
         textCapitalization: TextCapitalization.sentences,
 
         autocorrect: true,
-
         enableSuggestions: true,
 
         maxLength: NotesConstants.maxTitleLength,
 
-        decoration: const InputDecoration(
-          labelText: _label,
+        inputFormatters: <TextInputFormatter>[
+          LengthLimitingTextInputFormatter(NotesConstants.maxTitleLength),
+        ],
 
-          hintText: _hint,
-
-          prefixIcon: Icon(Icons.title_rounded),
-        ),
+        decoration: _decoration,
 
         validator: validator ?? _defaultValidator,
 
         onChanged: onChanged,
-
         onFieldSubmitted: onSubmitted,
       ),
     );

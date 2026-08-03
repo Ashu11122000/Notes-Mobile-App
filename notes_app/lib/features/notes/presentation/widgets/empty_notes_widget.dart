@@ -8,19 +8,19 @@ import 'package:flutter/material.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Displays empty state UI when no notes exist.
-/// • Provides a create note action.
+/// • Displays an empty state when no notes exist.
+/// • Provides an optional create note action.
 /// • Contains no business logic.
 /// • Fully reusable across Notes screens.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
 /// UI
-///  ↓
+///   ↓
 /// EmptyNotesWidget
-///  ↓
+///   ↓
 /// Callback
-///  ↓
+///   ↓
 /// NotesProvider / Navigation
 ///
 /// ============================================================================
@@ -33,9 +33,11 @@ final class EmptyNotesWidget extends StatelessWidget {
     this.description =
         'Create your first note to start organizing your ideas, '
         'tasks, and reminders.',
+    this.buttonText = 'Create Note',
+    this.icon = Icons.sticky_note_2_outlined,
   });
 
-  /// Triggered when user taps create button.
+  /// Invoked when the user presses the create button.
   final VoidCallback? onCreatePressed;
 
   /// Empty state title.
@@ -44,90 +46,73 @@ final class EmptyNotesWidget extends StatelessWidget {
   /// Empty state description.
   final String description;
 
-  // ===========================================================================
-  // Constants
-  // ===========================================================================
+  /// Action button label.
+  final String buttonText;
 
-  static const double _horizontalPadding = 32;
-
-  static const double _iconSize = 96;
-
-  static const double _titleSpacing = 24;
-
-  static const double _descriptionSpacing = 12;
-
-  static const double _buttonSpacing = 32;
-
-  static const double _maxTextWidth = 360;
+  /// Empty state icon.
+  final IconData icon;
 
   // ===========================================================================
-  // Build
+  // Layout Constants
   // ===========================================================================
+
+  static const double _horizontalPadding = 32.0;
+  static const double _iconSize = 96.0;
+  static const double _titleSpacing = 24.0;
+  static const double _descriptionSpacing = 12.0;
+  static const double _buttonSpacing = 32.0;
+  static const double _maxTextWidth = 360.0;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
 
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: _horizontalPadding),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-
+          mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            // =================================================================
-            // Illustration
-            // =================================================================
             Semantics(
               label: 'No notes available',
-              child: Icon(
-                Icons.sticky_note_2_outlined,
-                size: _iconSize,
-                color: theme.colorScheme.primary,
-              ),
+              image: true,
+              child: Icon(icon, size: _iconSize, color: colorScheme.primary),
             ),
 
             const SizedBox(height: _titleSpacing),
 
-            // =================================================================
-            // Title
-            // =================================================================
             Text(
               title,
               textAlign: TextAlign.center,
-              style: theme.textTheme.headlineSmall?.copyWith(
+              style: textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
 
             const SizedBox(height: _descriptionSpacing),
 
-            // =================================================================
-            // Description
-            // =================================================================
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: _maxTextWidth),
               child: Text(
                 description,
                 textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
 
-            const SizedBox(height: _buttonSpacing),
-
-            // =================================================================
-            // Action
-            // =================================================================
-            FilledButton.icon(
-              onPressed: onCreatePressed,
-
-              icon: const Icon(Icons.add_rounded),
-
-              label: const Text('Create Note'),
-            ),
+            if (onCreatePressed != null) ...<Widget>[
+              const SizedBox(height: _buttonSpacing),
+              FilledButton.icon(
+                onPressed: onCreatePressed,
+                icon: const Icon(Icons.add_rounded),
+                label: Text(buttonText),
+              ),
+            ],
           ],
         ),
       ),

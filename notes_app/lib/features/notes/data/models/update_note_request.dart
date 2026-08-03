@@ -4,29 +4,33 @@ import 'package:flutter/foundation.dart';
 /// File: update_note_request.dart
 /// ============================================================================
 ///
-/// Request model for updating an existing note.
+/// Immutable request model for updating an existing note.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Represents the request body for PUT and PATCH operations.
-/// • Serializes data for the FastAPI backend.
-/// • Omits null values to support partial updates.
+/// • Normalizes user input.
+/// • Omits null or empty values from JSON.
 /// • Provides lightweight validation helpers.
 /// • Remains immutable and strongly typed.
 ///
 /// Notes
 /// ----------------------------------------------------------------------------
 /// PUT
-/// Supply every field required by the backend.
+/// - Typically supplies all required fields expected by the backend.
 ///
 /// PATCH
-/// Supply only the fields that should be modified.
+/// - Supplies only the fields that should be modified.
 ///
 /// ============================================================================
 
 @immutable
 final class UpdateNoteRequest {
   const UpdateNoteRequest({this.title, this.content});
+
+  // ===========================================================================
+  // Fields
+  // ===========================================================================
 
   /// Updated note title.
   final String? title;
@@ -35,34 +39,24 @@ final class UpdateNoteRequest {
   final String? content;
 
   // ===========================================================================
+  // Helpers
+  // ===========================================================================
+
+  static String? _normalize(String? value) {
+    final String? normalized = value?.trim();
+
+    return (normalized == null || normalized.isEmpty) ? null : normalized;
+  }
+
+  // ===========================================================================
   // Computed Properties
   // ===========================================================================
 
   /// Normalized title.
-  ///
-  /// Returns null when the value is null or empty after trimming.
-  String? get normalizedTitle {
-    final String? value = title?.trim();
-
-    if (value == null || value.isEmpty) {
-      return null;
-    }
-
-    return value;
-  }
+  String? get normalizedTitle => _normalize(title);
 
   /// Normalized content.
-  ///
-  /// Returns null when the value is null or empty after trimming.
-  String? get normalizedContent {
-    final String? value = content?.trim();
-
-    if (value == null || value.isEmpty) {
-      return null;
-    }
-
-    return value;
-  }
+  String? get normalizedContent => _normalize(content);
 
   /// Returns true when the title will be updated.
   bool get hasTitleUpdate => normalizedTitle != null;
@@ -77,31 +71,35 @@ final class UpdateNoteRequest {
   // Serialization
   // ===========================================================================
 
-  /// Converts this request into the JSON format expected by FastAPI.
+  /// Converts this request into the JSON payload expected by the FastAPI backend.
   ///
-  /// Null values are intentionally omitted to support PATCH requests.
+  /// Null or empty values are intentionally omitted to support PATCH requests.
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> json = <String, dynamic>{};
+    final String? normalizedTitle = this.normalizedTitle;
+    final String? normalizedContent = this.normalizedContent;
 
-    if (normalizedTitle != null) {
-      json['title'] = normalizedTitle;
-    }
-
-    if (normalizedContent != null) {
-      json['content'] = normalizedContent;
-    }
-
-    return json;
+    return <String, dynamic>{
+      if (normalizedTitle != null) 'title': normalizedTitle,
+      if (normalizedContent != null) 'content': normalizedContent,
+    };
   }
 
   // ===========================================================================
   // Copy
   // ===========================================================================
 
-  UpdateNoteRequest copyWith({String? title, String? content}) {
+  /// Creates a modified copy of this request.
+  ///
+  /// Use [clearTitle] or [clearContent] to explicitly remove a field.
+  UpdateNoteRequest copyWith({
+    String? title,
+    String? content,
+    bool clearTitle = false,
+    bool clearContent = false,
+  }) {
     return UpdateNoteRequest(
-      title: title ?? this.title,
-      content: content ?? this.content,
+      title: clearTitle ? null : (title ?? this.title),
+      content: clearContent ? null : (content ?? this.content),
     );
   }
 
@@ -112,9 +110,9 @@ final class UpdateNoteRequest {
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
-        other is UpdateNoteRequest &&
-            title == other.title &&
-            content == other.content;
+        (other is UpdateNoteRequest &&
+            other.title == title &&
+            other.content == content);
   }
 
   @override
@@ -127,8 +125,8 @@ final class UpdateNoteRequest {
   @override
   String toString() {
     return 'UpdateNoteRequest('
-        'title: $title, '
-        'content: $content'
+        'hasTitleUpdate: $hasTitleUpdate, '
+        'hasContentUpdate: $hasContentUpdate'
         ')';
   }
 }

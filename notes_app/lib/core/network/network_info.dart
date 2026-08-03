@@ -2,33 +2,33 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 
-/// ============================================================================
+/// =============================================================================
 /// File: network_info.dart
-/// ============================================================================
+/// =============================================================================
 ///
 /// Enterprise network information service.
 ///
 /// Responsibilities
-/// ----------------------------------------------------------------------------
-/// • Determines whether the device has network connectivity.
-/// • Verifies actual internet access.
-/// • Exposes connectivity change streams.
-/// • Provides a lightweight abstraction over third-party packages.
+/// -----------------------------------------------------------------------------
+/// • Detects available network interfaces.
+/// • Verifies actual internet connectivity.
+/// • Exposes connectivity streams.
+/// • Provides a lightweight abstraction over networking packages.
 /// • Contains no business logic.
 ///
-/// This service combines:
+/// Notes
+/// -----------------------------------------------------------------------------
 ///
-/// • connectivity_plus
-///   - Detects available network interfaces (Wi-Fi, Mobile, Ethernet, etc.)
+/// connectivity_plus
+///   • Reports available network interfaces.
+///   • Does NOT guarantee internet access.
 ///
-/// • internet_connection_checker_plus
-///   - Verifies real internet access.
+/// internet_connection_checker_plus
+///   • Verifies real internet connectivity.
 ///
-/// Repositories should query this service before making remote API calls.
+/// Repositories should check [isConnected] before performing remote API calls.
 ///
-/// This service is intentionally stateless and inexpensive to create, making it
-/// suitable for dependency injection.
-/// ============================================================================
+/// =============================================================================
 @immutable
 final class NetworkInfo {
   NetworkInfo({
@@ -41,36 +41,34 @@ final class NetworkInfo {
   final InternetConnection _internetConnection;
 
   // ===========================================================================
-  // Internet Access
+  // Internet Connectivity
   // ===========================================================================
 
-  /// Returns `true` when the device has working internet access.
+  /// Returns true when:
   ///
-  /// This checks both:
-  /// - An available network interface.
-  /// - Actual internet connectivity.
+  /// • A network interface exists.
+  /// • Internet is actually reachable.
   Future<bool> get isConnected async {
-    final results = await _connectivity.checkConnectivity();
-
-    if (results.contains(ConnectivityResult.none)) {
+    if (!await hasNetworkInterface) {
       return false;
     }
 
     return _internetConnection.hasInternetAccess;
   }
 
-  /// Convenience getter opposite of [isConnected].
+  /// Returns true when internet is unavailable.
   Future<bool> get isOffline async => !(await isConnected);
 
   // ===========================================================================
   // Network Interface
   // ===========================================================================
 
-  /// Returns `true` when at least one network interface is available.
+  /// Returns true if at least one network interface exists.
   ///
-  /// This does **not** guarantee internet access.
+  /// This does not guarantee internet access.
   Future<bool> get hasNetworkInterface async {
-    final results = await _connectivity.checkConnectivity();
+    final List<ConnectivityResult> results = await _connectivity
+        .checkConnectivity();
 
     return !results.contains(ConnectivityResult.none);
   }
@@ -79,11 +77,22 @@ final class NetworkInfo {
   // Streams
   // ===========================================================================
 
-  /// Emits whenever the device's available network interfaces change.
+  /// Emits whenever available network interfaces change.
   Stream<List<ConnectivityResult>> get onConnectivityChanged =>
       _connectivity.onConnectivityChanged;
 
   /// Emits whenever internet availability changes.
   Stream<InternetStatus> get onInternetStatusChanged =>
       _internetConnection.onStatusChange;
+
+  // ===========================================================================
+  // Lifecycle
+  // ===========================================================================
+
+  /// Reserved for future implementations.
+  ///
+  /// Current dependencies do not require explicit disposal, but exposing this
+  /// method keeps the service easy to extend without changing consumers.
+  @mustCallSuper
+  void dispose() {}
 }

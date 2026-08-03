@@ -1,22 +1,30 @@
 import 'package:flutter/foundation.dart';
 
-/// ============================================================================
+/// =============================================================================
 /// File: app_config.dart
-/// ============================================================================
+/// =============================================================================
 ///
 /// Application runtime configuration.
 ///
 /// Responsibilities
-/// ----------------------------------------------------------------------------
-/// • Stores environment configuration.
-/// • Stores backend base URL.
-/// • Stores network settings.
-/// • Supports dart-define environments.
+/// -----------------------------------------------------------------------------
+/// • Stores compile-time application configuration.
+/// • Reads values from --dart-define.
+/// • Defines network configuration.
+/// • Defines pagination defaults.
+/// • Defines upload constraints.
+/// • Exposes build mode helpers.
 ///
-/// API paths are NOT stored here.
-/// Use ApiConstants for endpoints.
+/// API endpoints are intentionally NOT stored here.
+/// Use ApiConstants for REST paths.
 ///
-/// ============================================================================
+/// Example:
+///
+/// flutter run \
+///   --dart-define=APP_ENV=development \
+///   --dart-define=BASE_URL=http://10.0.2.2:8000
+///
+/// =============================================================================
 
 @immutable
 final class AppConfig {
@@ -31,27 +39,18 @@ final class AppConfig {
     defaultValue: 'development',
   );
 
-  // ===========================================================================
-  // Backend Configuration
-  // ===========================================================================
-
-  /// Backend root URL.
-  ///
-  /// Android Emulator:
-  /// http://10.0.2.2:8000
-  ///
-  /// Physical Device:
-  /// http://YOUR_LOCAL_IP:8000
-  ///
   static const String baseUrl = String.fromEnvironment(
     'BASE_URL',
     defaultValue: 'http://10.0.2.2:8000',
   );
 
-  /// API version prefix.
-  ///
-  /// Used only by ApiConstants.
   static const String apiVersion = '/api/v1';
+
+  /// Fully qualified API base URL.
+  ///
+  /// Example:
+  /// http://10.0.2.2:8000/api/v1
+  static String get apiBaseUrl => '$baseUrl$apiVersion';
 
   // ===========================================================================
   // Network
@@ -71,6 +70,8 @@ final class AppConfig {
 
   static const int defaultPageSize = 20;
 
+  static const int maxPageSize = 100;
+
   // ===========================================================================
   // Search
   // ===========================================================================
@@ -81,7 +82,15 @@ final class AppConfig {
   // Upload
   // ===========================================================================
 
+  /// 5 MB
   static const int maxImageSizeBytes = 5 * 1024 * 1024;
+
+  static const List<String> allowedImageExtensions = <String>[
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+  ];
 
   // ===========================================================================
   // Build Mode
@@ -92,6 +101,16 @@ final class AppConfig {
   static bool get isProfile => kProfileMode;
 
   static bool get isRelease => kReleaseMode;
+
+  // ===========================================================================
+  // Environment Helpers
+  // ===========================================================================
+
+  static bool get isDevelopment => environment.toLowerCase() == 'development';
+
+  static bool get isStaging => environment.toLowerCase() == 'staging';
+
+  static bool get isProduction => environment.toLowerCase() == 'production';
 
   // ===========================================================================
   // Validation
@@ -115,23 +134,31 @@ final class AppConfig {
     debugPrint('''
 ================ App Configuration ================
 
-Environment      : $environment
+Environment       : $environment
 
-Base URL         : $baseUrl
+Base URL          : $baseUrl
 
-API Version      : $apiVersion
+API Base URL      : $apiBaseUrl
 
-Debug            : $isDebug
+API Version       : $apiVersion
 
-Profile          : $isProfile
+Debug             : $isDebug
 
-Release          : $isRelease
+Profile           : $isProfile
 
-Connect Timeout  : ${connectTimeout.inSeconds}s
+Release           : $isRelease
 
-Receive Timeout  : ${receiveTimeout.inSeconds}s
+Connect Timeout   : ${connectTimeout.inSeconds}s
 
-Send Timeout     : ${sendTimeout.inSeconds}s
+Receive Timeout   : ${receiveTimeout.inSeconds}s
+
+Send Timeout      : ${sendTimeout.inSeconds}s
+
+Page Size         : $defaultPageSize
+
+Max Page Size     : $maxPageSize
+
+Image Limit       : ${maxImageSizeBytes ~/ (1024 * 1024)} MB
 
 ===================================================
 ''');
