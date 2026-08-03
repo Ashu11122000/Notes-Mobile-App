@@ -8,31 +8,22 @@ import '../../../../core/services/notification_service.dart';
 /// File: notification_provider.dart
 /// ============================================================================
 ///
-/// Notification Provider
+/// Enterprise Notification Provider
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Manages notification preferences.
-/// • Handles notification settings persistence.
-/// • Controls notification availability.
-/// • Provides notification state to UI.
-/// • Sends test notifications.
+/// • Persists settings locally.
 /// • Coordinates NotificationService.
+/// • Exposes notification state to UI.
+/// • Optimized for minimal rebuilds.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
 /// UI
-///     ↓
+///      ↓
 /// NotificationProvider
-///     ↓
-/// NotificationService
-///
-/// Reminder scheduling:
-///
-/// NotesProvider
-///     ↓
-/// ReminderManager
-///     ↓
+///      ↓
 /// NotificationService
 ///
 /// ============================================================================
@@ -51,7 +42,7 @@ final class NotificationProvider extends ChangeNotifier {
   SharedPreferences? _preferences;
 
   // ===========================================================================
-  // Storage Keys
+  // Preference Keys
   // ===========================================================================
 
   static const String _notificationsEnabledKey = 'notifications_enabled';
@@ -60,8 +51,10 @@ final class NotificationProvider extends ChangeNotifier {
 
   static const String _defaultReminderEnabledKey = 'default_reminder_enabled';
 
+  static const int _testNotificationId = 999;
+
   // ===========================================================================
-  // Internal State
+  // State
   // ===========================================================================
 
   bool _isInitialized = false;
@@ -84,15 +77,15 @@ final class NotificationProvider extends ChangeNotifier {
 
   bool get isLoading => _isLoading;
 
-  String? get errorMessage => _errorMessage;
-
-  bool get hasError => _errorMessage != null;
-
   bool get notificationsEnabled => _notificationsEnabled;
 
   bool get dailyReminderEnabled => _dailyReminderEnabled;
 
   bool get defaultReminderEnabled => _defaultReminderEnabled;
+
+  String? get errorMessage => _errorMessage;
+
+  bool get hasError => _errorMessage != null;
 
   // ===========================================================================
   // Initialization
@@ -106,23 +99,25 @@ final class NotificationProvider extends ChangeNotifier {
     try {
       _setLoading(true);
 
-      _preferences = await SharedPreferences.getInstance();
+      await _ensurePreferences();
+
+      final SharedPreferences preferences = _preferences!;
 
       _notificationsEnabled =
-          _preferences!.getBool(_notificationsEnabledKey) ?? true;
+          preferences.getBool(_notificationsEnabledKey) ?? true;
 
       _dailyReminderEnabled =
-          _preferences!.getBool(_dailyReminderEnabledKey) ?? false;
+          preferences.getBool(_dailyReminderEnabledKey) ?? false;
 
       _defaultReminderEnabled =
-          _preferences!.getBool(_defaultReminderEnabledKey) ?? true;
+          preferences.getBool(_defaultReminderEnabledKey) ?? true;
 
       _isInitialized = true;
 
       LoggerService.info('NotificationProvider initialized.');
     } catch (exception, stackTrace) {
       LoggerService.error(
-        'Failed to initialize notifications.',
+        'Failed to initialize NotificationProvider.',
         error: exception,
         stackTrace: stackTrace,
       );
@@ -134,87 +129,175 @@ final class NotificationProvider extends ChangeNotifier {
   }
 
   // ===========================================================================
-  // Notification Enable / Disable
+  // SharedPreferences
+  // ===========================================================================
+
+  Future<void> _ensurePreferences() async {
+    _preferences ??= await SharedPreferences.getInstance();
+  }
+
+  Future<void> _savePreference(String key, bool value) async {
+    await _ensurePreferences();
+
+    await _preferences!.setBool(key, value);
+  }
+
+  // ===========================================================================
+  // Internal State Helpers
+  // ===========================================================================
+
+  bool _updateBool({
+    required bool currentValue,
+    required bool newValue,
+    required ValueSetter<bool> setter,
+  }) {
+    if (currentValue == newValue) {
+      return false;
+    }
+
+    setter(newValue);
+
+    return true;
+  }
+
+  void _setLoading(bool value) {
+    if (_isLoading == value) {
+      return;
+    }
+
+    _isLoading = value;
+
+    notifyListeners();
+  }
+
+  void _setError(String message) {
+    if (_errorMessage == message) {
+      return;
+    }
+
+    _errorMessage = message;
+
+    notifyListeners();
+  }
+
+  void _clearError() {
+    if (_errorMessage == null) {
+      return;
+    }
+
+    _errorMessage = null;
+  }
+
+  /// Public API for clearing the current error.
+  void clearError() {
+    if (_errorMessage == null) {
+      return;
+    }
+
+    _errorMessage = null;
+
+    notifyListeners();
+  }
+
+  // ===========================================================================
+  // Notification Preferences
   // ===========================================================================
 
   Future<void> setNotificationsEnabled(bool enabled) async {
+    if (!_updateBool(
+      currentValue: _notificationsEnabled,
+      newValue: enabled,
+      setter: (bool value) => _notificationsEnabled = value,
+    )) {
+      return;
+    }
+
     try {
       _clearError();
-
-      _notificationsEnabled = enabled;
 
       await _savePreference(_notificationsEnabledKey, enabled);
 
       notifyListeners();
 
-      LoggerService.info(
-        'Notifications '
-        '${enabled ? 'enabled' : 'disabled'}.',
-      );
+      LoggerService.info('Notifications ${enabled ? 'enabled' : 'disabled'}.');
     } catch (exception, stackTrace) {
       LoggerService.error(
-        'Failed to update notification setting.',
+        'Failed to update notification preference.',
         error: exception,
         stackTrace: stackTrace,
       );
+
+      _notificationsEnabled = !enabled;
 
       _setError(exception.toString());
     }
   }
 
   // ===========================================================================
-  // Daily Reminder Preference
+  // Daily Reminder
   // ===========================================================================
 
   Future<void> setDailyReminderEnabled(bool enabled) async {
+    if (!_updateBool(
+      currentValue: _dailyReminderEnabled,
+      newValue: enabled,
+      setter: (bool value) => _dailyReminderEnabled = value,
+    )) {
+      return;
+    }
+
     try {
       _clearError();
-
-      _dailyReminderEnabled = enabled;
 
       await _savePreference(_dailyReminderEnabledKey, enabled);
 
       notifyListeners();
 
-      LoggerService.info(
-        'Daily reminders '
-        '${enabled ? 'enabled' : 'disabled'}.',
-      );
+      LoggerService.info('Daily reminder ${enabled ? 'enabled' : 'disabled'}.');
     } catch (exception, stackTrace) {
       LoggerService.error(
-        'Failed to update daily reminder setting.',
+        'Failed to update daily reminder preference.',
         error: exception,
         stackTrace: stackTrace,
       );
+
+      _dailyReminderEnabled = !enabled;
 
       _setError(exception.toString());
     }
   }
 
   // ===========================================================================
-  // Default Reminder Preference
+  // Default Reminder
   // ===========================================================================
 
   Future<void> setDefaultReminderEnabled(bool enabled) async {
+    if (!_updateBool(
+      currentValue: _defaultReminderEnabled,
+      newValue: enabled,
+      setter: (bool value) => _defaultReminderEnabled = value,
+    )) {
+      return;
+    }
+
     try {
       _clearError();
-
-      _defaultReminderEnabled = enabled;
 
       await _savePreference(_defaultReminderEnabledKey, enabled);
 
       notifyListeners();
 
       LoggerService.info(
-        'Default reminder '
-        '${enabled ? 'enabled' : 'disabled'}.',
+        'Default reminder ${enabled ? 'enabled' : 'disabled'}.',
       );
     } catch (exception, stackTrace) {
       LoggerService.error(
-        'Failed to update default reminder setting.',
+        'Failed to update default reminder preference.',
         error: exception,
         stackTrace: stackTrace,
       );
+
+      _defaultReminderEnabled = !enabled;
 
       _setError(exception.toString());
     }
@@ -227,8 +310,7 @@ final class NotificationProvider extends ChangeNotifier {
   Future<void> sendTestNotification() async {
     if (!_notificationsEnabled) {
       LoggerService.warning(
-        'Test notification skipped. '
-        'Notifications are disabled.',
+        'Skipped test notification because notifications are disabled.',
       );
 
       return;
@@ -238,13 +320,13 @@ final class NotificationProvider extends ChangeNotifier {
       _clearError();
 
       await _notificationService.show(
-        id: 999,
+        id: _testNotificationId,
         title: 'Notes App',
         body: 'Notification system is working successfully.',
         payload: 'test_notification',
       );
 
-      LoggerService.info('Test notification sent.');
+      LoggerService.info('Test notification sent successfully.');
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to send test notification.',
@@ -287,9 +369,7 @@ final class NotificationProvider extends ChangeNotifier {
       _clearError();
 
       _notificationsEnabled = true;
-
       _dailyReminderEnabled = false;
-
       _defaultReminderEnabled = true;
 
       await _savePreference(_notificationsEnabledKey, _notificationsEnabled);
@@ -316,67 +396,10 @@ final class NotificationProvider extends ChangeNotifier {
   }
 
   // ===========================================================================
-  // Private Preference Helper
+  // Notification Availability
   // ===========================================================================
 
-  Future<void> _savePreference(String key, bool value) async {
-    _preferences ??= await SharedPreferences.getInstance();
-
-    await _preferences!.setBool(key, value);
-  }
-
-  // ===========================================================================
-  // Error Handling
-  // ===========================================================================
-
-  /// Clears current error state.
-  void clearError() {
-    if (_errorMessage == null) {
-      return;
-    }
-
-    _errorMessage = null;
-
-    notifyListeners();
-  }
-
-  /// Internal error setter.
-  void _setError(String message) {
-    _errorMessage = message;
-
-    notifyListeners();
-  }
-
-  /// Internal error reset.
-  void _clearError() {
-    if (_errorMessage == null) {
-      return;
-    }
-
-    _errorMessage = null;
-  }
-
-  // ===========================================================================
-  // Loading Helpers
-  // ===========================================================================
-
-  void _setLoading(bool value) {
-    if (_isLoading == value) {
-      return;
-    }
-
-    _isLoading = value;
-
-    notifyListeners();
-  }
-
-  // ===========================================================================
-  // Permission / Availability Helpers
-  // ===========================================================================
-
-  /// Returns whether notifications can be used.
-  ///
-  /// This keeps permission logic isolated from UI.
+  /// Returns whether notifications are available on this device.
   Future<bool> isNotificationAvailable() async {
     try {
       return await _notificationService.areNotificationsEnabled();
@@ -391,11 +414,19 @@ final class NotificationProvider extends ChangeNotifier {
     }
   }
 
+  // ===========================================================================
+  // Permission
+  // ===========================================================================
+
   /// Requests notification permission.
   ///
-  /// Useful for Android 13+ and iOS.
+  /// Required on:
+  /// • Android 13+
+  /// • iOS
   Future<bool> requestPermission() async {
     try {
+      _clearError();
+
       final bool granted = await _notificationService.requestPermission();
 
       if (!granted) {
@@ -414,28 +445,40 @@ final class NotificationProvider extends ChangeNotifier {
         stackTrace: stackTrace,
       );
 
+      _setError(exception.toString());
+
       return false;
     }
   }
 
   // ===========================================================================
-  // Reset Provider State
+  // Refresh
   // ===========================================================================
 
-  /// Clears provider state.
-  ///
-  /// Used after logout or account switching.
-  void reset() {
+  /// Reloads notification preferences from SharedPreferences.
+  Future<void> refresh() async {
     _isInitialized = false;
 
-    _isLoading = false;
+    await initialize();
+  }
 
+  // ===========================================================================
+  // Reset Provider
+  // ===========================================================================
+
+  /// Clears all in-memory state.
+  ///
+  /// Used during:
+  /// • Logout
+  /// • User switching
+  /// • Session reset
+  void reset() {
+    _isInitialized = false;
+    _isLoading = false;
     _errorMessage = null;
 
     _notificationsEnabled = true;
-
     _dailyReminderEnabled = false;
-
     _defaultReminderEnabled = true;
 
     notifyListeners();
@@ -449,6 +492,8 @@ final class NotificationProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _preferences = null;
+
     LoggerService.info('NotificationProvider disposed.');
 
     super.dispose();

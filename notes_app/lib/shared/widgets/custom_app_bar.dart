@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_bar_title.dart';
 
@@ -8,9 +9,9 @@ import 'app_bar_title.dart';
 ///
 /// Enterprise Material 3 application app bar.
 ///
-/// This widget provides a centralized, reusable implementation of the
-/// application's top app bar, ensuring a consistent appearance and behavior
-/// across all screens.
+/// Provides a centralized, reusable implementation of the application's
+/// top app bar while remaining lightweight, accessible, and highly
+/// customizable.
 ///
 /// Features:
 ///
@@ -18,21 +19,19 @@ import 'app_bar_title.dart';
 /// - Theme-aware
 /// - Lightweight
 /// - Accessible
-/// - Highly customizable
 /// - PreferredSizeWidget compatible
+/// - Hero-safe
+/// - Future-proof
 ///
-/// Typical usage:
+/// Example:
 ///
 /// ```dart
-/// return Scaffold(
+/// Scaffold(
 ///   appBar: const CustomAppBar(
-///     title: 'My Notes',
+///     title: 'Notes',
 ///   ),
-/// );
+/// )
 /// ```
-///
-/// If additional flexibility is required, a custom [titleWidget] may be
-/// supplied instead of the default [AppBarTitle].
 @immutable
 final class CustomAppBar extends StatelessWidget
     implements PreferredSizeWidget {
@@ -51,18 +50,24 @@ final class CustomAppBar extends StatelessWidget
     this.backgroundColor,
     this.foregroundColor,
     this.surfaceTintColor,
+    this.shadowColor,
+    this.iconTheme,
+    this.actionsIconTheme,
+    this.systemOverlayStyle,
     this.leadingWidth,
     this.toolbarHeight = kToolbarHeight,
+    this.titleSpacing,
+    this.shape,
+    this.clipBehavior = Clip.none,
+    this.notificationPredicate = defaultScrollNotificationPredicate,
   });
 
-  /// Title displayed in the app bar.
+  /// Title displayed by the default [AppBarTitle].
   ///
   /// Ignored when [titleWidget] is supplied.
   final String title;
 
   /// Optional custom title widget.
-  ///
-  /// When provided, this widget replaces the default [AppBarTitle].
   final Widget? titleWidget;
 
   /// Optional leading widget.
@@ -77,31 +82,56 @@ final class CustomAppBar extends StatelessWidget
   /// Whether the title should be centered.
   final bool centerTitle;
 
-  /// Whether Flutter should automatically infer the leading widget.
+  /// Whether Flutter should automatically infer a leading widget.
   final bool automaticallyImplyLeading;
 
-  /// Elevation of the app bar.
+  /// App bar elevation.
   final double elevation;
 
-  /// Elevation applied after the content scrolls underneath.
+  /// Elevation when content scrolls underneath.
   ///
-  /// Defaults to [elevation] when omitted.
+  /// Defaults to [elevation].
   final double? scrolledUnderElevation;
 
-  /// Optional background color.
+  /// Background color.
   final Color? backgroundColor;
 
-  /// Optional foreground color.
+  /// Foreground color.
   final Color? foregroundColor;
 
-  /// Optional Material 3 surface tint color.
+  /// Material 3 surface tint.
   final Color? surfaceTintColor;
 
-  /// Optional width of the leading widget.
+  /// Shadow color.
+  final Color? shadowColor;
+
+  /// Icon theme.
+  final IconThemeData? iconTheme;
+
+  /// Action icon theme.
+  final IconThemeData? actionsIconTheme;
+
+  /// Status bar appearance.
+  final SystemUiOverlayStyle? systemOverlayStyle;
+
+  /// Width of the leading widget.
   final double? leadingWidth;
 
-  /// Height of the toolbar.
+  /// Toolbar height.
   final double toolbarHeight;
+
+  /// Horizontal spacing around the title.
+  final double? titleSpacing;
+
+  /// Optional app bar shape.
+  final ShapeBorder? shape;
+
+  /// Clip behavior.
+  final Clip clipBehavior;
+
+  /// Predicate used to determine whether a scroll notification
+  /// should trigger the scrolled-under effect.
+  final ScrollNotificationPredicate notificationPredicate;
 
   @override
   Widget build(BuildContext context) {
@@ -117,8 +147,16 @@ final class CustomAppBar extends StatelessWidget
       backgroundColor: backgroundColor,
       foregroundColor: foregroundColor,
       surfaceTintColor: surfaceTintColor,
+      shadowColor: shadowColor,
+      iconTheme: iconTheme,
+      actionsIconTheme: actionsIconTheme,
+      systemOverlayStyle: systemOverlayStyle,
       leadingWidth: leadingWidth,
       toolbarHeight: toolbarHeight,
+      titleSpacing: titleSpacing,
+      shape: shape,
+      clipBehavior: clipBehavior,
+      notificationPredicate: notificationPredicate,
     );
   }
 

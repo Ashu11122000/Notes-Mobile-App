@@ -21,27 +21,37 @@ import '../models/user_model.dart';
 /// • Converts JSON into strongly typed models.
 /// • Contains no business logic.
 /// • Uses the centralized DioClient.
+/// • Supports request cancellation.
 /// • Provides consistent request logging.
 /// • Performs lightweight response validation.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
-/// Provider
-///      ↓
+/// UI
+///   ↓
+/// Provider / Notifier
+///   ↓
 /// Repository
-///      ↓
+///   ↓
 /// AuthRemoteDataSource
-///      ↓
+///   ↓
 /// FastAPI
 ///
+/// This class intentionally contains no business logic.
 /// ============================================================================
 
 abstract interface class AuthRemoteDataSource {
-  Future<RegisterResponseModel> register(RegisterRequestModel request);
+  Future<RegisterResponseModel> register(
+    RegisterRequestModel request, {
+    CancelToken? cancelToken,
+  });
 
-  Future<LoginResponseModel> login(LoginRequestModel request);
+  Future<LoginResponseModel> login(
+    LoginRequestModel request, {
+    CancelToken? cancelToken,
+  });
 
-  Future<UserModel> getCurrentUser();
+  Future<UserModel> getCurrentUser({CancelToken? cancelToken});
 }
 
 final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -58,14 +68,21 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   // ===========================================================================
 
   @override
-  Future<RegisterResponseModel> register(RegisterRequestModel request) async {
-    final json = await _post(
+  Future<RegisterResponseModel> register(
+    RegisterRequestModel request, {
+    CancelToken? cancelToken,
+  }) async {
+    final json = await _request(
+      method: _HttpMethod.post,
       endpoint: ApiConstants.register,
       operation: _registerOperation,
       data: request.toJson(),
+      cancelToken: cancelToken,
     );
 
-    return RegisterResponseModel.fromJson(json);
+    final model = RegisterResponseModel.fromJson(json);
+
+    return model;
   }
 
   // ===========================================================================
@@ -73,14 +90,21 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   // ===========================================================================
 
   @override
-  Future<LoginResponseModel> login(LoginRequestModel request) async {
-    final json = await _post(
+  Future<LoginResponseModel> login(
+    LoginRequestModel request, {
+    CancelToken? cancelToken,
+  }) async {
+    final json = await _request(
+      method: _HttpMethod.post,
       endpoint: ApiConstants.login,
       operation: _loginOperation,
       data: request.toJson(),
+      cancelToken: cancelToken,
     );
 
-    return LoginResponseModel.fromJson(json);
+    final model = LoginResponseModel.fromJson(json);
+
+    return model;
   }
 
   // ===========================================================================
@@ -88,41 +112,63 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   // ===========================================================================
 
   @override
-  Future<UserModel> getCurrentUser() async {
-    final json = await _get(
+  Future<UserModel> getCurrentUser({CancelToken? cancelToken}) async {
+    final json = await _request(
+      method: _HttpMethod.get,
       endpoint: ApiConstants.currentUser,
       operation: _currentUserOperation,
+      cancelToken: cancelToken,
     );
 
-    return UserModel.fromJson(json);
+    final model = UserModel.fromJson(json);
+
+    return model;
   }
 
   // ===========================================================================
-  // POST Helper
+  // Generic Request Handler
   // ===========================================================================
 
-  Future<Map<String, dynamic>> _post({
+  Future<Map<String, dynamic>> _request({
+    required _HttpMethod method,
     required String endpoint,
     required String operation,
-    required Object? data,
+    Object? data,
+    CancelToken? cancelToken,
+    Options? options,
   }) async {
     try {
-      LoggerService.info('$operation API request started. [POST] $endpoint');
-
-      final Response<dynamic> response = await _dio.post<dynamic>(
-        endpoint,
-        data: data,
+      _logRequest(
+        operation: operation,
+        method: method.name,
+        endpoint: endpoint,
       );
 
-      LoggerService.info(
-        '$operation API completed successfully. '
-        'Status: ${response.statusCode}',
-      );
+      final Response<dynamic> response;
+
+      switch (method) {
+        case _HttpMethod.get:
+          response = await _dio.get<dynamic>(
+            endpoint,
+            cancelToken: cancelToken,
+            options: options,
+          );
+
+        case _HttpMethod.post:
+          response = await _dio.post<dynamic>(
+            endpoint,
+            data: data,
+            cancelToken: cancelToken,
+            options: options,
+          );
+      }
+
+      _logSuccess(operation: operation, statusCode: response.statusCode);
 
       return _parseResponse(response);
     } on DioException catch (exception, stackTrace) {
       LoggerService.error(
-        '$operation API failed.',
+        '$operation request failed.',
         error: exception,
         stackTrace: stackTrace,
       );
@@ -130,7 +176,7 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       rethrow;
     } catch (exception, stackTrace) {
       LoggerService.error(
-        'Unexpected error during $operation API.',
+        'Unexpected error during $operation.',
         error: exception,
         stackTrace: stackTrace,
       );
@@ -140,53 +186,45 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   // ===========================================================================
-  // GET Helper
+  // Logging Helpers
   // ===========================================================================
 
-  Future<Map<String, dynamic>> _get({
-    required String endpoint,
+  void _logRequest({
     required String operation,
-  }) async {
-    try {
-      LoggerService.info('$operation API request started. [GET] $endpoint');
+    required String method,
+    required String endpoint,
+  }) {
+    LoggerService.info('$operation started. [$method] $endpoint');
+  }
 
-      final Response<dynamic> response = await _dio.get<dynamic>(endpoint);
-
-      LoggerService.info(
-        '$operation API completed successfully. '
-        'Status: ${response.statusCode}',
-      );
-
-      return _parseResponse(response);
-    } on DioException catch (exception, stackTrace) {
-      LoggerService.error(
-        '$operation API failed.',
-        error: exception,
-        stackTrace: stackTrace,
-      );
-
-      rethrow;
-    } catch (exception, stackTrace) {
-      LoggerService.error(
-        'Unexpected error during $operation API.',
-        error: exception,
-        stackTrace: stackTrace,
-      );
-
-      rethrow;
-    }
+  void _logSuccess({required String operation, required int? statusCode}) {
+    LoggerService.info(
+      '$operation completed successfully.'
+      ' Status: ${statusCode ?? 'Unknown'}',
+    );
   }
 
   // ===========================================================================
   // Response Parser
   // ===========================================================================
 
-  /// Ensures every API response is a JSON object before model conversion.
+  /// Validates and converts the API response into a JSON map.
   ///
-  /// This avoids runtime cast exceptions if an unexpected payload is returned
-  /// by the server or an upstream proxy.
+  /// This provides an additional safety layer against malformed responses
+  /// returned by the backend, reverse proxies, or unexpected server errors.
   Map<String, dynamic> _parseResponse(Response<dynamic> response) {
-    final data = response.data;
+    final statusCode = response.statusCode;
+
+    if (statusCode == null || statusCode < 200 || statusCode >= 300) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Unexpected HTTP status code: $statusCode',
+      );
+    }
+
+    final dynamic data = response.data;
 
     if (data is Map<String, dynamic>) {
       return data;
@@ -199,8 +237,25 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     throw DioException(
       requestOptions: response.requestOptions,
       response: response,
-      error: 'Invalid response format received from server.',
       type: DioExceptionType.badResponse,
+      error: 'Invalid response format received from the server.',
     );
   }
+}
+
+/// ============================================================================
+/// Supported HTTP methods.
+///
+/// Using an enum instead of string literals provides:
+/// • Better type safety
+/// • Cleaner switch statements
+/// • Compile-time validation
+/// ============================================================================
+enum _HttpMethod {
+  get('GET'),
+  post('POST');
+
+  const _HttpMethod(this.name);
+
+  final String name;
 }

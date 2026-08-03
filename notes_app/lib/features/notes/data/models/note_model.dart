@@ -4,14 +4,14 @@ import '../../domain/entities/note.dart';
 /// File: note_model.dart
 /// ============================================================================
 ///
-/// Data model for Note.
+/// Data model for a Note.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
 /// • Parses JSON received from the FastAPI backend.
-/// • Serializes models into JSON.
-/// • Maps between the data layer and the domain layer.
-/// • Preserves full compatibility with the domain [Note] entity.
+/// • Serializes model data into JSON.
+/// • Maps between the data layer and domain layer.
+/// • Remains fully compatible with the [Note] domain entity.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -19,7 +19,7 @@ import '../../domain/entities/note.dart';
 ///        ↓
 ///    NoteModel
 ///        ↓
-///      Note
+///       Note
 ///
 /// ============================================================================
 
@@ -41,17 +41,15 @@ final class NoteModel extends Note {
   factory NoteModel.fromJson(Map<String, dynamic> json) {
     final DateTime createdAt = DateTime.parse(json['created_at'] as String);
 
-    final DateTime updatedAt = json['updated_at'] != null
-        ? DateTime.parse(json['updated_at'] as String)
-        : createdAt;
-
     return NoteModel(
       id: (json['id'] as num).toInt(),
       ownerId: (json['owner_id'] as num).toInt(),
       title: (json['title'] as String).trim(),
       content: _normalizeContent(json['content'] as String?),
       createdAt: createdAt,
-      updatedAt: updatedAt,
+      updatedAt: json['updated_at'] == null
+          ? createdAt
+          : DateTime.parse(json['updated_at'] as String),
     );
   }
 
@@ -72,36 +70,42 @@ final class NoteModel extends Note {
   // ===========================================================================
 
   static String? _normalizeContent(String? value) {
-    final String? trimmed = value?.trim();
+    final String? normalized = value?.trim();
 
-    if (trimmed == null || trimmed.isEmpty) {
-      return null;
-    }
-
-    return trimmed;
+    return (normalized == null || normalized.isEmpty) ? null : normalized;
   }
 
-  /// Returns true when this note contains content.
+  // ===========================================================================
+  // Computed Properties
+  // ===========================================================================
+
+  /// Returns true when the note contains content.
   bool get hasContent => content != null;
 
-  /// Returns true when this note is empty.
-  bool get isEmpty =>
-      title.trim().isEmpty && (content == null || content!.trim().isEmpty);
+  /// Returns true when the note contains no meaningful data.
+  bool get isEmpty {
+    final String normalizedTitle = title.trim();
 
-  /// Returns true when this note has either a title or content.
+    return normalizedTitle.isEmpty && _normalizeContent(content) == null;
+  }
+
+  /// Returns true when the note contains either a title or content.
   bool get isNotEmpty => !isEmpty;
 
   // ===========================================================================
   // Serialization
   // ===========================================================================
 
-  /// Converts the model into backend JSON.
+  /// Converts the model into JSON expected by the FastAPI backend.
   Map<String, dynamic> toJson() {
+    final String normalizedTitle = title.trim();
+    final String? normalizedContent = _normalizeContent(content);
+
     return <String, dynamic>{
       'id': id,
       'owner_id': ownerId,
-      'title': title.trim(),
-      'content': _normalizeContent(content),
+      'title': normalizedTitle,
+      'content': normalizedContent,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -129,6 +133,7 @@ final class NoteModel extends Note {
     int? ownerId,
     String? title,
     String? content,
+    bool clearContent = false,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -136,7 +141,7 @@ final class NoteModel extends Note {
       id: id ?? this.id,
       ownerId: ownerId ?? this.ownerId,
       title: title ?? this.title,
-      content: content ?? this.content,
+      content: clearContent ? null : (content ?? this.content),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -152,7 +157,7 @@ final class NoteModel extends Note {
         'id: $id, '
         'ownerId: $ownerId, '
         'title: $title, '
-        'content: $content, '
+        'hasContent: $hasContent, '
         'createdAt: $createdAt, '
         'updatedAt: $updatedAt'
         ')';

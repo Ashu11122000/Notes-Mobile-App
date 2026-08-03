@@ -10,18 +10,16 @@ import 'note_model.dart';
 ///
 /// Strongly typed paginated response for Notes.
 ///
-/// Uses composition instead of inheritance because
-/// [PaginationResponse] is declared as a final class.
+/// Uses composition because [PaginationResponse] is a final class.
 ///
 /// Expected JSON
 /// ----------------------------------------------------------------------------
 /// {
 ///   "items": [
 ///     {
-///       "id": "...",
+///       "id": 1,
 ///       "title": "...",
 ///       "content": "...",
-///       "is_archived": false,
 ///       "created_at": "...",
 ///       "updated_at": "..."
 ///     }
@@ -40,7 +38,7 @@ import 'note_model.dart';
 final class PaginatedNotesResponse {
   const PaginatedNotesResponse({required this.response});
 
-  /// Underlying generic pagination response.
+  /// Wrapped generic pagination response.
   final PaginationResponse<NoteModel> response;
 
   // ===========================================================================
@@ -75,18 +73,27 @@ final class PaginatedNotesResponse {
     return PaginatedNotesResponse(
       response: PaginationResponse<NoteModel>(
         items: List<NoteModel>.unmodifiable(
-          rawItems.map(
-            (dynamic item) =>
-                NoteModel.fromJson(Map<String, dynamic>.from(item as Map)),
-          ),
+          rawItems.map((dynamic item) => NoteModel.fromJson(_asJsonMap(item))),
         ),
-        meta: PaginationMeta.fromJson(
-          Map<String, dynamic>.from(
-            json['meta'] as Map? ?? const <String, dynamic>{},
-          ),
-        ),
+        meta: PaginationMeta.fromJson(_asJsonMap(json['meta'])),
       ),
     );
+  }
+
+  // ===========================================================================
+  // JSON Helpers
+  // ===========================================================================
+
+  static Map<String, dynamic> _asJsonMap(Object? value) {
+    if (value is Map<String, dynamic>) {
+      return value;
+    }
+
+    if (value is Map) {
+      return Map<String, dynamic>.from(value);
+    }
+
+    return const <String, dynamic>{};
   }
 
   // ===========================================================================
@@ -94,10 +101,11 @@ final class PaginatedNotesResponse {
   // ===========================================================================
 
   Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'items': items.map((note) => note.toJson()).toList(growable: false),
-      'meta': meta.toJson(),
-    };
+    final List<Map<String, dynamic>> serializedItems = items
+        .map((NoteModel note) => note.toJson())
+        .toList(growable: false);
+
+    return <String, dynamic>{'items': serializedItems, 'meta': meta.toJson()};
   }
 
   // ===========================================================================
@@ -115,7 +123,7 @@ final class PaginatedNotesResponse {
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
-        other is PaginatedNotesResponse && response == other.response;
+        (other is PaginatedNotesResponse && other.response == response);
   }
 
   @override
@@ -128,7 +136,7 @@ final class PaginatedNotesResponse {
   @override
   String toString() {
     return 'PaginatedNotesResponse('
-        'items: $items, '
+        'itemCount: ${items.length}, '
         'meta: $meta'
         ')';
   }

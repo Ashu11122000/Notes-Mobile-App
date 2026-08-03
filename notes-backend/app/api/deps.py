@@ -1,321 +1,106 @@
-"""
-===============================================================================
-File: deps.py
-===============================================================================
-
-Authentication & Authorization Dependencies
-
-Responsibilities
--------------------------------------------------------------------------------
-- Validate JWT access tokens.
-- Retrieve authenticated users.
-- Enforce account status.
-- Provide Role-Based Access Control (RBAC).
-- Keep route handlers clean.
-
-Architecture
--------------------------------------------------------------------------------
-
-Request
-   |
-Bearer Token
-   |
-JWT Validation
-   |
-Current User
-   |
-Role Validation
-   |
-Protected Endpoint
-
-
-Security Flow
--------------------------------------------------------------------------------
-
-Flutter App
-    |
-    | Authorization: Bearer <JWT>
-    |
-FastAPI
-    |
-    | decode_access_token()
-    |
-JWT Payload
-    |
-sub = user email
-    |
-Database User Lookup
-
-
-Notes
--------------------------------------------------------------------------------
-- Compatible with FastAPI dependency injection.
-- Uses JWT authentication.
-- Supports role-based authorization.
-- No business logic inside dependencies.
-===============================================================================
-"""
+from __future__ import annotations
 
 from collections.abc import Callable, Collection
+from typing import TypeAlias
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
-from app.core.security import decode_access_token
+from app.core.security import extract_subject
 from app.db.session import get_db
-from app.models.user import User
+from app.models.user import ROLE_ADMIN, User
 from app.services.user_service import get_user_by_email
 
+AuthDependency: TypeAlias = Callable[..., User]
 
-__all__ = (
-    "oauth2_scheme",
-    "get_current_user",
-    "require_role",
-    "require_roles",
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/api/v1/auth/login",
 )
-
-
-# =============================================================================
-# Constants
-# =============================================================================
 
 _AUTH_HEADERS = {
     "WWW-Authenticate": "Bearer",
 }
 
 
-_INVALID_TOKEN = "Invalid or expired access token."
-
-_INVALID_PAYLOAD = "Invalid token payload."
-
-_USER_NOT_FOUND = "User not found."
-
-_USER_INACTIVE = "User account is inactive."
-
-_INSUFFICIENT_PERMISSIONS = "Insufficient permissions."
-
-_ACCESS_DENIED = "Access denied."
-
-
-
-# =============================================================================
-# OAuth2 Authentication Scheme
-# =============================================================================
-#
-# IMPORTANT:
-#
-# Your FastAPI route:
-#
-# POST /api/v1/auth/login
-#
-# Therefore OAuth2 tokenUrl must match.
-#
-# =============================================================================
-
-
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/api/v1/auth/login",
-)
-
-
-
-# =============================================================================
-# Current Authenticated User
-# =============================================================================
+def unauthorized(detail: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=detail,
+        headers=_AUTH_HEADERS,
+    )
 
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    """
-    Validate JWT and return authenticated user.
 
-    JWT Payload Expected:
+    email = extract_subject(token)
 
-    {
-        "sub": "user@email.com",
-        "iat": "...",
-        "exp": "..."
-    }
-
-
-    Raises:
-
-    401:
-        Invalid token.
-
-    404:
-        User does not exist.
-
-    403:
-        User inactive.
-    """
-
-    # -------------------------------------------------------------------------
-    # Decode JWT
-    # -------------------------------------------------------------------------
-
-    payload = decode_access_token(token)
-
-
-    if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=_INVALID_TOKEN,
-            headers=_AUTH_HEADERS,
-        )
-
-
-    # -------------------------------------------------------------------------
-    # Extract Subject
-    # -------------------------------------------------------------------------
-    #
-    # IMPORTANT:
-    #
-    # security.py creates token using:
-    #
-    # create_access_token(
-    #     data={
-    #         "sub": user.email
-    #     }
-    # )
-    #
-    # -------------------------------------------------------------------------
-
-    subject = payload.get("sub")
-
-
-    if not isinstance(subject, str) or not subject.strip():
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=_INVALID_PAYLOAD,
-            headers=_AUTH_HEADERS,
-        )
-
-
-    email = subject.strip()
-
-
-
-    # -------------------------------------------------------------------------
-    # Fetch User
-    # -------------------------------------------------------------------------
+    if email is None:
+        raise unauthorized("Invalid or expired access token.")
 
     user = get_user_by_email(
         db=db,
         email=email,
     )
 
-
     if user is None:
-
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=_USER_NOT_FOUND,
+            status_code=404,
+            detail="User not found.",
         )
-
-
-
-    # -------------------------------------------------------------------------
-    # Check Account Status
-    # -------------------------------------------------------------------------
 
     if not user.is_active:
-
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=_USER_INACTIVE,
+            status_code=403,
+            detail="User account is inactive.",
         )
-
 
     return user
 
 
-
-# =============================================================================
-# Single Role Authorization
-# =============================================================================
-
-
 def require_role(
     required_role: str,
-) -> Callable[..., User]:
-    """
-    Require exactly one role.
+) -> AuthDependency:
 
-    Example:
+    required = required_role.strip().lower()
 
-    current_user = Depends(
-        require_role("admin")
-    )
-    """
-
-
-    def role_checker(
+    def checker(
         current_user: User = Depends(get_current_user),
     ) -> User:
 
-
-        if current_user.role != required_role:
-
+        if current_user.role != required:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=_INSUFFICIENT_PERMISSIONS,
+                status_code=403,
+                detail="Insufficient permissions.",
             )
-
 
         return current_user
 
-
-    return role_checker
-
-
-
-
-# =============================================================================
-# Multiple Role Authorization
-# =============================================================================
+    return checker
 
 
 def require_roles(
     allowed_roles: Collection[str],
-) -> Callable[..., User]:
-    """
-    Require one of multiple roles.
+) -> AuthDependency:
 
-    Example:
-
-    require_roles(
-        [
-            "admin",
-            "manager",
-        ]
+    allowed = frozenset(
+        role.strip().lower()
+        for role in allowed_roles
     )
-    """
 
-
-    allowed = frozenset(allowed_roles)
-
-
-
-    def role_checker(
+    def checker(
         current_user: User = Depends(get_current_user),
     ) -> User:
 
-
         if current_user.role not in allowed:
-
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=_ACCESS_DENIED,
+                status_code=403,
+                detail="Access denied.",
             )
-
 
         return current_user
 
-
-
-    return role_checker
+    return checker

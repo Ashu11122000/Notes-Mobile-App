@@ -3,62 +3,44 @@
 File: note.py
 ===============================================================================
 
-Notes Controller
+Notes Routes
 
 Responsibilities
-----------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 - Expose REST endpoints for Notes.
-- Validate incoming request DTOs.
-- Delegate business logic to NotesService.
-- Return response DTOs only.
+- Validate request payloads.
+- Delegate business logic to the service layer.
+- Return response models.
 - Never access the database directly.
 
-Architecture
-----------------------------------------------------------------------------
-Client
-    │
-    ▼
-Notes Controller
-    │
-    ▼
-Notes Service
-    │
-    ▼
-PostgreSQL
-
-Notes
-----------------------------------------------------------------------------
-- JWT Protected.
-- Supports Pagination.
-- Supports PUT (Full Update).
-- Supports PATCH (Partial Update).
-- Compatible with FastAPI + SQLAlchemy 2.x.
+Compatible With
+-------------------------------------------------------------------------------
+- FastAPI 0.136+
+- SQLAlchemy 2.x
+- Pydantic V2
+===============================================================================
 """
+
+from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.note import (
-    NoteCreate,
-    NoteResponse,
-    NoteUpdate,
-)
+from app.schemas.note import NoteCreate, NoteResponse, NoteUpdate
 from app.services import note_service
+from app.services.note_service import (
+    EmptyUpdateError,
+    NoteAccessDeniedError,
+    NoteNotFoundError,
+)
 
 __all__ = ("router",)
-
-# =============================================================================
-# Constants
-# =============================================================================
-
-_DEFAULT_PAGE = 1
-_DEFAULT_LIMIT = 10
-_MAX_LIMIT = 100
 
 # =============================================================================
 # Dependency Aliases
@@ -76,27 +58,48 @@ router = APIRouter(
     tags=["Notes"],
 )
 
+
+# =============================================================================
+# Exception Translator
+# =============================================================================
+
+def _translate_exception(exc: Exception) -> None:
+    if isinstance(exc, NoteNotFoundError):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Note not found.",
+        ) from exc
+
+    if isinstance(exc, NoteAccessDeniedError):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied.",
+        ) from exc
+
+    if isinstance(exc, EmptyUpdateError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fields supplied for update.",
+        ) from exc
+
+    raise exc
+
+
 # =============================================================================
 # Create Note
 # =============================================================================
-
 
 @router.post(
     "",
     response_model=NoteResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create Note",
-    description="Create a new note for the authenticated user.",
 )
 def create_note(
     note: NoteCreate,
     db: DBSession,
     current_user: CurrentUser,
 ) -> NoteResponse:
-    """
-    Create a new note for the authenticated user.
-    """
-
     return note_service.create_note(
         db=db,
         user_id=current_user.id,
@@ -105,39 +108,33 @@ def create_note(
 
 
 # =============================================================================
-# Get Notes (Pagination)
+# Get Notes
 # =============================================================================
-
 
 @router.get(
     "",
     response_model=list[NoteResponse],
     summary="Get Notes",
-    description="Retrieve paginated notes belonging to the authenticated user.",
 )
 def get_notes(
+    db: DBSession,
+    current_user: CurrentUser,
     page: Annotated[
         int,
         Query(
             ge=1,
-            description="Page number (starting from 1).",
+            description="Page number.",
         ),
-    ] = _DEFAULT_PAGE,
+    ] = 1,
     limit: Annotated[
         int,
         Query(
             ge=1,
-            le=_MAX_LIMIT,
-            description="Maximum number of notes per page.",
+            le=settings.MAX_PAGE_SIZE,
+            description="Items per page.",
         ),
-    ] = _DEFAULT_LIMIT,
-    db: DBSession = None,
-    current_user: CurrentUser = None,
+    ] = settings.DEFAULT_PAGE_SIZE,
 ) -> list[NoteResponse]:
-    """
-    Retrieve paginated notes for the authenticated user.
-    """
-
     skip = (page - 1) * limit
 
     return note_service.get_notes(
@@ -149,105 +146,97 @@ def get_notes(
 
 
 # =============================================================================
-# Get Note By ID
+# Get Note
 # =============================================================================
-
 
 @router.get(
     "/{note_id}",
     response_model=NoteResponse,
     summary="Get Note",
-    description="Retrieve a note by its ID.",
 )
 def get_note(
     note_id: Annotated[
         int,
         Path(
             ge=1,
-            description="Unique identifier of the note.",
+            description="Note ID.",
         ),
     ],
     db: DBSession,
     current_user: CurrentUser,
 ) -> NoteResponse:
-    """
-    Retrieve a single note.
-    """
+    try:
+        return note_service.get_note_by_id(
+            db=db,
+            current_user=current_user,
+            note_id=note_id,
+        )
 
-    return note_service.get_note_by_id(
-        db=db,
-        current_user=current_user,
-        note_id=note_id,
-    )
+    except Exception as exc:
+        _translate_exception(exc)
+        raise
 
 
 # =============================================================================
-# Full Update (PUT)
+# Update Note
 # =============================================================================
-
 
 @router.put(
     "/{note_id}",
     response_model=NoteResponse,
     summary="Replace Note",
-    description="Replace or update a note.",
 )
 def update_note(
     note_id: Annotated[
         int,
         Path(
             ge=1,
-            description="Unique identifier of the note.",
+            description="Note ID.",
         ),
     ],
     note_data: NoteUpdate,
     db: DBSession,
     current_user: CurrentUser,
 ) -> NoteResponse:
-    """
-    Fully update a note.
-    """
+    try:
+        return note_service.update_note(
+            db=db,
+            current_user=current_user,
+            note_id=note_id,
+            note_data=note_data,
+        )
 
-    return note_service.update_note(
-        db=db,
-        current_user=current_user,
-        note_id=note_id,
-        note_data=note_data,
-    )
+    except Exception as exc:
+        _translate_exception(exc)
+        raise
 
 
 # =============================================================================
-# Partial Update (PATCH)
+# Patch Note
 # =============================================================================
-
 
 @router.patch(
     "/{note_id}",
     response_model=NoteResponse,
-    summary="Partially Update Note",
-    description="Update only the supplied fields of a note.",
+    summary="Update Note",
 )
 def patch_note(
     note_id: Annotated[
         int,
         Path(
             ge=1,
-            description="Unique identifier of the note.",
+            description="Note ID.",
         ),
     ],
     note_data: NoteUpdate,
     db: DBSession,
     current_user: CurrentUser,
 ) -> NoteResponse:
-    """
-    Partially update a note.
-    """
-
-    return note_service.update_note(
-        db=db,
-        current_user=current_user,
+    return update_note(
         note_id=note_id,
         note_data=note_data,
+        db=db,
+        current_user=current_user,
     )
 
 
@@ -255,32 +244,29 @@ def patch_note(
 # Delete Note
 # =============================================================================
 
-
 @router.delete(
     "/{note_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete Note",
-    description="Delete a note owned by the authenticated user.",
 )
 def delete_note(
     note_id: Annotated[
         int,
         Path(
             ge=1,
-            description="Unique identifier of the note.",
+            description="Note ID.",
         ),
     ],
     db: DBSession,
     current_user: CurrentUser,
 ) -> None:
-    """
-    Delete a note.
-    """
+    try:
+        note_service.delete_note(
+            db=db,
+            current_user=current_user,
+            note_id=note_id,
+        )
 
-    note_service.delete_note(
-        db=db,
-        current_user=current_user,
-        note_id=note_id,
-    )
-
-    return None
+    except Exception as exc:
+        _translate_exception(exc)
+        raise

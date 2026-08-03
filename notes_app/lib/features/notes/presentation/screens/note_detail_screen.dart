@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_routes.dart';
+import '../../../../shared/enums/snackbar_type.dart';
+import '../../../../shared/widgets/custom_snackbar.dart';
 import '../../domain/entities/note.dart';
 import '../providers/notes_provider.dart';
 import '../widgets/delete_note_dialog.dart';
@@ -12,20 +14,15 @@ import '../widgets/delete_note_dialog.dart';
 /// File: note_detail_screen.dart
 /// ============================================================================
 ///
-/// Note Detail Screen.
+/// Displays complete note information.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Displays complete note information.
+/// • Displays note details.
 /// • Allows editing.
 /// • Allows deleting.
-/// • Delegates operations to NotesProvider.
-///
-/// Does NOT:
-/// ----------------------------------------------------------------------------
-/// • Call API.
-/// • Access repository.
-/// • Handle business rules.
+/// • Delegates actions to NotesProvider.
+/// • Contains no business logic.
 ///
 /// ============================================================================
 
@@ -34,126 +31,108 @@ final class NoteDetailScreen extends StatelessWidget {
 
   final Note note;
 
+  static const EdgeInsets _pagePadding = EdgeInsets.all(20);
+
+  static final DateFormat _dateFormatter = DateFormat('dd MMM yyyy, hh:mm a');
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<NotesProvider>(
-      builder: (context, provider, _) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Note Details'),
+    final bool isLoading = context.select<NotesProvider, bool>(
+      (NotesProvider provider) => provider.isLoading,
+    );
 
-            centerTitle: true,
+    final ThemeData theme = Theme.of(context);
+    final TextTheme textTheme = theme.textTheme;
+    final ColorScheme colorScheme = theme.colorScheme;
 
-            actions: [
-              IconButton(
-                tooltip: 'Edit',
-
-                icon: const Icon(Icons.edit_outlined),
-
-                onPressed: provider.isLoading
-                    ? null
-                    : () {
-                        context.push(AppRoutes.editNote, extra: note);
-                      },
-              ),
-
-              IconButton(
-                tooltip: 'Delete',
-
-                icon: const Icon(Icons.delete_outline),
-
-                onPressed: provider.isLoading
-                    ? null
-                    : () => _deleteNote(context, provider),
-              ),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Note Details'),
+        centerTitle: true,
+        actions: <Widget>[
+          IconButton(
+            tooltip: 'Edit note',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: isLoading
+                ? null
+                : () {
+                    context.push(AppRoutes.editNote, extra: note);
+                  },
           ),
+          IconButton(
+            tooltip: 'Delete note',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: isLoading ? null : () => _deleteNote(context),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: <Widget>[
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: _pagePadding,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  SelectableText(note.title, style: textTheme.headlineMedium),
 
-          body: Stack(
-            children: [
-              SafeArea(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
+                  const SizedBox(height: 24),
 
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-
-                    children: [
-                      Text(
-                        note.title,
-
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      SelectableText(
-                        note.content?.trim().isNotEmpty == true
-                            ? note.content!
-                            : 'No content available.',
-
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      const Divider(),
-
-                      const SizedBox(height: 16),
-
-                      _InfoTile(
-                        icon: Icons.calendar_today_outlined,
-
-                        title: 'Created',
-
-                        value: _formatDate(note.createdAt),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      _InfoTile(
-                        icon: Icons.update_outlined,
-
-                        title: 'Last Updated',
-
-                        value: _formatDate(note.updatedAt),
-                      ),
-                    ],
+                  SelectableText(
+                    note.hasContent ? note.content! : 'No content available.',
+                    style: textTheme.bodyLarge,
                   ),
-                ),
+
+                  const SizedBox(height: 32),
+
+                  const Divider(),
+
+                  const SizedBox(height: 16),
+
+                  _InfoTile(
+                    icon: Icons.calendar_today_outlined,
+                    title: 'Created',
+                    value: _dateFormatter.format(note.createdAt),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  _InfoTile(
+                    icon: Icons.update_outlined,
+                    title: 'Last Updated',
+                    value: _dateFormatter.format(note.updatedAt),
+                  ),
+                ],
               ),
-
-              if (provider.isLoading)
-                const ColoredBox(
-                  color: Color(0x33000000),
-
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-            ],
+            ),
           ),
-        );
-      },
+
+          if (isLoading)
+            const ColoredBox(
+              color: Color(0x33000000),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+        ],
+      ),
     );
   }
 
   // ===========================================================================
-  // Delete Note
+  // Delete
   // ===========================================================================
 
-  Future<void> _deleteNote(BuildContext context, NotesProvider provider) async {
+  Future<void> _deleteNote(BuildContext context) async {
     final bool? confirmed = await DeleteNoteDialog.show(
       context,
-
       noteTitle: note.title,
     );
 
-    if (confirmed != true) {
+    if (confirmed != true || !context.mounted) {
       return;
     }
 
-    if (!context.mounted) {
-      return;
-    }
+    final NotesProvider provider = context.read<NotesProvider>();
 
     provider.clearError();
 
@@ -164,54 +143,27 @@ final class NoteDetailScreen extends StatelessWidget {
     }
 
     if (!deleted) {
-      _showErrorSnackBar(
+      CustomSnackBar.show(
         context,
-
-        provider.errorMessage ?? 'Failed to delete note.',
+        message: provider.errorMessage ?? 'Failed to delete note.',
+        type: SnackbarType.error,
       );
-
       return;
     }
 
-    _showSuccessSnackBar(context);
-
-    context.pop();
-  }
-
-  // ===========================================================================
-  // Helpers
-  // ===========================================================================
-
-  static String _formatDate(DateTime dateTime) {
-    return DateFormat('dd MMM yyyy, hh:mm a').format(dateTime);
-  }
-
-  void _showSuccessSnackBar(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Note deleted successfully.'),
-
-        behavior: SnackBarBehavior.floating,
-      ),
+    CustomSnackBar.show(
+      context,
+      message: 'Note deleted successfully.',
+      type: SnackbarType.success,
     );
-  }
 
-  void _showErrorSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-
-        behavior: SnackBarBehavior.floating,
-
-        backgroundColor: Theme.of(context).colorScheme.error,
-      ),
-    );
+    context.pop(true);
   }
 }
 
-// ============================================================================
-// Note Metadata Tile
-// ============================================================================
+/// ============================================================================
+/// Note Metadata Tile
+/// ============================================================================
 
 final class _InfoTile extends StatelessWidget {
   const _InfoTile({
@@ -232,8 +184,7 @@ final class _InfoTile extends StatelessWidget {
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-
-      children: [
+      children: <Widget>[
         Icon(icon, size: 20, color: theme.colorScheme.primary),
 
         const SizedBox(width: 12),
@@ -241,8 +192,7 @@ final class _InfoTile extends StatelessWidget {
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-
-            children: [
+            children: <Widget>[
               Text(title, style: theme.textTheme.labelMedium),
 
               const SizedBox(height: 4),

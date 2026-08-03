@@ -2,26 +2,26 @@
 ===============================================================================
 File: security.py
 ===============================================================================
+Enterprise Security Utilities
 
-Security Utilities
-
-Responsibilities
-----------------------------------------------------------------------------
-- Password hashing and verification.
-- JWT access token generation.
-- JWT decoding and validation.
-- Centralized security helpers for authentication.
-- Detailed JWT diagnostics (development only).
+- Password hashing
+- Password verification
+- JWT creation
+- JWT validation
+- Authentication helpers
 
 Compatible with:
 - FastAPI
+- SQLAlchemy
 - python-jose
 - pwdlib
 ===============================================================================
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone
-from typing import Any, Mapping
+from typing import Any
 
 from jose import JWTError, jwt
 from pwdlib import PasswordHash
@@ -33,6 +33,7 @@ __all__ = (
     "verify_password",
     "create_access_token",
     "decode_access_token",
+    "extract_subject",
 )
 
 # =============================================================================
@@ -48,34 +49,54 @@ password_hash = PasswordHash.recommended()
 _SECRET_KEY = settings.SECRET_KEY.get_secret_value()
 _ALGORITHM = settings.ALGORITHM
 
-_DEFAULT_TOKEN_EXPIRY = timedelta(
+_DEFAULT_EXPIRY = timedelta(
     minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
 )
+
 
 # =============================================================================
 # Password Helpers
 # =============================================================================
 
-
 def hash_password(password: str) -> str:
+<<<<<<< HEAD
     """Hash a plain-text password."""
+=======
+    """
+    Hash a plain-text password.
+    """
+>>>>>>> 6fb5e89694c310e32404379d19bdd263cdc15e8d
 
     if not password:
         raise ValueError("Password cannot be empty.")
 
+<<<<<<< HEAD
     return password_hash.hash(password)
+=======
+    return pwd_context.hash(password)
+>>>>>>> 6fb5e89694c310e32404379d19bdd263cdc15e8d
 
 
 def verify_password(
     plain_password: str,
     hashed_password: str,
 ) -> bool:
+<<<<<<< HEAD
     """Verify a password."""
+=======
+    """
+    Verify a plain password against a stored hash.
+    """
+>>>>>>> 6fb5e89694c310e32404379d19bdd263cdc15e8d
 
     if not plain_password or not hashed_password:
         return False
 
+<<<<<<< HEAD
     return password_hash.verify(
+=======
+    return pwd_context.verify(
+>>>>>>> 6fb5e89694c310e32404379d19bdd263cdc15e8d
         plain_password,
         hashed_password,
     )
@@ -85,9 +106,8 @@ def verify_password(
 # JWT Helpers
 # =============================================================================
 
-
 def create_access_token(
-    data: Mapping[str, Any],
+    data: dict[str, Any],
     expires_delta: timedelta | None = None,
 ) -> str:
     """
@@ -96,81 +116,65 @@ def create_access_token(
 
     now = datetime.now(timezone.utc)
 
-    expire = now + (expires_delta or _DEFAULT_TOKEN_EXPIRY)
-
-    payload = dict(data)
+    payload = data.copy()
 
     payload.update(
         {
             "iat": now,
             "nbf": now,
-            "exp": expire,
+            "exp": now + (expires_delta or _DEFAULT_EXPIRY),
         }
     )
 
-    token = jwt.encode(
+    return jwt.encode(
         payload,
         _SECRET_KEY,
         algorithm=_ALGORITHM,
     )
-
-    # -------------------------------------------------------------------------
-    # Development diagnostics
-    # -------------------------------------------------------------------------
-
-    if settings.DEBUG:
-        print("\n================ JWT CREATED ================")
-        print("Algorithm :", _ALGORITHM)
-        print("Expires   :", expire.isoformat())
-        print("Claims    :", payload)
-        print("Token     :", token)
-        print("=============================================\n")
-
-    return token
 
 
 def decode_access_token(
     token: str,
 ) -> dict[str, Any] | None:
     """
-    Decode and validate a JWT access token.
-
-    Returns:
-        Decoded payload if valid, otherwise None.
+    Decode and validate a JWT.
     """
-
-    if settings.DEBUG:
-        print("\n================ JWT DECODE =================")
-        print("Algorithm :", _ALGORITHM)
-        print("Secret Len:", len(_SECRET_KEY))
-        print("Token     :", token)
 
     try:
         payload = jwt.decode(
             token,
             _SECRET_KEY,
             algorithms=[_ALGORITHM],
+            options={
+                "verify_signature": True,
+                "verify_exp": True,
+                "verify_iat": True,
+                "verify_nbf": True,
+            },
         )
 
-        if settings.DEBUG:
-            print("Status    : SUCCESS")
-            print("Payload   :", payload)
-            print("=============================================\n")
+        if "sub" not in payload:
+            return None
 
         return payload
 
-    except JWTError as exception:
-        if settings.DEBUG:
-            print("Status    : FAILED")
-            print("Error     :", repr(exception))
-            print("=============================================\n")
-
+    except JWTError:
         return None
 
-    except Exception as exception:
-        if settings.DEBUG:
-            print("Status    : FAILED")
-            print("Unexpected:", repr(exception))
-            print("=============================================\n")
 
+def extract_subject(token: str) -> str | None:
+    """
+    Extract the subject (user id/email) from a JWT.
+    """
+
+    payload = decode_access_token(token)
+
+    if payload is None:
         return None
+
+    subject = payload.get("sub")
+
+    if not isinstance(subject, str):
+        return None
+
+    return subject

@@ -8,40 +8,20 @@ import 'primary_button.dart';
 ///
 /// Enterprise Material 3 retry button.
 ///
-/// A lightweight convenience wrapper around [PrimaryButton] specifically
-/// designed for retry actions throughout the application.
+/// A lightweight convenience wrapper around [PrimaryButton] providing
+/// consistent retry actions throughout the application.
 ///
-/// Typical use cases:
+/// Typical usage:
 ///
-/// • Network errors
-/// • Offline state
-/// • API failures
-/// • Timeout errors
-/// • Empty states
-/// • Refresh operations
+/// - Network failures
+/// - Offline states
+/// - API retry
+/// - Timeout recovery
+/// - Refresh actions
 ///
-/// This widget intentionally contains no business logic. It simply applies
-/// sensible defaults for retry actions while remaining fully customizable.
-///
-/// Example:
-///
-/// ```dart
-/// RetryButton(
-///   onPressed: _loadNotes,
-/// )
-/// ```
-///
-/// ```dart
-/// RetryButton(
-///   text: 'Try Again',
-///   isLoading: provider.isRetrying,
-///   onPressed: provider.retry,
-/// )
-/// ```
-/// ============================================================================
+/// This widget contains no business logic.
 @immutable
 final class RetryButton extends StatelessWidget {
-  /// Creates a reusable retry button.
   const RetryButton({
     super.key,
     required this.onPressed,
@@ -56,59 +36,76 @@ final class RetryButton extends StatelessWidget {
     this.autofocus = false,
     this.mouseCursor,
     this.semanticLabel,
+    this.minimumSize,
   });
 
-  /// Invoked when the retry button is pressed.
+  /// Retry action.
   final VoidCallback? onPressed;
 
-  /// Button label.
+  /// Button text.
   final String text;
 
-  /// Loading label displayed while retrying.
+  /// Loading text.
   final String loadingText;
 
-  /// Whether to display the loading state.
+  /// Loading state.
   final bool isLoading;
 
-  /// Whether the button should occupy the available width.
+  /// Full width button.
   final bool isExpanded;
 
-  /// Leading or trailing icon.
-  final IconData icon;
+  /// Optional icon.
+  final IconData? icon;
 
-  /// Whether the icon should appear after the text.
+  /// Icon position.
   final bool iconOnTrailing;
 
-  /// Optional custom button style.
+  /// Custom button style.
   final ButtonStyle? style;
 
-  /// Optional focus node.
+  /// Focus node.
   final FocusNode? focusNode;
 
-  /// Whether the button should receive focus automatically.
+  /// Autofocus.
   final bool autofocus;
 
-  /// Optional desktop/web mouse cursor.
+  /// Mouse cursor.
   final MouseCursor? mouseCursor;
 
-  /// Optional accessibility label.
+  /// Accessibility label.
   final String? semanticLabel;
+
+  /// Minimum button size.
+  final Size? minimumSize;
 
   @override
   Widget build(BuildContext context) {
     return PrimaryButton(
       text: text,
+
       loadingText: loadingText,
+
       icon: icon,
+
       iconOnTrailing: iconOnTrailing,
+
       onPressed: onPressed,
+
       isLoading: isLoading,
+
       isExpanded: isExpanded,
+
       style: style,
+
       focusNode: focusNode,
+
       autofocus: autofocus,
+
       mouseCursor: mouseCursor,
-      semanticLabel: semanticLabel ?? text,
+
+      minimumSize: minimumSize,
+
+      semanticLabel: semanticLabel ?? (isLoading ? loadingText : text),
     );
   }
 }

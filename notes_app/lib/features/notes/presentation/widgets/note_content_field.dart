@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../constants/notes_constants.dart';
 
@@ -6,24 +7,14 @@ import '../../constants/notes_constants.dart';
 /// File: note_content_field.dart
 /// ============================================================================
 ///
-/// Note Content Field.
+/// Reusable content field for creating and editing notes.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Reusable note content input.
-/// • Used by create and edit note screens.
-/// • Handles only presentation logic.
-/// • Supports validation and customization.
-///
-/// Architecture
-/// ----------------------------------------------------------------------------
-/// UI
-///  ↓
-/// NoteContentField
-///  ↓
-/// Form Controller
-///  ↓
-/// NotesProvider
+/// • Displays a multiline content input.
+/// • Supports validation.
+/// • Supports customization.
+/// • Contains no business logic.
 ///
 /// ============================================================================
 
@@ -48,19 +39,19 @@ final class NoteContentField extends StatelessWidget {
   /// Optional focus node.
   final FocusNode? focusNode;
 
-  /// Called when text changes.
+  /// Text changed callback.
   final ValueChanged<String>? onChanged;
 
-  /// Called when user submits.
+  /// Field submitted callback.
   final ValueChanged<String>? onSubmitted;
 
-  /// Enables/disables field.
+  /// Enables/disables editing.
   final bool enabled;
 
-  /// Automatically focuses field.
+  /// Automatically requests focus.
   final bool autofocus;
 
-  /// Makes field read-only.
+  /// Read-only mode.
   final bool readOnly;
 
   /// Custom validator.
@@ -77,65 +68,60 @@ final class NoteContentField extends StatelessWidget {
   // ===========================================================================
 
   static const int _defaultMinLines = 8;
-
   static const int _defaultMaxLines = 12;
 
-  static const double _iconBottomPadding = 120;
+  static const double _iconBottomPadding = 120.0;
 
-  // ===========================================================================
-  // Build
-  // ===========================================================================
+  static const EdgeInsets _scrollPadding = EdgeInsets.only(bottom: 120);
+
+  static const InputDecoration _decoration = InputDecoration(
+    labelText: 'Content',
+    hintText: 'Write your note here...',
+    alignLabelWithHint: true,
+    prefixIcon: Padding(
+      padding: EdgeInsets.only(bottom: _iconBottomPadding),
+      child: Icon(Icons.notes_outlined),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
+    return Semantics(
+      label: 'Note content',
+      textField: true,
+      multiline: true,
+      child: TextFormField(
+        controller: controller,
+        focusNode: focusNode,
+        enabled: enabled,
+        autofocus: autofocus,
+        readOnly: readOnly,
 
-      focusNode: focusNode,
+        keyboardType: TextInputType.multiline,
+        textInputAction: TextInputAction.newline,
+        textCapitalization: TextCapitalization.sentences,
 
-      enabled: enabled,
+        enableSuggestions: true,
+        autocorrect: true,
 
-      autofocus: autofocus,
+        minLines: minLines,
+        maxLines: maxLines,
 
-      readOnly: readOnly,
+        maxLength: NotesConstants.maxContentLength,
 
-      keyboardType: TextInputType.multiline,
+        scrollPadding: _scrollPadding,
 
-      textInputAction: TextInputAction.newline,
+        inputFormatters: <TextInputFormatter>[
+          LengthLimitingTextInputFormatter(NotesConstants.maxContentLength),
+        ],
 
-      textCapitalization: TextCapitalization.sentences,
+        decoration: _decoration,
 
-      enableSuggestions: true,
+        validator: validator ?? _defaultValidator,
 
-      autocorrect: true,
-
-      minLines: minLines,
-
-      maxLines: maxLines,
-
-      maxLength: NotesConstants.maxContentLength,
-
-      scrollPadding: const EdgeInsets.only(bottom: 120),
-
-      decoration: const InputDecoration(
-        labelText: 'Content',
-
-        hintText: 'Write your note here...',
-
-        alignLabelWithHint: true,
-
-        prefixIcon: Padding(
-          padding: EdgeInsets.only(bottom: _iconBottomPadding),
-
-          child: Icon(Icons.notes_outlined),
-        ),
+        onChanged: onChanged,
+        onFieldSubmitted: onSubmitted,
       ),
-
-      validator: validator ?? _defaultValidator,
-
-      onChanged: onChanged,
-
-      onFieldSubmitted: onSubmitted,
     );
   }
 

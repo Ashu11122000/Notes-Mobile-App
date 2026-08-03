@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -8,7 +9,7 @@ import 'timezone_service.dart';
 /// File: notification_service.dart
 /// ============================================================================
 ///
-/// Local Notification Service
+/// Enterprise Local Notification Service
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
@@ -18,17 +19,45 @@ import 'timezone_service.dart';
 /// • Shows instant notifications.
 /// • Schedules reminders.
 /// • Cancels notifications.
+/// • Exposes a testable singleton.
 /// • Contains no UI/business logic.
 ///
 /// ============================================================================
-
 final class NotificationService {
-  NotificationService._();
+  NotificationService._({FlutterLocalNotificationsPlugin? plugin})
+    : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
-  static final NotificationService instance = NotificationService._();
+  // ===========================================================================
+  // Singleton
+  // ===========================================================================
 
-  final FlutterLocalNotificationsPlugin _plugin =
-      FlutterLocalNotificationsPlugin();
+  static NotificationService _instance = NotificationService._();
+
+  /// Production singleton.
+  static NotificationService get instance => _instance;
+
+  /// Replaces the singleton during tests.
+  ///
+  /// Example:
+  /// ```dart
+  /// NotificationService.setInstanceForTesting(mockService);
+  /// ```
+  @visibleForTesting
+  static void setInstanceForTesting(NotificationService service) {
+    _instance = service;
+  }
+
+  /// Restores the default production singleton.
+  @visibleForTesting
+  static void resetForTesting() {
+    _instance = NotificationService._();
+  }
+
+  // ===========================================================================
+  // Fields
+  // ===========================================================================
+
+  final FlutterLocalNotificationsPlugin _plugin;
 
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
     'notes_channel',
@@ -39,16 +68,21 @@ final class NotificationService {
 
   bool _initialized = false;
 
+  /// Returns whether this service has already been initialized.
   bool get isInitialized => _initialized;
 
   // ===========================================================================
-  // Initialize
+  // Initialization
   // ===========================================================================
 
+  /// Initializes flutter_local_notifications.
+  ///
+  /// Safe to call multiple times.
   Future<void> initialize({
     void Function(NotificationResponse response)? onNotificationTap,
   }) async {
     if (_initialized) {
+      LoggerService.info('NotificationService already initialized.');
       return;
     }
 
@@ -98,6 +132,7 @@ final class NotificationService {
   // Permission Handling
   // ===========================================================================
 
+  /// Requests notification permissions on all supported platforms.
   Future<bool> requestPermission() async {
     try {
       bool granted = true;
@@ -111,7 +146,7 @@ final class NotificationService {
           ?.requestNotificationsPermission();
 
       if (androidResult != null) {
-        granted = granted && androidResult;
+        granted &= androidResult;
       }
 
       final IOSFlutterLocalNotificationsPlugin? iosPlugin = _plugin
@@ -126,8 +161,10 @@ final class NotificationService {
       );
 
       if (iosResult != null) {
-        granted = granted && iosResult;
+        granted &= iosResult;
       }
+
+      LoggerService.info('Notification permission granted: $granted');
 
       return granted;
     } catch (exception, stackTrace) {
@@ -141,6 +178,7 @@ final class NotificationService {
     }
   }
 
+  /// Returns whether notifications are enabled on the device.
   Future<bool> areNotificationsEnabled() async {
     try {
       final AndroidFlutterLocalNotificationsPlugin? androidPlugin = _plugin
@@ -164,7 +202,9 @@ final class NotificationService {
   // Notification Details
   // ===========================================================================
 
-  NotificationDetails get _notificationDetails {
+  /// Default notification configuration used throughout the application.
+  @protected
+  NotificationDetails get notificationDetails {
     return const NotificationDetails(
       android: AndroidNotificationDetails(
         'notes_channel',
@@ -173,7 +213,6 @@ final class NotificationService {
         importance: Importance.high,
         priority: Priority.high,
       ),
-
       iOS: DarwinNotificationDetails(),
     );
   }
@@ -182,6 +221,7 @@ final class NotificationService {
   // Show Notification Immediately
   // ===========================================================================
 
+  /// Displays an immediate local notification.
   Future<void> show({
     required int id,
     required String title,
@@ -193,14 +233,11 @@ final class NotificationService {
         id: id,
         title: title,
         body: body,
-        notificationDetails: _notificationDetails,
+        notificationDetails: notificationDetails,
         payload: payload,
       );
 
-      LoggerService.info(
-        'Notification shown successfully. '
-        '(id: $id)',
-      );
+      LoggerService.info('Notification shown successfully. (id: $id)');
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to show notification.',
@@ -214,6 +251,7 @@ final class NotificationService {
   // Schedule One-Time Notification
   // ===========================================================================
 
+  /// Schedules a notification for a specific date and time.
   Future<void> schedule({
     required int id,
     required String title,
@@ -231,15 +269,12 @@ final class NotificationService {
         title: title,
         body: body,
         scheduledDate: scheduledDate,
-        notificationDetails: _notificationDetails,
+        notificationDetails: notificationDetails,
         payload: payload,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
 
-      LoggerService.info(
-        'Notification scheduled successfully. '
-        '(id: $id)',
-      );
+      LoggerService.info('Notification scheduled successfully. (id: $id)');
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to schedule notification.',
@@ -253,6 +288,7 @@ final class NotificationService {
   // Schedule Daily Notification
   // ===========================================================================
 
+  /// Schedules a notification that repeats every day.
   Future<void> scheduleDaily({
     required int id,
     required String title,
@@ -270,15 +306,14 @@ final class NotificationService {
         title: title,
         body: body,
         scheduledDate: scheduledDate,
-        notificationDetails: _notificationDetails,
+        notificationDetails: notificationDetails,
         payload: payload,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
       );
 
       LoggerService.info(
-        'Daily notification scheduled successfully. '
-        '(id: $id)',
+        'Daily notification scheduled successfully. (id: $id)',
       );
     } catch (exception, stackTrace) {
       LoggerService.error(
@@ -293,6 +328,7 @@ final class NotificationService {
   // Pending Notifications
   // ===========================================================================
 
+  /// Returns all pending scheduled notifications.
   Future<List<PendingNotificationRequest>> pendingNotificationRequests() async {
     try {
       return await _plugin.pendingNotificationRequests();
@@ -311,14 +347,12 @@ final class NotificationService {
   // Cancel Single Notification
   // ===========================================================================
 
+  /// Cancels a scheduled notification.
   Future<void> cancel(int id) async {
     try {
       await _plugin.cancel(id: id);
 
-      LoggerService.info(
-        'Notification cancelled successfully. '
-        '(id: $id)',
-      );
+      LoggerService.info('Notification cancelled successfully. (id: $id)');
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Failed to cancel notification.',
@@ -332,9 +366,14 @@ final class NotificationService {
   // Cancel All Pending Notifications
   // ===========================================================================
 
+  /// Cancels every pending scheduled notification.
   Future<void> cancelAllPending() async {
     try {
-      await _plugin.cancelAllPendingNotifications();
+      final pending = await _plugin.pendingNotificationRequests();
+
+      for (final notification in pending) {
+        await _plugin.cancel(id: notification.id);
+      }
 
       LoggerService.info('All pending notifications cancelled.');
     } catch (exception, stackTrace) {
@@ -350,6 +389,7 @@ final class NotificationService {
   // Cancel All Notifications
   // ===========================================================================
 
+  /// Cancels all notifications.
   Future<void> cancelAll() async {
     try {
       await _plugin.cancelAll();
@@ -368,6 +408,7 @@ final class NotificationService {
   // Active Notifications
   // ===========================================================================
 
+  /// Returns currently active notifications.
   Future<List<ActiveNotification>> getActiveNotifications() async {
     try {
       return await _plugin.getActiveNotifications();
@@ -386,6 +427,10 @@ final class NotificationService {
   // Dispose
   // ===========================================================================
 
+  /// Releases in-memory state.
+  ///
+  /// This does not cancel notifications. Use [cancelAll] when notifications
+  /// should also be removed.
   void dispose() {
     _initialized = false;
 

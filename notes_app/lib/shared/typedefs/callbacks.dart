@@ -1,17 +1,22 @@
+import 'package:flutter/foundation.dart';
+
 /// =============================================================================
 /// File: callback_typedefs.dart
 /// =============================================================================
 ///
 /// Shared callback type aliases used throughout the application.
 ///
-/// This file centralizes commonly used callback signatures to improve
-/// readability, consistency, and discoverability across the codebase.
+/// Flutter's built-in callback typedefs should be preferred whenever
+/// available:
 ///
-/// Flutter's built-in [VoidCallback] should be used instead of redefining it.
-/// Only callback signatures that are not provided by the Flutter SDK are
-/// declared here.
+/// - [VoidCallback]
+/// - [ValueChanged]
+/// - [AsyncCallback]
 ///
-/// These aliases remain framework-independent and can be reused across:
+/// This file only defines callback signatures that are not provided by the
+/// Flutter SDK.
+///
+/// These aliases are lightweight, framework-friendly, and reusable across:
 ///
 /// - Core
 /// - Domain
@@ -19,21 +24,10 @@
 /// - Presentation
 /// - Services
 /// - Repositories
-/// - Reusable Widgets
+/// - Shared Widgets
 /// =============================================================================
 
-/// Represents a callback that accepts a single value.
-///
-/// Example:
-///
-/// ```dart
-/// ValueCallback<String> onChanged;
-/// ```
-typedef ValueCallback<T> = void Function(T value);
-
 /// Represents a callback that accepts two values.
-///
-/// Useful for reusable widgets, filters, or range selectors.
 ///
 /// Example:
 ///
@@ -43,9 +37,6 @@ typedef ValueCallback<T> = void Function(T value);
 typedef ValueChanged2<T1, T2> = void Function(T1 first, T2 second);
 
 /// Represents a callback that accepts three values.
-///
-/// Useful when multiple related values need to be returned without creating
-/// an intermediate model.
 ///
 /// Example:
 ///
@@ -57,37 +48,18 @@ typedef ValueChanged3<T1, T2, T3> =
 
 /// Represents a synchronous callback returning a boolean.
 ///
-/// Common use cases include:
-///
+/// Useful for:
 /// - Validation
-/// - Confirmation
 /// - Permission checks
 /// - Feature availability
+/// - Confirmation dialogs
 typedef BoolCallback = bool Function();
-
-/// Represents an asynchronous callback.
-///
-/// Useful for:
-///
-/// - Button actions
-/// - Retry operations
-/// - Network requests
-/// - Form submission
-///
-/// Example:
-///
-/// ```dart
-/// AsyncCallback onRefresh;
-/// ```
-typedef AsyncCallback = Future<void> Function();
 
 /// Represents an asynchronous callback that accepts a single value.
 ///
-/// Useful for asynchronous operations requiring an input parameter.
-///
 /// Example:
 ///
 /// ```dart
-/// AsyncValueCallback<LoginRequestModel> onSubmit;
+/// AsyncValueChanged<LoginRequestModel> onSubmit;
 /// ```
-typedef AsyncValueCallback<T> = Future<void> Function(T value);
+typedef AsyncValueChanged<T> = Future<void> Function(T value);

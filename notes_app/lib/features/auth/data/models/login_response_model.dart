@@ -8,31 +8,31 @@ import 'package:flutter/foundation.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Represents the response returned by the FastAPI login endpoint.
+/// • Represents the authentication response returned by FastAPI.
 /// • Stores the JWT access token.
 /// • Stores the authentication token type.
-/// • Converts between JSON and Dart objects.
-/// • Remains immutable and free of business logic.
+/// • Converts between Map/JSON and Dart objects.
+/// • Remains immutable.
+/// • Contains no business logic.
 ///
 /// FastAPI Endpoint
 /// ----------------------------------------------------------------------------
 /// POST /api/v1/auth/login
 ///
-/// Response Body
+/// Example Response
 /// ----------------------------------------------------------------------------
 /// {
-///   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+///   "access_token": "<jwt_token>",
 ///   "token_type": "bearer"
 /// }
 ///
 /// Notes
 /// ----------------------------------------------------------------------------
-/// • This model intentionally contains only authentication data.
-/// • User information should be retrieved separately using:
-///   GET /api/v1/auth/me
-/// • Fully compatible with the FastAPI authentication response.
-/// • The JWT access token is intentionally excluded from [toString] to avoid
-///   accidental exposure in logs.
+/// • User profile information is retrieved separately from:
+///     GET /api/v1/auth/me
+///
+/// • JWT values are intentionally excluded from [toString]
+///   to prevent accidental logging.
 /// ============================================================================
 
 @immutable
@@ -46,16 +46,33 @@ final class LoginResponseModel {
   static const String _accessTokenKey = 'access_token';
   static const String _tokenTypeKey = 'token_type';
 
-  /// JWT access token returned by the backend.
+  /// JWT access token.
   final String accessToken;
 
   /// Authentication token type.
   ///
   /// Example:
-  /// `"bearer"`
+  /// bearer
   final String tokenType;
 
-  /// Returns a copy of this model with updated values.
+  /// Returns true when a non-empty access token exists.
+  bool get hasAccessToken => accessToken.isNotEmpty;
+
+  /// Returns the Authorization header value.
+  ///
+  /// Example:
+  /// Bearer eyJhbGciOi...
+  ///
+  /// Returns null if no access token is available.
+  String? get authorizationHeader {
+    if (!hasAccessToken) {
+      return null;
+    }
+
+    return '${_capitalizeTokenType(tokenType)} $accessToken';
+  }
+
+  /// Returns a new immutable instance with updated values.
   LoginResponseModel copyWith({String? accessToken, String? tokenType}) {
     return LoginResponseModel(
       accessToken: accessToken ?? this.accessToken,
@@ -63,22 +80,34 @@ final class LoginResponseModel {
     );
   }
 
-  /// Creates a model from a JSON object.
-  factory LoginResponseModel.fromJson(Map<String, dynamic> json) {
+  /// Creates a model from a Map.
+  factory LoginResponseModel.fromMap(Map<String, dynamic> map) {
     return LoginResponseModel(
-      accessToken: (json[_accessTokenKey] ?? '') as String,
-      tokenType: (json[_tokenTypeKey] ?? '') as String,
+      accessToken: map[_accessTokenKey]?.toString() ?? '',
+      tokenType: map[_tokenTypeKey]?.toString() ?? '',
     );
   }
 
-  /// Converts this model into a JSON object.
-  Map<String, dynamic> toJson() => <String, dynamic>{
-    _accessTokenKey: accessToken,
-    _tokenTypeKey: tokenType,
-  };
+  /// Alias for [fromMap].
+  factory LoginResponseModel.fromJson(Map<String, dynamic> json) {
+    return LoginResponseModel.fromMap(json);
+  }
+
+  /// Converts this model into a Map.
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      _accessTokenKey: accessToken,
+      _tokenTypeKey: tokenType,
+    };
+  }
+
+  /// Alias for [toMap].
+  Map<String, dynamic> toJson() => toMap();
 
   @override
-  String toString() => 'LoginResponseModel(tokenType: $tokenType)';
+  String toString() {
+    return 'LoginResponseModel(tokenType: $tokenType)';
+  }
 
   @override
   bool operator ==(Object other) {
@@ -90,4 +119,12 @@ final class LoginResponseModel {
 
   @override
   int get hashCode => Object.hash(accessToken, tokenType);
+
+  static String _capitalizeTokenType(String value) {
+    if (value.isEmpty) {
+      return value;
+    }
+
+    return value[0].toUpperCase() + value.substring(1).toLowerCase();
+  }
 }

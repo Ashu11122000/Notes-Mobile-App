@@ -4,27 +4,22 @@ import 'package:flutter/foundation.dart';
 /// File: reminder_model.dart
 /// ============================================================================
 ///
-/// Reminder Model
+/// Enterprise Reminder Model
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Represents a locally scheduled notification reminder.
-/// • Stores notification scheduling information.
-/// • Supports local persistence.
-/// • Provides immutable reminder state.
+/// • Represents a locally scheduled notification.
+/// • Stores scheduling metadata.
+/// • Supports JSON serialization.
+/// • Supports immutable state.
+/// • Optimized for Flutter Stable.
 ///
 /// Notes
 /// ----------------------------------------------------------------------------
-/// This model belongs ONLY to the Flutter application.
-///
-/// It is NOT:
-/// - Sent to FastAPI.
-/// - Stored in PostgreSQL.
-///
-/// It is used by:
-/// - ReminderManager.
-/// - NotificationService.
-/// - Local storage.
+/// • Used only by Flutter.
+/// • Never sent to FastAPI.
+/// • Never stored in PostgreSQL.
+/// • Used by NotificationService and ReminderManager.
 ///
 /// ============================================================================
 
@@ -45,9 +40,7 @@ final class ReminderModel {
   // Fields
   // ===========================================================================
 
-  /// Unique notification identifier.
-  ///
-  /// Required by flutter_local_notifications.
+  /// Local notification identifier.
   final int notificationId;
 
   /// Related note identifier.
@@ -56,44 +49,62 @@ final class ReminderModel {
   /// Notification title.
   final String title;
 
-  /// Notification message body.
+  /// Notification body.
   final String body;
 
   /// Scheduled notification date/time.
   final DateTime scheduledAt;
 
   /// Optional navigation payload.
-  ///
-  /// Example:
-  /// "note/12"
   final String? payload;
 
-  /// Whether this reminder is active.
+  /// Whether reminder is enabled.
   final bool isEnabled;
 
-  /// Whether reminder repeats daily.
+  /// Whether reminder repeats every day.
   final bool repeatDaily;
 
   // ===========================================================================
   // Computed Properties
   // ===========================================================================
 
-  /// Returns true when reminder time has passed.
-  bool get isExpired => scheduledAt.isBefore(DateTime.now());
+  /// Returns the normalized title.
+  String get normalizedTitle => title.trim();
 
-  /// Returns true when reminder is in future.
-  bool get isUpcoming => scheduledAt.isAfter(DateTime.now());
+  /// Returns the normalized body.
+  String get normalizedBody => body.trim();
 
-  /// Alias for readability.
+  /// Returns true if payload exists.
+  bool get hasPayload => payload != null && payload!.trim().isNotEmpty;
+
+  /// Returns true if reminder repeats.
+  bool get isRepeating => repeatDaily;
+
+  /// Returns true if reminder is enabled.
+  bool get isActive => isEnabled;
+
+  /// Returns true when reminder contains valid data.
+  bool get isValid => normalizedTitle.isNotEmpty && normalizedBody.isNotEmpty;
+
+  /// Returns true when reminder time is in the past.
+  bool get isExpired {
+    final DateTime now = DateTime.now();
+    return scheduledAt.isBefore(now);
+  }
+
+  /// Returns true when reminder is scheduled in the future.
+  bool get isUpcoming {
+    final DateTime now = DateTime.now();
+    return scheduledAt.isAfter(now);
+  }
+
+  /// Readability alias.
   bool get isPast => isExpired;
 
-  /// Alias for readability.
+  /// Readability alias.
   bool get isFuture => isUpcoming;
 
-  /// Basic validation.
-  bool get isValid => title.trim().isNotEmpty && body.trim().isNotEmpty;
-
-  /// Human readable date.
+  /// Human-readable date.
   String get formattedDateTime =>
       '${scheduledAt.day}/'
       '${scheduledAt.month}/'
@@ -106,20 +117,22 @@ final class ReminderModel {
   // ===========================================================================
 
   factory ReminderModel.fromJson(Map<String, dynamic> json) {
+    final DateTime scheduled =
+        DateTime.tryParse(json['scheduled_at'] as String? ?? '') ??
+        DateTime.now();
+
     return ReminderModel(
       notificationId: (json['notification_id'] as num?)?.toInt() ?? 0,
 
       noteId: (json['note_id'] as num?)?.toInt() ?? 0,
 
-      title: json['title'] as String? ?? '',
+      title: (json['title'] as String? ?? '').trim(),
 
-      body: json['body'] as String? ?? '',
+      body: (json['body'] as String? ?? '').trim(),
 
-      scheduledAt:
-          DateTime.tryParse(json['scheduled_at'] as String? ?? '') ??
-          DateTime.now(),
+      scheduledAt: scheduled,
 
-      payload: json['payload'] as String?,
+      payload: (json['payload'] as String?)?.trim(),
 
       isEnabled: json['is_enabled'] as bool? ?? true,
 
@@ -130,19 +143,12 @@ final class ReminderModel {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'notification_id': notificationId,
-
       'note_id': noteId,
-
-      'title': title,
-
-      'body': body,
-
+      'title': normalizedTitle,
+      'body': normalizedBody,
       'scheduled_at': scheduledAt.toIso8601String(),
-
-      'payload': payload,
-
+      'payload': hasPayload ? payload!.trim() : null,
       'is_enabled': isEnabled,
-
       'repeat_daily': repeatDaily,
     };
   }
@@ -151,6 +157,9 @@ final class ReminderModel {
   // Copy With
   // ===========================================================================
 
+  /// Creates a copy of this reminder.
+  ///
+  /// Set [clearPayload] to true to remove the payload.
   ReminderModel copyWith({
     int? notificationId,
     int? noteId,
@@ -158,24 +167,18 @@ final class ReminderModel {
     String? body,
     DateTime? scheduledAt,
     String? payload,
+    bool clearPayload = false,
     bool? isEnabled,
     bool? repeatDaily,
   }) {
     return ReminderModel(
       notificationId: notificationId ?? this.notificationId,
-
       noteId: noteId ?? this.noteId,
-
       title: title ?? this.title,
-
       body: body ?? this.body,
-
       scheduledAt: scheduledAt ?? this.scheduledAt,
-
-      payload: payload ?? this.payload,
-
+      payload: clearPayload ? null : (payload ?? this.payload),
       isEnabled: isEnabled ?? this.isEnabled,
-
       repeatDaily: repeatDaily ?? this.repeatDaily,
     );
   }
@@ -188,7 +191,6 @@ final class ReminderModel {
   bool operator ==(Object other) {
     return identical(this, other) ||
         other is ReminderModel &&
-            runtimeType == other.runtimeType &&
             notificationId == other.notificationId &&
             noteId == other.noteId &&
             title == other.title &&

@@ -20,15 +20,14 @@ import '../widgets/login_form.dart';
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Displays the authentication UI.
-/// • Coordinates with [AuthProvider].
+/// • Displays the login UI.
+/// • Delegates authentication to AuthProvider.
 /// • Handles navigation.
-/// • Displays success and error snackbars.
-///
-/// Business logic remains inside [AuthProvider].
+/// • Displays success and error messages.
+/// • Optimized for Provider.
 /// ============================================================================
 
-class LoginScreen extends StatelessWidget {
+final class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
   static const EdgeInsets _pagePadding = EdgeInsets.symmetric(
@@ -44,7 +43,10 @@ class LoginScreen extends StatelessWidget {
     required String email,
     required String password,
   }) async {
-    final AuthProvider provider = context.read<AuthProvider>();
+    final AuthProvider provider = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    );
 
     provider.clearError();
 
@@ -78,54 +80,64 @@ class LoginScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AuthProvider provider = context.watch<AuthProvider>();
+    return Consumer<AuthProvider>(
+      builder: (BuildContext context, AuthProvider provider, Widget? child) {
+        return LoadingOverlay(
+          isLoading: provider.isLoading,
+          message: 'Signing in...',
+          child: Scaffold(
+            appBar: AppBar(),
+            body: SafeArea(
+              child: Center(
+                child: Semantics(
+                  container: true,
+                  child: SingleChildScrollView(
+                    padding: _pagePadding,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          const AuthHeader(
+                            title: 'Welcome Back',
+                            subtitle: 'Sign in to continue to your notes.',
+                          ),
 
-    return LoadingOverlay(
-      isLoading: provider.isLoading,
-      message: 'Signing in...',
-      child: Scaffold(
-        appBar: AppBar(),
-        body: SafeArea(
-          child: Center(
-            child: Semantics(
-              container: true,
-              child: SingleChildScrollView(
-                padding: _pagePadding,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      const AuthHeader(
-                        title: 'Welcome Back',
-                        subtitle: 'Sign in to continue to your notes.',
+                          _spacing32,
+
+                          LoginForm(
+                            isLoading: provider.isLoading,
+                            onSubmit: (String email, String password) {
+                              return _login(
+                                context,
+                                email: email,
+                                password: password,
+                              );
+                            },
+                          ),
+
+                          _spacing24,
+
+                          AuthFooter(
+                            questionText: "Don't have an account?",
+                            actionText: 'Create Account',
+                            onPressed: () {
+                              context.push(AppRoutes.register);
+                            },
+                          ),
+                        ],
                       ),
-
-                      _spacing32,
-
-                      LoginForm(
-                        isLoading: provider.isLoading,
-                        onSubmit: (email, password) =>
-                            _login(context, email: email, password: password),
-                      ),
-
-                      _spacing24,
-
-                      AuthFooter(
-                        questionText: "Don't have an account?",
-                        actionText: 'Create Account',
-                        onPressed: () {
-                          context.push(AppRoutes.register);
-                        },
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

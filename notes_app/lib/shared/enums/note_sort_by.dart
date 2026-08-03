@@ -9,38 +9,16 @@
 ///
 /// The repository or presentation layer is responsible for translating these
 /// values into:
-///
 /// - API query parameters
-/// - SQL ordering
+/// - SQL ORDER BY clauses
 /// - Client-side sorting algorithms
 ///
 /// Centralizing sorting definitions provides:
-///
 /// - Strong typing
 /// - Consistent UI behavior
 /// - Safer persistence
 /// - Easier serialization
 /// - Better maintainability
-///
-/// Example:
-///
-/// ```dart
-/// final sort = NoteSortBy.fromValue('newest');
-///
-/// switch (sort) {
-///   case NoteSortBy.newest:
-///     break;
-///
-///   case NoteSortBy.oldest:
-///     break;
-///
-///   case NoteSortBy.titleAscending:
-///     break;
-///
-///   case NoteSortBy.titleDescending:
-///     break;
-/// }
-/// ```
 enum NoteSortBy {
   /// Displays the most recently created or updated notes first.
   newest(value: 'newest', displayName: 'Newest First'),
@@ -57,16 +35,13 @@ enum NoteSortBy {
   /// Creates a note sorting option.
   const NoteSortBy({required this.value, required this.displayName});
 
-  /// Persisted value used for serialization.
-  ///
-  /// Examples:
-  /// - `newest`
-  /// - `oldest`
-  /// - `title_asc`
-  /// - `title_desc`
+  /// Stable value used for persistence and serialization.
   final String value;
 
   /// Human-readable label displayed in the user interface.
+  ///
+  /// Note: When localization is introduced, UI should provide localized
+  /// strings while this enum continues to expose stable identifiers.
   final String displayName;
 
   /// Returns whether notes should be ordered from newest to oldest.
@@ -75,56 +50,43 @@ enum NoteSortBy {
   /// Returns whether notes should be ordered from oldest to newest.
   bool get isOldest => this == NoteSortBy.oldest;
 
-  /// Returns whether notes should be sorted alphabetically (A → Z).
+  /// Returns whether notes should be sorted alphabetically (A–Z).
   bool get isTitleAscending => this == NoteSortBy.titleAscending;
 
-  /// Returns whether notes should be sorted alphabetically (Z → A).
+  /// Returns whether notes should be sorted alphabetically (Z–A).
   bool get isTitleDescending => this == NoteSortBy.titleDescending;
 
   /// Converts a persisted value into a [NoteSortBy].
   ///
-  /// If the supplied value is:
-  ///
-  /// - `null`
-  /// - empty
-  /// - unsupported
-  ///
-  /// the default value ([NoteSortBy.newest]) is returned.
+  /// Returns [NoteSortBy.newest] for `null`, empty, or unsupported values.
   static NoteSortBy fromValue(String? value) {
-    if (value == null || value.trim().isEmpty) {
+    final normalized = value?.trim().toLowerCase();
+
+    if (normalized == null || normalized.isEmpty) {
       return NoteSortBy.newest;
     }
 
-    final normalizedValue = value.trim().toLowerCase();
-
-    return NoteSortBy.values.firstWhere(
-      (sortBy) => sortBy.value == normalizedValue,
+    return values.firstWhere(
+      (sortBy) => sortBy.value == normalized,
       orElse: () => NoteSortBy.newest,
     );
   }
 
   /// Returns whether the supplied value represents a supported sorting option.
   static bool isSupported(String? value) {
-    if (value == null || value.trim().isEmpty) {
+    final normalized = value?.trim().toLowerCase();
+
+    if (normalized == null || normalized.isEmpty) {
       return false;
     }
 
-    final normalizedValue = value.trim().toLowerCase();
-
-    return NoteSortBy.values.any((sortBy) => sortBy.value == normalizedValue);
+    return values.any((sortBy) => sortBy.value == normalized);
   }
 
-  /// List of all supported persisted sorting values.
-  ///
-  /// Useful for:
-  /// - validation
-  /// - serialization
-  /// - analytics
-  /// - Settings
-  static const List<String> supportedValues = [
-    'newest',
-    'oldest',
-    'title_asc',
-    'title_desc',
-  ];
+  /// Returns the display name for a persisted sorting value.
+  static String displayNameOf(String? value) => fromValue(value).displayName;
+
+  /// All supported persisted sorting values.
+  static List<String> get supportedValues =>
+      values.map((sortBy) => sortBy.value).toList(growable: false);
 }

@@ -6,31 +6,33 @@ import 'package:flutter/foundation.dart';
 import '../constants/api_constants.dart';
 import '../services/logger_service.dart';
 
-/// ============================================================================
+/// =============================================================================
 /// File: dio_interceptor.dart
-/// ============================================================================
+/// =============================================================================
 ///
-/// Enterprise Dio Interceptor
+/// Enterprise Dio Interceptor.
 ///
 /// Responsibilities
-/// ----------------------------------------------------------------------------
-/// • Adds common HTTP headers.
+/// -----------------------------------------------------------------------------
+/// • Adds default HTTP headers.
 /// • Attaches JWT access token.
-/// • Provides detailed JWT debugging.
-/// • Logs requests/responses/errors.
 /// • Measures request duration.
-/// • No business logic.
-/// ============================================================================
-
+/// • Logs requests, responses, and errors (Debug only).
+/// • Sanitizes sensitive headers before logging.
+/// • Contains no business logic.
+///
+/// =============================================================================
 @immutable
 final class DioInterceptor extends Interceptor {
   const DioInterceptor({required this.tokenProvider});
 
+  /// Returns the current JWT access token.
   final Future<String?> Function() tokenProvider;
 
-  static const String _requestStartKey = '_request_start_time';
   static const String _requestIdKey = '_request_id';
-  static const int _maxLogLength = 2000;
+  static const String _stopwatchKey = '_stopwatch';
+
+  static const int _maxLogLength = 1500;
 
   // ===========================================================================
   // REQUEST
@@ -42,6 +44,10 @@ final class DioInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     try {
+      // -----------------------------------------------------------------------
+      // Default Headers
+      // -----------------------------------------------------------------------
+
       options.headers.putIfAbsent(
         ApiConstants.acceptHeader,
         () => ApiConstants.applicationJson,
@@ -52,60 +58,25 @@ final class DioInterceptor extends Interceptor {
         () => ApiConstants.applicationJson,
       );
 
+      // -----------------------------------------------------------------------
+      // Authorization
+      // -----------------------------------------------------------------------
+
       final String? token = await tokenProvider();
 
       if (token != null && token.trim().isNotEmpty) {
-        final String authHeader = ApiConstants.bearerToken(token);
-
-        options.headers[ApiConstants.authorizationHeader] = authHeader;
-
-        if (kDebugMode) {
-          LoggerService.info('''
-==================== JWT DEBUG ====================
-
-Token Exists:
-YES
-
-Token Length:
-${token.length}
-
-Token Preview:
-${token.substring(0, math.min(token.length, 40))}...
-
-Authorization Header:
-$authHeader
-
-Authorization Header Length:
-${authHeader.length}
-
-Request URL:
-${options.uri}
-
-Request Path:
-${options.path}
-
-===================================================
-''');
-        }
-      } else {
-        LoggerService.warning('''
-==================== JWT DEBUG ====================
-
-NO ACCESS TOKEN FOUND
-
-Request:
-${options.uri}
-
-This request will be sent WITHOUT Authorization header.
-
-===================================================
-''');
+        options.headers[ApiConstants.authorizationHeader] =
+            ApiConstants.bearerToken(token);
       }
 
-      final String requestId = DateTime.now().microsecondsSinceEpoch.toString();
+      // -----------------------------------------------------------------------
+      // Request Metadata
+      // -----------------------------------------------------------------------
 
-      options.extra[_requestStartKey] = DateTime.now();
-      options.extra[_requestIdKey] = requestId;
+      options.extra[_requestIdKey] = DateTime.now().microsecondsSinceEpoch
+          .toString();
+
+      options.extra[_stopwatchKey] = Stopwatch()..start();
 
       _logRequest(options);
 
@@ -144,23 +115,18 @@ This request will be sent WITHOUT Authorization header.
   }
 
   // ===========================================================================
-  // REQUEST LOG
+  // REQUEST LOGGING
   // ===========================================================================
 
   void _logRequest(RequestOptions options) {
     if (!kDebugMode) return;
 
     LoggerService.info('''
-==================== HTTP REQUEST ====================
+────────────────── HTTP REQUEST ──────────────────
 
-ID:
-${options.extra[_requestIdKey]}
-
-Method:
-${options.method}
-
-URL:
-${options.uri}
+ID       : ${options.extra[_requestIdKey]}
+Method   : ${options.method}
+URL      : ${options.uri}
 
 Headers:
 ${_sanitizeHeaders(options.headers)}
@@ -168,84 +134,60 @@ ${_sanitizeHeaders(options.headers)}
 Body:
 ${_truncate(options.data)}
 
-======================================================
+──────────────────────────────────────────────────
 ''');
   }
 
   // ===========================================================================
-  // RESPONSE LOG
+  // RESPONSE LOGGING
   // ===========================================================================
 
   void _logResponse(Response response) {
     if (!kDebugMode) return;
 
-    final DateTime? started =
-        response.requestOptions.extra[_requestStartKey] as DateTime?;
+    final Stopwatch? stopwatch =
+        response.requestOptions.extra[_stopwatchKey] as Stopwatch?;
 
-    final String elapsed = started == null
-        ? '-'
-        : '${DateTime.now().difference(started).inMilliseconds} ms';
+    stopwatch?.stop();
 
     LoggerService.info('''
-==================== HTTP RESPONSE ===================
+────────────────── HTTP RESPONSE ─────────────────
 
-ID:
-${response.requestOptions.extra[_requestIdKey]}
-
-Status:
-${response.statusCode}
-
-Method:
-${response.requestOptions.method}
-
-URL:
-${response.requestOptions.uri}
-
-Elapsed:
-$elapsed
+ID       : ${response.requestOptions.extra[_requestIdKey]}
+Status   : ${response.statusCode}
+Method   : ${response.requestOptions.method}
+URL      : ${response.requestOptions.uri}
+Elapsed  : ${stopwatch?.elapsedMilliseconds ?? '-'} ms
 
 Response:
 ${_truncate(response.data)}
 
-======================================================
+──────────────────────────────────────────────────
 ''');
   }
 
   // ===========================================================================
-  // ERROR LOG
+  // ERROR LOGGING
   // ===========================================================================
 
   void _logError(DioException exception) {
     if (!kDebugMode) return;
 
-    final DateTime? started =
-        exception.requestOptions.extra[_requestStartKey] as DateTime?;
+    final Stopwatch? stopwatch =
+        exception.requestOptions.extra[_stopwatchKey] as Stopwatch?;
 
-    final String elapsed = started == null
-        ? '-'
-        : '${DateTime.now().difference(started).inMilliseconds} ms';
+    stopwatch?.stop();
 
     LoggerService.error(
       '''
-===================== HTTP ERROR =====================
+──────────────────── HTTP ERROR ──────────────────
 
-ID:
-${exception.requestOptions.extra[_requestIdKey]}
-
-Type:
-${exception.type}
-
-Status:
-${exception.response?.statusCode}
-
-Method:
-${exception.requestOptions.method}
-
-URL:
-${exception.requestOptions.uri}
-
-Elapsed:
-$elapsed
+ID       : ${exception.requestOptions.extra[_requestIdKey]}
+Type     : ${exception.type}
+Status   : ${exception.response?.statusCode}
+Method   : ${exception.requestOptions.method}
+URL      : ${exception.requestOptions.uri}
+Elapsed  : ${stopwatch?.elapsedMilliseconds ?? '-'} ms
 
 Message:
 ${exception.message}
@@ -253,7 +195,7 @@ ${exception.message}
 Response:
 ${_truncate(exception.response?.data)}
 
-======================================================
+──────────────────────────────────────────────────
 ''',
       error: exception,
       stackTrace: exception.stackTrace,
@@ -269,7 +211,7 @@ ${_truncate(exception.response?.data)}
 
     if (sanitized.containsKey(ApiConstants.authorizationHeader)) {
       sanitized[ApiConstants.authorizationHeader] =
-          'Bearer ****************************';
+          '${ApiConstants.bearerPrefix} ********';
     }
 
     return sanitized;
@@ -286,6 +228,6 @@ ${_truncate(exception.response?.data)}
       return text;
     }
 
-    return '${text.substring(0, math.min(text.length, _maxLogLength))}\n...<truncated>';
+    return '${text.substring(0, math.min(text.length, _maxLogLength))}\n... <truncated>';
   }
 }

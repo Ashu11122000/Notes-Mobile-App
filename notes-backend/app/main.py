@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 ===============================================================================
 File: main.py
@@ -6,41 +8,36 @@ File: main.py
 Notes Backend API
 
 Responsibilities
-----------------------------------------------------------------------------
-- Create and configure the FastAPI application.
-- Configure middleware.
+-------------------------------------------------------------------------------
+- Configure FastAPI application.
+- Register middleware.
 - Register API routers.
-- Initialize database tables during development.
-- Expose health check endpoints.
+- Manage application lifecycle.
+- Provide health endpoints.
+- Configure OpenAPI.
 
-Notes
-----------------------------------------------------------------------------
-- FastAPI
+Compatible With
+-------------------------------------------------------------------------------
+- FastAPI 0.136+
 - SQLAlchemy 2.x
+- Alembic
+- Docker
+- Flutter
 - Pydantic V2
-- Docker Ready
-- Flutter Ready
-- Production Ready
+===============================================================================
 """
 
-from __future__ import annotations
-
-import os
+import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.trustedhost import TrustedHostMiddleware
+from sqlalchemy import text
 
 from app.api.routes import auth, note
 from app.core.config import settings
-from app.db.base import Base
-from app.db.session import engine
-
-# Ensure SQLAlchemy registers models.
-from app.models.note import Note  # noqa: F401
-from app.models.user import User  # noqa: F401
+from app.db.session import SessionLocal
 
 __all__ = ("app",)
 
@@ -49,7 +46,6 @@ __all__ = ("app",)
 # =============================================================================
 
 API_PREFIX = "/api/v1"
-API_VERSION = "1.0.0"
 
 OPENAPI_TAGS = [
     {
@@ -60,64 +56,64 @@ OPENAPI_TAGS = [
         "name": "Notes",
         "description": "Notes CRUD operations.",
     },
+    {
+        "name": "System",
+        "description": "Application health and status.",
+    },
 ]
 
+logger = logging.getLogger(__name__)
 
 # =============================================================================
-# Helpers
-# =============================================================================
-
-
-def _is_running_tests() -> bool:
-    """
-    Return True when the application is started by pytest.
-    """
-    return (
-        "PYTEST_CURRENT_TEST" in os.environ
-        or "pytest" in os.path.basename(os.getenv("_", "")).lower()
-    )
-
-
-# =============================================================================
-# Application Lifespan
+# Lifespan
 # =============================================================================
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_: FastAPI):
     """
-    Startup / Shutdown events.
+    Application startup/shutdown.
 
-    During pytest, database tables are created by the SQLite
-    fixtures, therefore we skip PostgreSQL initialization.
+    Database schema is managed using Alembic migrations.
     """
 
-    if not _is_running_tests():
-        Base.metadata.create_all(bind=engine)
+    logger.info(
+        "Starting %s v%s (%s)",
+        settings.APP_NAME,
+        settings.APP_VERSION,
+        settings.ENVIRONMENT,
+    )
 
     yield
 
+    logger.info(
+        "Stopping %s",
+        settings.APP_NAME,
+    )
+
 
 # =============================================================================
-# FastAPI Application
+# FastAPI
 # =============================================================================
 
 app = FastAPI(
     title=settings.APP_NAME,
+    version=settings.APP_VERSION,
     description="""
-Production-ready RESTful backend built with FastAPI.
+Production-ready RESTful backend.
 
-## Features
+Features
 
 - JWT Authentication
 - User Management
 - Notes CRUD
 - Pagination
-- Role-Based Access Control (RBAC)
-- Docker Support
-- OpenAPI Documentation
+- RBAC
+- Docker Ready
+- PostgreSQL
+- SQLAlchemy 2.x
+- Alembic
 """,
-    version=API_VERSION,
     debug=settings.DEBUG,
     lifespan=lifespan,
     openapi_tags=OPENAPI_TAGS,
@@ -130,15 +126,8 @@ Production-ready RESTful backend built with FastAPI.
 # =============================================================================
 
 app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["*"] if settings.IS_DEVELOPMENT else ["localhost"],
-)
-
-app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-    ],
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -149,30 +138,58 @@ app.add_middleware(
 # =============================================================================
 
 
-@app.get("/", summary="API Root")
+@app.get(
+    "/",
+    tags=["System"],
+    summary="API Root",
+)
 def root() -> dict[str, Any]:
+    """
+    Root endpoint.
+    """
+
     return {
         "service": settings.APP_NAME,
-        "version": API_VERSION,
+        "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
         "status": "running",
+        "docs": "/docs" if settings.IS_DEVELOPMENT else None,
     }
 
 
 # =============================================================================
-# Health
+# Health Check
 # =============================================================================
 
 
-@app.get("/health", summary="Health Check")
-def health_check() -> dict[str, str]:
+@app.get(
+    "/health",
+    tags=["System"],
+    summary="Health Check",
+)
+def health() -> dict[str, str]:
+    """
+    Health endpoint used by Docker.
+    """
+
+    database_status = "healthy"
+
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+    except Exception:
+        database_status = "unhealthy"
+
     return {
         "status": "healthy",
+        "database": database_status,
+        "environment": settings.ENVIRONMENT,
+        "version": settings.APP_VERSION,
     }
 
 
 # =============================================================================
-# Routes
+# Routers
 # =============================================================================
 
 app.include_router(

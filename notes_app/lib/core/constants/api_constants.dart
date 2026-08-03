@@ -2,49 +2,40 @@ import 'package:flutter/material.dart';
 
 import '../config/app_config.dart';
 
-/// ============================================================================
+/// =============================================================================
 /// File: api_constants.dart
-/// ============================================================================
+/// =============================================================================
 ///
-/// Centralized API endpoint constants.
+/// Centralized REST API definitions.
 ///
 /// Responsibilities
-/// ----------------------------------------------------------------------------
-/// • Defines backend REST endpoints.
+/// -----------------------------------------------------------------------------
+/// • Defines REST endpoints.
 /// • Defines HTTP headers.
 /// • Defines MIME types.
-/// • Provides endpoint helpers.
-/// • Keeps API paths separated from environment configuration.
+/// • Provides authorization helpers.
+/// • Provides endpoint helper methods.
 ///
 /// Base URL belongs to AppConfig.
-/// Endpoints belong here.
+/// Endpoint paths belong here.
 ///
-/// Architecture
-/// ----------------------------------------------------------------------------
-/// DioClient
-///      ↓
-/// AppConfig (Base URL)
-///      ↓
-/// ApiConstants (Paths)
-///      ↓
-/// FastAPI
-///
-/// ============================================================================
+/// =============================================================================
 
 @immutable
 final class ApiConstants {
   const ApiConstants._();
 
   // ===========================================================================
-  // API VERSION
+  // API
   // ===========================================================================
 
-  /// API version prefix.
+  static const String apiVersion = AppConfig.apiVersion;
+
+  /// Complete API root.
   ///
   /// Example:
-  /// /api/v1
-  ///
-  static const String apiVersion = AppConfig.apiVersion;
+  /// http://10.0.2.2:8000/api/v1
+  static String get apiBaseUrl => AppConfig.apiBaseUrl;
 
   // ===========================================================================
   // HTTP HEADERS
@@ -56,9 +47,13 @@ final class ApiConstants {
 
   static const String acceptHeader = 'Accept';
 
+  static const String cacheControlHeader = 'Cache-Control';
+
   static const String userAgentHeader = 'User-Agent';
 
-  static const String cacheControlHeader = 'Cache-Control';
+  static const String ifNoneMatchHeader = 'If-None-Match';
+
+  static const String etagHeader = 'ETag';
 
   // ===========================================================================
   // MIME TYPES
@@ -78,84 +73,68 @@ final class ApiConstants {
 
   static const String bearerTokenPrefix = '$bearerPrefix ';
 
-  static String bearerToken(String token) {
-    return '$bearerTokenPrefix$token';
-  }
+  static String bearerToken(String token) => '$bearerTokenPrefix$token';
 
   // ===========================================================================
-  // AUTHENTICATION ENDPOINTS
-  // ===========================================================================
-  //
-  // FastAPI:
-  //
-  // /api/v1/auth/register
-  // /api/v1/auth/login
-  // /api/v1/auth/me
-  //
+  // AUTH
   // ===========================================================================
 
   static const String auth = '$apiVersion/auth';
 
-  /// Register user.
   static const String register = '$auth/register';
 
-  /// Login user.
   static const String login = '$auth/login';
 
-  /// Current logged-in user.
   static const String currentUser = '$auth/me';
 
   // ===========================================================================
-  // NOTES ENDPOINTS
-  // ===========================================================================
-  //
-  // FastAPI:
-  //
-  // GET    /api/v1/notes
-  // POST   /api/v1/notes
-  // PUT    /api/v1/notes/{id}
-  // PATCH  /api/v1/notes/{id}
-  // DELETE /api/v1/notes/{id}
-  //
+  // NOTES
   // ===========================================================================
 
   static const String notes = '$apiVersion/notes';
 
-  static String noteById(int noteId) {
-    return '$notes/$noteId';
-  }
+  static String noteById(int noteId) => '$notes/$noteId';
 
   // ===========================================================================
-  // HEALTH CHECK
+  // HEALTH
   // ===========================================================================
 
   static const String health = '/health';
 
   // ===========================================================================
-  // ENDPOINT SECURITY HELPERS
+  // AUTH HELPERS
   // ===========================================================================
 
-  static bool requiresAuthentication(String endpoint) {
-    switch (endpoint) {
-      case register:
-      case login:
-      case health:
-        return false;
+  static const Set<String> _publicEndpoints = <String>{register, login, health};
 
-      default:
-        return true;
-    }
+  static bool requiresAuthentication(String endpoint) {
+    return !_publicEndpoints.contains(endpoint);
   }
 
   // ===========================================================================
-  // DEBUG HELPERS
+  // URL HELPERS
   // ===========================================================================
 
-  static String fullEndpoint(String endpoint) {
-    if (endpoint.startsWith('/')) {
-      return endpoint;
-    }
+  /// Returns a normalized endpoint path.
+  ///
+  /// Example:
+  ///
+  /// notes
+  /// ->
+  /// /notes
+  static String normalizeEndpoint(String endpoint) {
+    return endpoint.startsWith('/') ? endpoint : '/$endpoint';
+  }
 
-    return '/$endpoint';
+  /// Builds a complete request URL.
+  ///
+  /// Example:
+  ///
+  /// buildUrl(login)
+  ///
+  /// ->
+  /// http://10.0.2.2:8000/api/v1/auth/login
+  static String buildUrl(String endpoint) {
+    return '$apiBaseUrl${normalizeEndpoint(endpoint)}';
   }
 }

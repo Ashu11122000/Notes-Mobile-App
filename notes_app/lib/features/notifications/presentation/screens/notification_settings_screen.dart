@@ -10,7 +10,7 @@ import '../widgets/reminder_title.dart';
 /// File: notification_settings_screen.dart
 /// ============================================================================
 ///
-/// Notification Settings Screen
+/// Notification Settings Screen.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
@@ -20,12 +20,6 @@ import '../widgets/reminder_title.dart';
 /// • Selects reminder time.
 /// • Sends test notifications.
 /// • Cancels notifications.
-///
-/// Does NOT:
-/// ----------------------------------------------------------------------------
-/// • Schedule reminders directly.
-/// • Access NotificationService.
-/// • Handle notification business rules.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
@@ -47,195 +41,264 @@ final class NotificationSettingsScreen extends StatefulWidget {
 
 final class _NotificationSettingsScreenState
     extends State<NotificationSettingsScreen> {
-  TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+  // ===========================================================================
+  // Constants
+  // ===========================================================================
+
+  static const TimeOfDay _defaultReminderTime = TimeOfDay(hour: 9, minute: 0);
+
+  static const EdgeInsets _screenPadding = EdgeInsets.all(16);
+
+  // ===========================================================================
+  // Local State
+  // ===========================================================================
+
+  TimeOfDay _selectedTime = _defaultReminderTime;
+
+  // ===========================================================================
+  // Lifecycle
+  // ===========================================================================
 
   @override
   void initState() {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
       context.read<NotificationProvider>().initialize();
     });
   }
 
+  // ===========================================================================
+  // Build
+  // ===========================================================================
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<NotificationProvider>(
-      builder: (context, provider, child) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Notification Settings'),
-
-            centerTitle: true,
-          ),
-
-          body: SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-
-              children: [
-                // ============================================================
-                // Notifications Toggle
-                // ============================================================
-                const NotificationToggle(),
-
-                const SizedBox(height: 16),
-
-                // ============================================================
-                // Daily Reminder
-                // ============================================================
-                Card(
-                  clipBehavior: Clip.antiAlias,
-
-                  child: SwitchListTile(
-                    secondary: const Icon(Icons.repeat_rounded),
-
-                    title: const Text('Daily Reminder'),
-
-                    subtitle: const Text('Repeat reminder every day.'),
-
-                    value: provider.dailyReminderEnabled,
-
-                    onChanged: provider.notificationsEnabled
-                        ? (value) async {
-                            await provider.setDailyReminderEnabled(value);
-                          }
-                        : null,
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // ============================================================
-                // Reminder Time
-                // ============================================================
-                ReminderTimePicker(
-                  selectedTime: _selectedTime,
-
-                  enabled: provider.notificationsEnabled,
-
-                  onTimeSelected: (time) {
-                    setState(() {
-                      _selectedTime = time;
-                    });
-                  },
-                ),
-
-                const SizedBox(height: 16),
-
-                // ============================================================
-                // Reminder Preview
-                // ============================================================
-                ReminderTile(
-                  title: 'Daily Notes Reminder',
-
-                  time: _selectedTime,
-
-                  enabled: provider.notificationsEnabled,
-
-                  onEdit: () async {
-                    final TimeOfDay? time = await showTimePicker(
-                      context: context,
-
-                      initialTime: _selectedTime,
-                    );
-
-                    if (time == null) {
-                      return;
-                    }
-
-                    setState(() {
-                      _selectedTime = time;
-                    });
-                  },
-                ),
-
-                const SizedBox(height: 32),
-
-                // ============================================================
-                // Test Notification
-                // ============================================================
-                FilledButton.icon(
-                  icon: const Icon(Icons.notifications_active_outlined),
-
-                  label: const Text('Send Test Notification'),
-
-                  onPressed: provider.notificationsEnabled
-                      ? () async {
-                          await provider.sendTestNotification();
-
-                          if (!context.mounted) {
-                            return;
-                          }
-
-                          _showMessage(
-                            context,
-                            'Test notification sent successfully.',
-                          );
-                        }
-                      : null,
-                ),
-
-                const SizedBox(height: 12),
-
-                // ============================================================
-                // Cancel Notifications
-                // ============================================================
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.notifications_off_outlined),
-
-                  label: const Text('Cancel All Notifications'),
-
-                  onPressed: provider.notificationsEnabled
-                      ? () async {
-                          await provider.cancelAllNotifications();
-
-                          if (!context.mounted) {
-                            return;
-                          }
-
-                          _showMessage(context, 'All notifications cancelled.');
-                        }
-                      : null,
-                ),
-
-                const SizedBox(height: 12),
-
-                // ============================================================
-                // Reset
-                // ============================================================
-                TextButton.icon(
-                  icon: const Icon(Icons.restart_alt_rounded),
-
-                  label: const Text('Reset Preferences'),
-
-                  onPressed: () async {
-                    await provider.resetPreferences();
-
-                    if (!context.mounted) {
-                      return;
-                    }
-
-                    setState(() {
-                      _selectedTime = const TimeOfDay(hour: 9, minute: 0);
-                    });
-
-                    _showMessage(context, 'Notification preferences reset.');
-                  },
-                ),
-              ],
-            ),
-          ),
+    final bool notificationsEnabled = context
+        .select<NotificationProvider, bool>(
+          (NotificationProvider provider) => provider.notificationsEnabled,
         );
-      },
+
+    final bool dailyReminderEnabled = context
+        .select<NotificationProvider, bool>(
+          (NotificationProvider provider) => provider.dailyReminderEnabled,
+        );
+
+    final bool isLoading = context.select<NotificationProvider, bool>(
+      (NotificationProvider provider) => provider.isLoading,
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Notification Settings'),
+
+        centerTitle: true,
+      ),
+
+      body: SafeArea(
+        child: ListView(
+          padding: _screenPadding,
+
+          children: <Widget>[
+            const NotificationToggle(),
+
+            const SizedBox(height: 16),
+
+            Card(
+              clipBehavior: Clip.antiAlias,
+
+              child: SwitchListTile.adaptive(
+                secondary: const Icon(Icons.repeat_rounded),
+
+                title: const Text('Daily Reminder'),
+
+                subtitle: const Text('Repeat reminder every day.'),
+
+                value: dailyReminderEnabled,
+
+                onChanged: !notificationsEnabled || isLoading
+                    ? null
+                    : (bool value) async {
+                        await context
+                            .read<NotificationProvider>()
+                            .setDailyReminderEnabled(value);
+                      },
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            ReminderTimePicker(
+              selectedTime: _selectedTime,
+
+              enabled: notificationsEnabled && !isLoading,
+
+              onTimeSelected: _updateReminderTime,
+            ),
+
+            const SizedBox(height: 16),
+
+            ReminderTile(
+              title: 'Daily Notes Reminder',
+
+              time: _selectedTime,
+
+              enabled: notificationsEnabled && !isLoading,
+
+              onEdit: _openReminderTimePicker,
+            ),
+
+            const SizedBox(height: 32),
+
+            // ===========================================================================
+            // Test Notification
+            // ===========================================================================
+            FilledButton.icon(
+              icon: const Icon(Icons.notifications_active_outlined),
+
+              label: const Text('Send Test Notification'),
+
+              onPressed: notificationsEnabled && !isLoading
+                  ? _sendTestNotification
+                  : null,
+            ),
+
+            const SizedBox(height: 12),
+
+            // ===========================================================================
+            // Cancel Notifications
+            // ===========================================================================
+            OutlinedButton.icon(
+              icon: const Icon(Icons.notifications_off_outlined),
+
+              label: const Text('Cancel All Notifications'),
+
+              onPressed: notificationsEnabled && !isLoading
+                  ? _cancelNotifications
+                  : null,
+            ),
+
+            const SizedBox(height: 12),
+
+            // ===========================================================================
+            // Reset Preferences
+            // ===========================================================================
+            TextButton.icon(
+              icon: const Icon(Icons.restart_alt_rounded),
+
+              label: const Text('Reset Preferences'),
+
+              onPressed: isLoading ? null : _resetPreferences,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  // ==========================================================================
-  // Snackbar Helper
-  // ==========================================================================
+  // ===========================================================================
+  // Update Reminder Time
+  // ===========================================================================
 
-  void _showMessage(BuildContext context, String message) {
+  void _updateReminderTime(TimeOfDay time) {
+    setState(() {
+      _selectedTime = time;
+    });
+  }
+
+  // ===========================================================================
+  // Open Reminder Picker
+  // ===========================================================================
+
+  Future<void> _openReminderTimePicker() async {
+    final TimeOfDay? selected = await showTimePicker(
+      context: context,
+
+      initialTime: _selectedTime,
+    );
+
+    if (selected == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedTime = selected;
+    });
+  }
+
+  // ===========================================================================
+  // Send Test Notification
+  // ===========================================================================
+
+  Future<void> _sendTestNotification() async {
+    final NotificationProvider provider = context.read<NotificationProvider>();
+
+    await provider.sendTestNotification();
+
+    if (!mounted) {
+      return;
+    }
+
+    _showMessage(
+      provider.hasError
+          ? provider.errorMessage ?? 'Failed to send notification.'
+          : 'Test notification sent successfully.',
+    );
+  }
+
+  // ===========================================================================
+  // Cancel All Notifications
+  // ===========================================================================
+
+  Future<void> _cancelNotifications() async {
+    final NotificationProvider provider = context.read<NotificationProvider>();
+
+    await provider.cancelAllNotifications();
+
+    if (!mounted) {
+      return;
+    }
+
+    _showMessage(
+      provider.hasError
+          ? provider.errorMessage ?? 'Failed to cancel notifications.'
+          : 'All notifications cancelled.',
+    );
+  }
+
+  // ===========================================================================
+  // Reset Preferences
+  // ===========================================================================
+
+  Future<void> _resetPreferences() async {
+    final NotificationProvider provider = context.read<NotificationProvider>();
+
+    await provider.resetPreferences();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedTime = _defaultReminderTime;
+    });
+
+    _showMessage(
+      provider.hasError
+          ? provider.errorMessage ?? 'Failed to reset preferences.'
+          : 'Notification preferences reset.',
+    );
+  }
+
+  // ===========================================================================
+  // Snackbar Helper
+  // ===========================================================================
+
+  void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );

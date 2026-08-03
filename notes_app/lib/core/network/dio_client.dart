@@ -7,87 +7,89 @@ import '../services/logger_service.dart';
 import '../storage/session_manager.dart';
 import 'dio_interceptor.dart';
 
-/// ============================================================================
+/// =============================================================================
 /// File: dio_client.dart
-/// ============================================================================
+/// =============================================================================
 ///
-/// Enterprise Dio Client.
+/// Enterprise Dio client.
 ///
 /// Responsibilities
-/// ----------------------------------------------------------------------------
-/// • Provides singleton Dio instance.
-/// • Configures HTTP client.
-/// • Applies global headers.
+/// -----------------------------------------------------------------------------
+/// • Provides a singleton Dio instance.
+/// • Configures global networking options.
 /// • Registers global interceptors.
-/// • Shares one Dio instance across the application.
-/// • Provides production-ready networking configuration.
+/// • Applies default headers.
+/// • Optimized for FastAPI backend.
 ///
 /// Architecture
-/// ----------------------------------------------------------------------------
+/// -----------------------------------------------------------------------------
 /// UI
-///      ↓
+///     ↓
 /// Repository
-///      ↓
+///     ↓
 /// DioClient
-///      ↓
+///     ↓
 /// DioInterceptor
-///      ↓
+///     ↓
 /// FastAPI
 ///
-/// ============================================================================
-
+/// =============================================================================
 final class DioClient {
   DioClient._internal() {
-    _dio = Dio(_baseOptions());
+    _dio = Dio(_createBaseOptions());
 
-    _registerInterceptors();
+    _configureInterceptors();
 
-    if (kDebugMode) {
+    if (AppConfig.isDebug) {
       LoggerService.info(
         'Dio initialized successfully.\n'
-        'Base URL : ${AppConfig.baseUrl}',
+        'Base URL: ${AppConfig.baseUrl}',
       );
     }
   }
 
-  static final DioClient _instance = DioClient._internal();
+  static final DioClient _singleton = DioClient._internal();
 
   late final Dio _dio;
 
-  /// Shared singleton instance.
-  static Dio get instance => _instance._dio;
+  /// Shared Dio instance.
+  static Dio get instance => _singleton._dio;
 
   // ===========================================================================
   // Base Options
   // ===========================================================================
 
-  static BaseOptions _baseOptions() {
+  static BaseOptions _createBaseOptions() {
     return BaseOptions(
+      // NOTE:
+      // Using baseUrl instead of apiBaseUrl because ApiConstants
+      // already contains /api/v1.
       baseUrl: AppConfig.baseUrl,
 
       connectTimeout: AppConfig.connectTimeout,
-
       receiveTimeout: AppConfig.receiveTimeout,
-
       sendTimeout: AppConfig.sendTimeout,
 
       responseType: ResponseType.json,
 
       contentType: ApiConstants.applicationJson,
 
-      followRedirects: false,
-
-      persistentConnection: true,
-
-      validateStatus: (status) =>
-          status != null && status >= 200 && status < 300,
-
       headers: const <String, dynamic>{
         ApiConstants.acceptHeader: ApiConstants.applicationJson,
         ApiConstants.contentTypeHeader: ApiConstants.applicationJson,
         ApiConstants.userAgentHeader: 'NotesApp/1.0',
-        'Accept-Encoding': 'gzip',
-        'Connection': 'keep-alive',
+      },
+
+      followRedirects: false,
+
+      persistentConnection: true,
+
+      receiveDataWhenStatusError: true,
+
+      listFormat: ListFormat.multiCompatible,
+
+      validateStatus: (int? status) {
+        return status != null;
       },
     );
   }
@@ -96,27 +98,16 @@ final class DioClient {
   // Interceptors
   // ===========================================================================
 
-  void _registerInterceptors() {
-    _dio.interceptors.clear();
-
+  void _configureInterceptors() {
     _dio.interceptors.add(
       DioInterceptor(
         tokenProvider: () async {
-          final token = SessionManager.getAccessToken();
-
-          if (kDebugMode) {
-            LoggerService.info(
-              'SessionManager returned token: '
-              '${token == null ? "NULL" : "Length ${token.length}"}',
-            );
-          }
-
-          return token;
+          return SessionManager.getAccessToken();
         },
       ),
     );
 
-    if (kDebugMode) {
+    if (AppConfig.isDebug) {
       _dio.interceptors.add(
         LogInterceptor(
           request: true,

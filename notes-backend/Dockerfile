@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # =============================================================================
 # Base Image
 # =============================================================================
@@ -5,7 +7,7 @@
 FROM python:3.12-slim
 
 # =============================================================================
-# Environment Configuration
+# Environment
 # =============================================================================
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -20,41 +22,44 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # =============================================================================
-# System Dependencies
+# System Packages
 # =============================================================================
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
-        gcc \
         libpq-dev \
+        wget \
     && rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
-# Install Python Dependencies
+# Python Dependencies
 # =============================================================================
 
 COPY requirements.txt .
 
-RUN pip install --upgrade pip \
-    && pip install -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
 # =============================================================================
-# Copy Application
+# Application
 # =============================================================================
 
 COPY . .
 
 # =============================================================================
-# Create Non-Root User
+# Non-root User
 # =============================================================================
 
-RUN useradd --create-home --shell /bin/bash appuser \
-    && chown -R appuser:appuser /app
+RUN useradd \
+    --create-home \
+    --shell /usr/sbin/nologin \
+    appuser \
+ && chown -R appuser:appuser /app
 
 USER appuser
 
 # =============================================================================
-# Expose Port
+# Port
 # =============================================================================
 
 EXPOSE 8000
@@ -63,11 +68,15 @@ EXPOSE 8000
 # Health Check
 # =============================================================================
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')" || exit 1
+HEALTHCHECK \
+    --interval=30s \
+    --timeout=5s \
+    --start-period=20s \
+    --retries=3 \
+CMD wget --quiet --tries=1 --spider http://127.0.0.1:8000/health || exit 1
 
 # =============================================================================
-# Start Application
+# Start
 # =============================================================================
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0","--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port","8000", "--workers", "1", "--proxy-headers"]

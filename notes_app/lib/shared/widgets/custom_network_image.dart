@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// ============================================================================
@@ -6,30 +8,22 @@ import 'package:flutter/material.dart';
 ///
 /// Enterprise Material 3 network image widget.
 ///
-/// This widget provides a consistent, lightweight, and theme-aware way of
-/// displaying images loaded from the network.
+/// Lightweight theme-aware image component designed for:
 ///
-/// The implementation intentionally uses Flutter's built-in [Image.network]
-/// to avoid introducing additional dependencies. The public API is designed so
-/// that a caching implementation (for example, `cached_network_image`) can be
-/// adopted in the future without affecting callers.
+/// - Note attachments
+/// - Avatars
+/// - Gallery previews
+/// - Cover images
 ///
 /// Features:
 ///
-/// - Theme-aware placeholder
-/// - Graceful error handling
-/// - Fade-in image appearance
+/// - Material 3 styling
+/// - Memory optimized decoding
+/// - Graceful loading state
+/// - Error handling
 /// - Rounded corners
 /// - Accessibility support
-/// - Gapless playback
-/// - Configurable filter quality
-///
-/// Typical use cases:
-///
-/// - Note attachments
-/// - User avatars
-/// - Gallery previews
-/// - Cover images
+/// - Low rendering overhead
 @immutable
 final class CustomNetworkImage extends StatelessWidget {
   /// Creates a reusable network image.
@@ -42,9 +36,11 @@ final class CustomNetworkImage extends StatelessWidget {
     this.borderRadius = 12,
     this.semanticLabel,
     this.filterQuality = FilterQuality.medium,
+    this.cacheWidth,
+    this.cacheHeight,
   });
 
-  /// URL of the image.
+  /// Image URL.
   final String imageUrl;
 
   /// Image width.
@@ -53,7 +49,7 @@ final class CustomNetworkImage extends StatelessWidget {
   /// Image height.
   final double? height;
 
-  /// How the image should be inscribed into its bounds.
+  /// Image fit.
   final BoxFit fit;
 
   /// Corner radius.
@@ -62,11 +58,18 @@ final class CustomNetworkImage extends StatelessWidget {
   /// Accessibility label.
   final String? semanticLabel;
 
-  /// Image filter quality.
-  ///
-  /// Defaults to [FilterQuality.medium] which provides a good balance between
-  /// visual quality and rendering performance.
+  /// Image rendering quality.
   final FilterQuality filterQuality;
+
+  /// Target decoded image width.
+  ///
+  /// Reduces memory usage.
+  final int? cacheWidth;
+
+  /// Target decoded image height.
+  ///
+  /// Reduces memory usage.
+  final int? cacheHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -85,69 +88,87 @@ final class CustomNetworkImage extends StatelessWidget {
           height: height,
           fit: fit,
           filterQuality: filterQuality,
+          cacheWidth: cacheWidth,
+          cacheHeight: cacheHeight,
           gaplessPlayback: true,
-          frameBuilder:
-              (
-                BuildContext context,
-                Widget child,
-                int? frame,
-                bool wasSynchronouslyLoaded,
-              ) {
-                if (wasSynchronouslyLoaded) {
-                  return child;
-                }
 
-                return AnimatedOpacity(
-                  opacity: frame == null ? 0 : 1,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  child: child,
-                );
-              },
-          loadingBuilder:
-              (
-                BuildContext context,
-                Widget child,
-                ImageChunkEvent? loadingProgress,
-              ) {
-                if (loadingProgress == null) {
-                  return child;
-                }
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) {
+              return child;
+            }
 
-                return SizedBox(
-                  width: width,
-                  height: height,
-                  child: ColoredBox(
-                    color: theme.colorScheme.surfaceContainerLow,
-                    child: const Center(
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-          errorBuilder:
-              (BuildContext context, Object error, StackTrace? stackTrace) {
-                return ColoredBox(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  child: SizedBox(
-                    width: width,
-                    height: height,
-                    child: Center(
-                      child: Icon(
-                        Icons.image_not_supported_outlined,
-                        color: theme.colorScheme.outline,
-                        size: 40,
-                      ),
-                    ),
-                  ),
-                );
-              },
+            return _Placeholder(
+              width: width,
+              height: height,
+              color: theme.colorScheme.surfaceContainerLow,
+            );
+          },
+
+          errorBuilder: (context, error, stackTrace) {
+            return _ErrorPlaceholder(
+              width: width,
+              height: height,
+              color: theme.colorScheme.surfaceContainerHighest,
+              iconColor: theme.colorScheme.outline,
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+@immutable
+final class _Placeholder extends StatelessWidget {
+  const _Placeholder({
+    required this.width,
+    required this.height,
+    required this.color,
+  });
+
+  final double? width;
+  final double? height;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: ColoredBox(color: color),
+    );
+  }
+}
+
+@immutable
+final class _ErrorPlaceholder extends StatelessWidget {
+  const _ErrorPlaceholder({
+    required this.width,
+    required this.height,
+    required this.color,
+    required this.iconColor,
+  });
+
+  final double? width;
+  final double? height;
+  final Color color;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final smallestDimension = math.min(width ?? 80, height ?? 80);
+
+    return SizedBox(
+      width: width,
+      height: height,
+      child: ColoredBox(
+        color: color,
+        child: Center(
+          child: Icon(
+            Icons.image_not_supported_outlined,
+            size: smallestDimension * 0.35,
+            color: iconColor,
+          ),
         ),
       ),
     );

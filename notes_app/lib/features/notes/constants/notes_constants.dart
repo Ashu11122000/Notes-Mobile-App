@@ -7,16 +7,20 @@
 // Responsibilities
 // ----------------------------------------------------------------------------
 // - Centralize Notes-specific configuration.
-// - Avoid magic numbers and hardcoded strings.
+// - Eliminate magic numbers and hardcoded strings.
 // - Provide reusable values across the Notes feature.
 //
 // Notes
 // ----------------------------------------------------------------------------
-// API endpoints belong in [ApiConstants].
-// This file contains only Notes feature constants.
+// - API endpoints belong in ApiConstants.
+// - This file contains only Notes feature constants.
 //
 // ============================================================================
 
+/// Centralized constants used throughout the Notes feature.
+///
+/// Keeping all feature-specific configuration in one location improves
+/// maintainability, consistency, and discoverability.
 final class NotesConstants {
   const NotesConstants._();
 
@@ -24,50 +28,54 @@ final class NotesConstants {
   // Pagination
   // ===========================================================================
 
-  /// Default number of notes per page.
+  /// Default number of notes requested per page.
+  ///
+  /// Must remain synchronized with the backend default if pagination
+  /// behavior depends on a shared page size.
   static const int defaultPageSize = 10;
 
-  /// Initial page number.
+  /// First page index used by the backend.
   static const int initialPage = 1;
 
   // ===========================================================================
   // Validation
   // ===========================================================================
 
-  /// Minimum title length.
+  /// Minimum allowed title length.
   static const int minTitleLength = 1;
 
-  /// Maximum title length.
+  /// Maximum allowed title length.
   static const int maxTitleLength = 255;
 
-  /// Maximum content length.
+  /// Maximum allowed note content length.
   ///
-  /// Matches the current backend implementation where the content is stored
-  /// in a SQLAlchemy String column. Adjust if the backend introduces a limit.
+  /// Matches the current FastAPI backend implementation.
+  /// Update only if the backend validation changes.
   static const int maxContentLength = 5000;
 
   // ===========================================================================
   // UI
   // ===========================================================================
 
-  /// Scroll offset (in pixels) before loading the next page.
+  /// Distance from the bottom of a scrollable list before requesting
+  /// the next page of notes.
   static const double paginationThreshold = 200.0;
 
-  /// Default animation duration.
+  /// Default animation duration used throughout the Notes feature.
   static const Duration animationDuration = Duration(milliseconds: 300);
 
   // ===========================================================================
   // Search
   // ===========================================================================
 
-  /// Debounce duration for search input.
+  /// Delay before executing a search after user input.
   static const Duration searchDebounce = Duration(milliseconds: 400);
 
   // ===========================================================================
   // Hero Tags
   // ===========================================================================
 
-  /// Hero tag for the Notes floating action button.
+  /// Hero tag for the Notes FloatingActionButton.
   static const String notesFabHeroTag = 'notes_fab';
 
   // ===========================================================================

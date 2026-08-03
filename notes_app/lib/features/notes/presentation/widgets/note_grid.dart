@@ -8,22 +8,14 @@ import 'pagination_loader.dart';
 /// File: note_grid.dart
 /// ============================================================================
 ///
-/// Reusable Notes Grid.
+/// Responsive Notes Grid.
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Displays notes in a responsive grid.
-/// • Handles pagination footer rendering.
-/// • Delegates user actions through callbacks.
+/// • Displays notes in a performant grid.
+/// • Supports pagination footer.
+/// • Delegates interactions through callbacks.
 /// • Contains no business logic.
-///
-/// Architecture
-/// ----------------------------------------------------------------------------
-/// NotesListScreen
-///        ↓
-///     NoteGrid
-///        ↓
-///     NoteCard
 ///
 /// ============================================================================
 
@@ -35,9 +27,9 @@ final class NoteGrid extends StatelessWidget {
     this.isLoadingMore = false,
     this.crossAxisCount = 2,
     this.childAspectRatio = 0.9,
-    this.crossAxisSpacing = 16,
-    this.mainAxisSpacing = 16,
-    this.padding = const EdgeInsets.all(16),
+    this.crossAxisSpacing = 16.0,
+    this.mainAxisSpacing = 16.0,
+    this.padding = const EdgeInsets.all(16.0),
     this.onNoteTap,
     this.onEdit,
     this.onDelete,
@@ -49,13 +41,13 @@ final class NoteGrid extends StatelessWidget {
   /// Optional scroll controller.
   final ScrollController? controller;
 
-  /// Shows pagination loader.
+  /// Displays pagination loader.
   final bool isLoadingMore;
 
-  /// Number of grid columns.
+  /// Number of columns.
   final int crossAxisCount;
 
-  /// Card aspect ratio.
+  /// Child aspect ratio.
   final double childAspectRatio;
 
   /// Horizontal spacing.
@@ -67,31 +59,33 @@ final class NoteGrid extends StatelessWidget {
   /// Grid padding.
   final EdgeInsetsGeometry padding;
 
-  /// Note click callback.
+  /// Note tapped.
   final ValueChanged<Note>? onNoteTap;
 
-  /// Edit callback.
+  /// Edit note.
   final ValueChanged<Note>? onEdit;
 
-  /// Delete callback.
+  /// Delete note.
   final ValueChanged<Note>? onDelete;
 
   // ===========================================================================
   // Constants
   // ===========================================================================
 
-  static const double _cacheExtent = 800;
+  static const double _cacheExtent = 500.0;
 
   @override
   Widget build(BuildContext context) {
-    final int columns = crossAxisCount < 1 ? 1 : crossAxisCount;
+    final int columns = crossAxisCount.clamp(1, 8);
 
     return GridView.builder(
       controller: controller,
 
+      padding: padding,
+
       cacheExtent: _cacheExtent,
 
-      padding: padding,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
 
       physics: const AlwaysScrollableScrollPhysics(),
 
@@ -114,14 +108,17 @@ final class NoteGrid extends StatelessWidget {
 
         final Note note = notes[index];
 
-        return NoteCard(
-          note: note,
+        return KeyedSubtree(
+          key: ValueKey<int>(note.id),
+          child: NoteCard(
+            note: note,
 
-          onTap: onNoteTap == null ? null : () => onNoteTap!(note),
+            onTap: onNoteTap == null ? null : () => onNoteTap!(note),
 
-          onEdit: onEdit == null ? null : () => onEdit!(note),
+            onEdit: onEdit == null ? null : () => onEdit!(note),
 
-          onDelete: onDelete == null ? null : () => onDelete!(note),
+            onDelete: onDelete == null ? null : () => onDelete!(note),
+          ),
         );
       },
     );

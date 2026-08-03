@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../notifications/models/reminder_model.dart';
+
 import '../providers/notes_provider.dart';
+
 import 'note_content_field.dart';
 import 'note_title_field.dart';
 
@@ -12,31 +14,28 @@ import 'note_title_field.dart';
 /// File: note_form.dart
 /// ============================================================================
 ///
-/// Reusable Note Form.
+/// Enterprise Note Form.
+///
+/// Shared between:
+/// • Create Note
+/// • Edit Note
 ///
 /// Responsibilities
 /// ----------------------------------------------------------------------------
-/// • Shared form for creating and editing notes.
-/// • Handles validation.
-/// • Handles local UI state.
-/// • Supports image attachment.
-/// • Supports reminder selection.
-/// • Emits final data through callbacks.
-///
-/// Does NOT:
-/// ----------------------------------------------------------------------------
-/// • Call repositories.
-/// • Call APIs.
-/// • Manage business logic.
+/// • Owns only UI state.
+/// • Validates user input.
+/// • Builds reminder information.
+/// • Delegates persistence through callbacks.
+/// • Contains no repository or networking logic.
 ///
 /// Architecture
 /// ----------------------------------------------------------------------------
 /// Screen
-///    ↓
+///     ↓
 /// NoteForm
-///    ↓
-/// onSubmit(...)
-///    ↓
+///     ↓
+/// Callback
+///     ↓
 /// NotesProvider
 ///
 /// ============================================================================
@@ -51,19 +50,19 @@ final class NoteForm extends StatefulWidget {
     required this.onSubmit,
   });
 
-  /// Initial note title.
+  /// Initial title.
   final String initialTitle;
 
-  /// Initial note content.
+  /// Initial content.
   final String initialContent;
 
   /// Submit button label.
   final String submitLabel;
 
-  /// Controls loading state.
+  /// Loading indicator.
   final bool isLoading;
 
-  /// Called when form is successfully submitted.
+  /// Called after successful validation.
   final Future<void> Function(
     String title,
     String? content,
@@ -76,7 +75,7 @@ final class NoteForm extends StatefulWidget {
 }
 
 /// ============================================================================
-/// Form State
+/// State
 /// ============================================================================
 
 final class _NoteFormState extends State<NoteForm> {
@@ -85,6 +84,14 @@ final class _NoteFormState extends State<NoteForm> {
   // ===========================================================================
 
   static const int _maxReminderYears = 5;
+
+  static const double _sectionSpacing = 20.0;
+
+  static const double _fieldSpacing = 16.0;
+
+  static const double _buttonSpacing = 24.0;
+
+  static const double _bottomSpacing = 12.0;
 
   // ===========================================================================
   // Form
@@ -101,7 +108,7 @@ final class _NoteFormState extends State<NoteForm> {
   final FocusNode _contentFocusNode = FocusNode();
 
   // ===========================================================================
-  // Reminder State
+  // Reminder
   // ===========================================================================
 
   bool _reminderEnabled = false;
@@ -109,6 +116,21 @@ final class _NoteFormState extends State<NoteForm> {
   DateTime? _selectedDate;
 
   TimeOfDay? _selectedTime;
+
+  // ===========================================================================
+  // Getters
+  // ===========================================================================
+
+  bool get _hasReminder =>
+      _reminderEnabled && _selectedDate != null && _selectedTime != null;
+
+  String get _trimmedTitle => _titleController.text.trim();
+
+  String? get _trimmedContent {
+    final String value = _contentController.text.trim();
+
+    return value.isEmpty ? null : value;
+  }
 
   // ===========================================================================
   // Lifecycle
@@ -141,19 +163,24 @@ final class _NoteFormState extends State<NoteForm> {
   // ===========================================================================
 
   Future<void> _pickReminderDate() async {
+    if (widget.isLoading) {
+      return;
+    }
+
     final DateTime now = DateTime.now();
 
     final DateTime? pickedDate = await showDatePicker(
       context: context,
-
-      firstDate: now,
-
-      lastDate: DateTime(now.year + _maxReminderYears),
-
       initialDate: _selectedDate ?? now,
+      firstDate: now,
+      lastDate: DateTime(now.year + _maxReminderYears),
     );
 
-    if (pickedDate == null) {
+    if (pickedDate == null || pickedDate == _selectedDate) {
+      return;
+    }
+
+    if (!mounted) {
       return;
     }
 
@@ -163,13 +190,20 @@ final class _NoteFormState extends State<NoteForm> {
   }
 
   Future<void> _pickReminderTime() async {
+    if (widget.isLoading) {
+      return;
+    }
+
     final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
-
       initialTime: _selectedTime ?? TimeOfDay.now(),
     );
 
-    if (pickedTime == null) {
+    if (pickedTime == null || pickedTime == _selectedTime) {
+      return;
+    }
+
+    if (!mounted) {
       return;
     }
 
@@ -179,6 +213,10 @@ final class _NoteFormState extends State<NoteForm> {
   }
 
   void _toggleReminder(bool enabled) {
+    if (_reminderEnabled == enabled) {
+      return;
+    }
+
     setState(() {
       _reminderEnabled = enabled;
 
@@ -190,6 +228,10 @@ final class _NoteFormState extends State<NoteForm> {
   }
 
   void _clearReminder() {
+    if (!_reminderEnabled && _selectedDate == null && _selectedTime == null) {
+      return;
+    }
+
     setState(() {
       _reminderEnabled = false;
       _selectedDate = null;
@@ -198,27 +240,23 @@ final class _NoteFormState extends State<NoteForm> {
   }
 
   DateTime? _buildReminderDateTime() {
-    if (_selectedDate == null || _selectedTime == null) {
+    final DateTime? date = _selectedDate;
+    final TimeOfDay? time = _selectedTime;
+
+    if (date == null || time == null) {
       return null;
     }
 
     final DateTime scheduledAt = DateTime(
-      _selectedDate!.year,
-      _selectedDate!.month,
-      _selectedDate!.day,
-      _selectedTime!.hour,
-      _selectedTime!.minute,
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
     );
 
-    if (scheduledAt.isBefore(DateTime.now())) {
-      return null;
-    }
-
-    return scheduledAt;
+    return scheduledAt.isAfter(DateTime.now()) ? scheduledAt : null;
   }
-
-  bool get _hasValidReminder =>
-      _reminderEnabled && _buildReminderDateTime() != null;
 
   // ===========================================================================
   // Submit
@@ -233,7 +271,7 @@ final class _NoteFormState extends State<NoteForm> {
 
     ReminderModel? reminder;
 
-    if (_reminderEnabled) {
+    if (_hasReminder) {
       final DateTime? scheduledAt = _buildReminderDateTime();
 
       if (scheduledAt == null) {
@@ -241,14 +279,17 @@ final class _NoteFormState extends State<NoteForm> {
           return;
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Please select a valid future date and time for the reminder.',
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              behavior: SnackBarBehavior.floating,
+              content: Text(
+                'Please select a future '
+                'date and time.',
+              ),
             ),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+          );
 
         return;
       }
@@ -258,11 +299,9 @@ final class _NoteFormState extends State<NoteForm> {
 
         noteId: 0,
 
-        title: _titleController.text.trim(),
+        title: _trimmedTitle,
 
-        body: _contentController.text.trim().isEmpty
-            ? 'Reminder for your note'
-            : _contentController.text.trim(),
+        body: _trimmedContent ?? 'Reminder for your note',
 
         scheduledAt: scheduledAt,
 
@@ -270,114 +309,145 @@ final class _NoteFormState extends State<NoteForm> {
       );
     }
 
-    await widget.onSubmit(
-      _titleController.text.trim(),
-
-      _contentController.text.trim().isEmpty
-          ? null
-          : _contentController.text.trim(),
-
-      reminder,
-    );
+    await widget.onSubmit(_trimmedTitle, _trimmedContent, reminder);
   }
 
   // ===========================================================================
-  // Widgets
+  // UI Helpers
   // ===========================================================================
 
-  Widget _AttachmentCard({
-    required NotesProvider provider,
-    required bool enabled,
-  }) {
+  Widget _buildAttachmentCard(BuildContext context, NotesProvider provider) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
+
+    final bool enabled = !widget.isLoading;
+    final File? image = provider.selectedImage;
+
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: <Widget>[
-            Icon(
-              Icons.attach_file_outlined,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+            Icon(Icons.attach_file_outlined, color: colorScheme.primary),
+
             const SizedBox(width: 12),
+
             Expanded(
               child: Text(
-                enabled ? 'Attachment support available' : 'Attachment unavailable while saving',
-                style: Theme.of(context).textTheme.bodyMedium,
+                image == null
+                    ? 'No image selected'
+                    : image.path.split(Platform.pathSeparator).last,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodyMedium,
               ),
             ),
+
+            IconButton(
+              tooltip: 'Pick image',
+
+              onPressed: enabled ? provider.pickImageFromGallery : null,
+
+              icon: const Icon(Icons.image_outlined),
+            ),
+
+            if (image != null)
+              IconButton(
+                tooltip: 'Remove image',
+
+                onPressed: enabled ? provider.removeSelectedImage : null,
+
+                icon: const Icon(Icons.close_rounded),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _ReminderCard({
-    required bool enabled,
-    required bool reminderEnabled,
-    required DateTime? selectedDate,
-    required TimeOfDay? selectedTime,
-    required bool hasValidReminder,
-    required void Function(bool) onToggle,
-    required VoidCallback onPickDate,
-    required VoidCallback onPickTime,
-    required VoidCallback onClear,
-  }) {
+  Widget _buildReminderCard(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final TextTheme textTheme = theme.textTheme;
+
     return Card(
       margin: EdgeInsets.zero,
+
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+
           children: <Widget>[
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              value: reminderEnabled,
-              onChanged: enabled ? onToggle : null,
+
               title: const Text('Reminder'),
-              subtitle: const Text('Set a reminder for this note'),
+
+              subtitle: const Text('Notify me later'),
+
+              value: _reminderEnabled,
+
+              onChanged: widget.isLoading ? null : _toggleReminder,
             ),
-            if (reminderEnabled) ...<Widget>[
-              const SizedBox(height: 4),
+
+            if (_reminderEnabled) ...<Widget>[
+              const SizedBox(height: 8),
+
               Row(
                 children: <Widget>[
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: enabled ? onPickDate : null,
+                      onPressed: widget.isLoading ? null : _pickReminderDate,
+
                       icon: const Icon(Icons.calendar_today_outlined),
+
                       label: Text(
-                        selectedDate == null
-                            ? 'Pick date'
-                            : '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
+                        _selectedDate == null
+                            ? 'Date'
+                            : '${_selectedDate!.day}/'
+                                  '${_selectedDate!.month}/'
+                                  '${_selectedDate!.year}',
                       ),
                     ),
                   ),
+
                   const SizedBox(width: 12),
+
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: enabled ? onPickTime : null,
-                      icon: const Icon(Icons.access_time),
+                      onPressed: widget.isLoading ? null : _pickReminderTime,
+
+                      icon: const Icon(Icons.schedule_outlined),
+
                       label: Text(
-                        selectedTime == null
-                            ? 'Pick time'
-                            : selectedTime.format(context),
+                        _selectedTime == null
+                            ? 'Time'
+                            : _selectedTime!.format(context),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+
+              const SizedBox(height: 12),
+
               Row(
                 children: <Widget>[
-                  Text(
-                    hasValidReminder
-                        ? 'Reminder is ready'
-                        : 'Select a future date and time',
-                    style: Theme.of(context).textTheme.bodySmall,
+                  Expanded(
+                    child: Text(
+                      _buildReminderDateTime() != null
+                          ? 'Reminder ready'
+                          : 'Select a future date & time',
+                      style: textTheme.bodySmall,
+                    ),
                   ),
-                  const Spacer(),
+
                   TextButton(
-                    onPressed: enabled ? onClear : null,
+                    onPressed: widget.isLoading ? null : _clearReminder,
+
                     child: const Text('Clear'),
                   ),
                 ],
@@ -395,103 +465,158 @@ final class _NoteFormState extends State<NoteForm> {
 
   @override
   Widget build(BuildContext context) {
-    final NotesProvider provider = context.watch<NotesProvider>();
+    final bool hasSelectedImage = context.select<NotesProvider, bool>(
+      (NotesProvider provider) => provider.selectedImage != null,
+    );
+
+    final File? selectedImage = context.select<NotesProvider, File?>(
+      (NotesProvider provider) => provider.selectedImage,
+    );
+
+    final NotesProvider provider = context.read<NotesProvider>();
+
+    final MediaQueryData mediaQuery = MediaQuery.of(context);
+
+    final double bottomInset = mediaQuery.viewInsets.bottom;
 
     return Form(
       key: _formKey,
+      child: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
 
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        padding: EdgeInsets.only(bottom: bottomInset),
 
-        children: <Widget>[
-          // ===================================================================
-          // Title
-          // ===================================================================
-          NoteTitleField(
-            controller: _titleController,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
 
-            focusNode: _titleFocusNode,
+          children: <Widget>[
+            // ===============================================================
+            // Title
+            // ===============================================================
+            NoteTitleField(
+              controller: _titleController,
+              focusNode: _titleFocusNode,
+              enabled: !widget.isLoading,
+              onSubmitted: (_) {
+                _contentFocusNode.requestFocus();
+              },
+            ),
 
-            enabled: !widget.isLoading,
+            const SizedBox(height: _fieldSpacing),
 
-            onSubmitted: (_) {
-              _contentFocusNode.requestFocus();
-            },
-          ),
-
-          const SizedBox(height: 16),
-
-          // ===================================================================
-          // Content
-          // ===================================================================
-          Expanded(
-            child: NoteContentField(
+            // ===============================================================
+            // Content
+            // ===============================================================
+            NoteContentField(
               controller: _contentController,
-
               focusNode: _contentFocusNode,
-
               enabled: !widget.isLoading,
             ),
-          ),
 
-          const SizedBox(height: 20),
+            const SizedBox(height: _sectionSpacing),
 
-          // ===================================================================
-          // Image Attachment
-          // ===================================================================
-          _AttachmentCard(provider: provider, enabled: !widget.isLoading),
+            // ===============================================================
+            // Attachment
+            // ===============================================================
+            _buildAttachmentCard(context, provider),
 
-          const SizedBox(height: 20),
+            if (hasSelectedImage && selectedImage != null) ...<Widget>[
+              const SizedBox(height: 12),
 
-          // ===================================================================
-          // Reminder
-          // ===================================================================
-          _ReminderCard(
-            enabled: !widget.isLoading,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
 
-            reminderEnabled: _reminderEnabled,
+                child: Image.file(
+                  selectedImage,
+                  height: 160,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
 
-            selectedDate: _selectedDate,
+                  filterQuality: FilterQuality.low,
+                ),
+              ),
+            ],
 
-            selectedTime: _selectedTime,
+            const SizedBox(height: _sectionSpacing),
 
-            hasValidReminder: _hasValidReminder,
+            // ===============================================================
+            // Reminder
+            // ===============================================================
+            _buildReminderCard(context),
 
-            onToggle: _toggleReminder,
+            const SizedBox(height: _buttonSpacing),
 
-            onPickDate: _pickReminderDate,
-
-            onPickTime: _pickReminderTime,
-
-            onClear: _clearReminder,
-          ),
-
-          const SizedBox(height: 24),
-
-          // ===================================================================
-          // Submit Button
-          // ===================================================================
-          SizedBox(
-            width: double.infinity,
-
-            child: FilledButton.icon(
+            // ===============================================================
+            // Submit Button
+            // ===============================================================
+            FilledButton.icon(
               onPressed: widget.isLoading ? null : _submit,
 
               icon: widget.isLoading
                   ? const SizedBox(
-                      height: 18,
                       width: 18,
+                      height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.save_outlined),
 
               label: Text(widget.submitLabel),
             ),
-          ),
 
-          const SizedBox(height: 12),
-        ],
+            const SizedBox(height: _bottomSpacing),
+          ],
+        ),
       ),
     );
+  }
+
+  // ===========================================================================
+  // Utility Helpers
+  // ===========================================================================
+
+  /// Clears keyboard focus.
+  ///
+  /// Useful after a successful submit.
+  void _dismissKeyboard() {
+    final FocusScopeNode focusScope = FocusScope.of(context);
+
+    if (!focusScope.hasPrimaryFocus) {
+      focusScope.unfocus();
+    }
+  }
+
+  /// Resets reminder state.
+  ///
+  /// Does not clear the text fields because they may still be needed
+  /// after a failed submission.
+  void _resetReminderState() {
+    if (!_reminderEnabled && _selectedDate == null && _selectedTime == null) {
+      return;
+    }
+
+    setState(() {
+      _reminderEnabled = false;
+      _selectedDate = null;
+      _selectedTime = null;
+    });
+  }
+
+  /// Clears the selected image through the provider.
+  void _clearSelectedImage(NotesProvider provider) {
+    if (provider.selectedImage == null) {
+      return;
+    }
+
+    provider.removeSelectedImage();
+  }
+
+  /// Resets transient UI state after a successful save.
+  ///
+  /// This intentionally does not clear the form fields because
+  /// create/edit screens may have different navigation flows.
+  void _afterSuccessfulSubmit(NotesProvider provider) {
+    _dismissKeyboard();
+    _resetReminderState();
+    _clearSelectedImage(provider);
   }
 }

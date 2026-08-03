@@ -6,22 +6,32 @@ import '../../../../shared/widgets/app_logo.dart';
 /// File: auth_header.dart
 /// ============================================================================
 ///
-/// A reusable header for authentication screens.
+/// Authentication Header
 ///
-/// Displays:
-/// • Application logo
-/// • Screen title
-/// • Supporting subtitle
+/// Responsibilities
+/// ----------------------------------------------------------------------------
+/// • Displays the application logo.
+/// • Displays the authentication screen title.
+/// • Displays a supporting subtitle.
+/// • Provides a reusable header for authentication screens.
 ///
-/// Shared between:
+/// Used By
+/// ----------------------------------------------------------------------------
 /// • Login Screen
 /// • Register Screen
 /// • Forgot Password Screen (future)
 ///
-/// Lightweight, reusable, accessible and Material 3 compliant.
+/// Performance
+/// ----------------------------------------------------------------------------
+/// • Stateless widget
+/// • const-friendly
+/// • Small widget tree
+/// • Material 3 compliant
+/// • Accessible
+/// • Optimized for low-memory devices
 /// ============================================================================
 
-class AuthHeader extends StatelessWidget {
+final class AuthHeader extends StatelessWidget {
   /// Creates an authentication header.
   const AuthHeader({
     super.key,
@@ -37,8 +47,8 @@ class AuthHeader extends StatelessWidget {
     vertical: 32,
   );
 
-  static const SizedBox _largeSpacing = SizedBox(height: 24);
-  static const SizedBox _smallSpacing = SizedBox(height: 8);
+  static const SizedBox _logoSpacing = SizedBox(height: 24);
+  static const SizedBox _textSpacing = SizedBox(height: 8);
 
   /// Primary heading.
   final String title;
@@ -52,13 +62,14 @@ class AuthHeader extends StatelessWidget {
   /// Outer padding.
   final EdgeInsetsGeometry padding;
 
-  /// Horizontal alignment of the content.
+  /// Horizontal alignment.
   final CrossAxisAlignment alignment;
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme textTheme = Theme.of(context).textTheme;
-    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final colorScheme = theme.colorScheme;
 
     return Semantics(
       container: true,
@@ -66,25 +77,30 @@ class AuthHeader extends StatelessWidget {
       child: Padding(
         padding: padding,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: alignment,
           children: <Widget>[
             AppLogo(size: logoSize, showTitle: false),
 
-            _largeSpacing,
+            _logoSpacing,
 
             Text(
               title,
               textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
 
-            _smallSpacing,
+            _textSpacing,
 
             Text(
               subtitle,
               textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
               style: textTheme.bodyLarge?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
