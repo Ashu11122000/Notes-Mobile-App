@@ -21,6 +21,10 @@ import 'logger_service.dart';
 ///
 /// This service must be initialized once during application startup.
 ///
+/// Compatible with:
+/// • flutter_timezone ^5.1.0
+/// • timezone ^0.11.x
+///
 /// ============================================================================
 @immutable
 final class TimezoneService {
@@ -50,33 +54,32 @@ final class TimezoneService {
     }
 
     try {
+      // Load timezone database.
       tz.initializeTimeZones();
 
-      final String rawTimezone = await FlutterTimezone.getLocalTimezone();
+      final dynamic rawTimezone = await FlutterTimezone.getLocalTimezone();
+      final String timezoneName = rawTimezone is String
+          ? rawTimezone
+          : (rawTimezone.timezone as String? ?? 'UTC');
 
-      final String timezone = _legacyTimezones[rawTimezone] ?? rawTimezone;
-
-      final tz.Location location;
+      final String timezone =
+          _legacyTimezones[timezoneName] ?? timezoneName;
 
       try {
-        location = tz.getLocation(timezone);
+        final tz.Location location = tz.getLocation(timezone);
+
+        tz.setLocalLocation(location);
+
+        LoggerService.info('Timezone initialized: ${location.name}');
       } catch (_) {
         LoggerService.warning(
           'Unknown timezone "$timezone". Falling back to UTC.',
         );
 
         tz.setLocalLocation(tz.UTC);
-
-        _initialized = true;
-
-        return;
       }
 
-      tz.setLocalLocation(location);
-
       _initialized = true;
-
-      LoggerService.info('Timezone initialized: ${location.name}');
     } catch (exception, stackTrace) {
       LoggerService.error(
         'Timezone initialization failed.',
