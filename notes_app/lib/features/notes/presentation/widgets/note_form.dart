@@ -310,6 +310,14 @@ final class _NoteFormState extends State<NoteForm> {
     }
 
     await widget.onSubmit(_trimmedTitle, _trimmedContent, reminder);
+
+    if (!mounted) {
+      return;
+    }
+
+    final NotesProvider provider = context.read<NotesProvider>();
+
+    _afterSuccessfulSubmit(provider);
   }
 
   // ===========================================================================
