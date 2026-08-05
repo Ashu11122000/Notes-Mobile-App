@@ -110,7 +110,7 @@ void main() {
 // ============================================================================
 
 final class _StartupErrorApp extends StatelessWidget {
-  const _StartupErrorApp({super.key});
+  const _StartupErrorApp();
 
   @override
   Widget build(BuildContext context) {

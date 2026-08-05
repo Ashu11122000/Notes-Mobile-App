@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 /// - Bottom sheets
 /// - Profile screens
 /// - Forms
+/// ============================================================================
 @immutable
 final class CustomDivider extends StatelessWidget {
   /// Creates a reusable Material 3 divider.
@@ -59,10 +60,10 @@ final class CustomDivider extends StatelessWidget {
 
 @immutable
 final class _DividerContent extends StatelessWidget {
-  const _DividerContent({super.key});
+  const _DividerContent();
 
   @override
   Widget build(BuildContext context) {
-    return ExcludeSemantics(child: Divider());
+    return const ExcludeSemantics(child: Divider());
   }
 }
