@@ -97,7 +97,10 @@ final class DioInterceptor extends Interceptor {
   // ===========================================================================
 
   @override
-  void onResponse(Response response, ResponseInterceptorHandler handler) {
+  void onResponse(
+  Response<dynamic> response,
+  ResponseInterceptorHandler handler,
+) {
     _logResponse(response);
 
     handler.next(response);
@@ -108,10 +111,10 @@ final class DioInterceptor extends Interceptor {
   // ===========================================================================
 
   @override
-  void onError(DioException exception, ErrorInterceptorHandler handler) {
-    _logError(exception);
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    _logError(err);
 
-    handler.next(exception);
+    handler.next(err);
   }
 
   // ===========================================================================
@@ -142,7 +145,7 @@ ${_truncate(options.data)}
   // RESPONSE LOGGING
   // ===========================================================================
 
-  void _logResponse(Response response) {
+  void _logResponse(Response<dynamic> response) {
     if (!kDebugMode) return;
 
     final Stopwatch? stopwatch =

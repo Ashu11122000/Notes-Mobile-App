@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -22,7 +21,6 @@ import 'logger_service.dart';
 /// This service must be initialized once during application startup.
 ///
 /// ============================================================================
-@immutable
 final class TimezoneService {
   TimezoneService._();
 
@@ -52,7 +50,10 @@ final class TimezoneService {
     try {
       tz.initializeTimeZones();
 
-      final String rawTimezone = await FlutterTimezone.getLocalTimezone();
+      final TimezoneInfo timezoneInfo =
+          await FlutterTimezone.getLocalTimezone();
+
+      final String rawTimezone = timezoneInfo.identifier;
 
       final String timezone = _legacyTimezones[rawTimezone] ?? rawTimezone;
 
