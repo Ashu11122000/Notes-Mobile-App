@@ -43,7 +43,6 @@ final class NoteDetailScreen extends StatelessWidget {
 
     final ThemeData theme = Theme.of(context);
     final TextTheme textTheme = theme.textTheme;
-    final ColorScheme colorScheme = theme.colorScheme;
 
     return Scaffold(
       appBar: AppBar(
