@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -26,7 +25,6 @@ import 'logger_service.dart';
 /// • timezone ^0.11.x
 ///
 /// ============================================================================
-@immutable
 final class TimezoneService {
   TimezoneService._();
 
