@@ -2,10 +2,15 @@ workflows:
   android-release:
     name: Android Release
 
+    max_build_duration: 60
+
+    instance_type: linux_x2
+
     triggering:
       events:
         - push
         - pull_request
+
       branch_patterns:
         - pattern: main
           include: true
@@ -27,13 +32,13 @@ workflows:
         script: |
           flutter --version
 
-      - name: Show Build Information
+      - name: Build Information
         script: |
-          echo "Workflow Name : $CM_WORKFLOW_NAME"
-          echo "Build Number  : $BUILD_NUMBER"
-          echo "Project Build : $PROJECT_BUILD_NUMBER"
-          echo "Commit        : $CM_COMMIT"
-          echo "Branch        : $CM_BRANCH"
+          echo "Workflow : $CM_WORKFLOW_NAME"
+          echo "Branch   : $CM_BRANCH"
+          echo "Commit   : $CM_COMMIT"
+          echo "Build    : $BUILD_NUMBER"
+          echo "Project  : $PROJECT_BUILD_NUMBER"
 
       - name: Install Dependencies
         script: |
@@ -47,7 +52,7 @@ workflows:
         script: |
           flutter analyze
 
-      - name: Run Tests
+      - name: Run Unit Tests
         script: |
           flutter test
 
@@ -55,19 +60,18 @@ workflows:
         script: |
           flutter build apk \
             --release \
-            --build-name=1.0.$BUILD_NUMBER \
-            --build-number=$BUILD_NUMBER
+            --build-name=1.0.$PROJECT_BUILD_NUMBER \
+            --build-number=$PROJECT_BUILD_NUMBER
 
-      - name: Build Release AAB
+      - name: Build Release App Bundle
         script: |
           flutter build appbundle \
             --release \
-            --build-name=1.0.$BUILD_NUMBER \
-            --build-number=$BUILD_NUMBER
+            --build-name=1.0.$PROJECT_BUILD_NUMBER \
+            --build-number=$PROJECT_BUILD_NUMBER
 
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
-      - build/app/outputs/bundle/release/*.aab
 
     publishing:
       email:
