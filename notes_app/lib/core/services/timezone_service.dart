@@ -50,10 +50,7 @@ final class TimezoneService {
     try {
       tz.initializeTimeZones();
 
-      final TimezoneInfo timezoneInfo =
-          await FlutterTimezone.getLocalTimezone();
-
-      final String rawTimezone = timezoneInfo.identifier;
+      final String rawTimezone = await FlutterTimezone.getLocalTimezone();
 
       final String timezone = _legacyTimezones[rawTimezone] ?? rawTimezone;
 
