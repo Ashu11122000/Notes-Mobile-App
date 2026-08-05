@@ -524,13 +524,12 @@ final class NotesProvider extends ChangeNotifier {
     try {
       final Note note = await _repository.getNoteById(noteId);
 
-      _selectedNote = note;
+      _setSelectedNote(note);
 
       LoggerService.info('Loaded note $noteId.');
 
-      notifyListeners();
-
       return note;
+
     } catch (error, stackTrace) {
       LoggerService.error(
         'Failed to retrieve note.',
