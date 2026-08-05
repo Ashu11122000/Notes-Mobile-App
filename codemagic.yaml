@@ -27,6 +27,14 @@ workflows:
         script: |
           flutter --version
 
+      - name: Show Build Information
+        script: |
+          echo "Workflow Name : $CM_WORKFLOW_NAME"
+          echo "Build Number  : $BUILD_NUMBER"
+          echo "Project Build : $PROJECT_BUILD_NUMBER"
+          echo "Commit        : $CM_COMMIT"
+          echo "Branch        : $CM_BRANCH"
+
       - name: Install Dependencies
         script: |
           flutter pub get
@@ -34,6 +42,10 @@ workflows:
       - name: Generate Code
         script: |
           dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze Code
+        script: |
+          flutter analyze
 
       - name: Run Tests
         script: |
@@ -43,12 +55,14 @@ workflows:
         script: |
           flutter build apk \
             --release \
+            --build-name=1.0.$BUILD_NUMBER \
             --build-number=$BUILD_NUMBER
 
       - name: Build Release AAB
         script: |
           flutter build appbundle \
             --release \
+            --build-name=1.0.$BUILD_NUMBER \
             --build-number=$BUILD_NUMBER
 
     artifacts:
