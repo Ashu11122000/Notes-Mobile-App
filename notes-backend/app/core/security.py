@@ -14,7 +14,7 @@ Compatible with:
 - FastAPI
 - SQLAlchemy
 - python-jose
-- Passlib
+- pwdlib
 ===============================================================================
 """
 
@@ -24,7 +24,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
 
 from app.core.config import settings
 
@@ -40,10 +40,7 @@ __all__ = (
 # Password Hashing
 # =============================================================================
 
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-)
+password_hash = PasswordHash.recommended()
 
 # =============================================================================
 # JWT Configuration
@@ -56,10 +53,10 @@ _DEFAULT_EXPIRY = timedelta(
     minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
 )
 
-
 # =============================================================================
 # Password Helpers
 # =============================================================================
+
 
 def hash_password(password: str) -> str:
     """
@@ -69,7 +66,7 @@ def hash_password(password: str) -> str:
     if not password:
         raise ValueError("Password cannot be empty.")
 
-    return pwd_context.hash(password)
+    return password_hash.hash(password)
 
 
 def verify_password(
@@ -83,7 +80,7 @@ def verify_password(
     if not plain_password or not hashed_password:
         return False
 
-    return pwd_context.verify(
+    return password_hash.verify(
         plain_password,
         hashed_password,
     )
@@ -92,6 +89,7 @@ def verify_password(
 # =============================================================================
 # JWT Helpers
 # =============================================================================
+
 
 def create_access_token(
     data: dict[str, Any],

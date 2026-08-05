@@ -226,11 +226,23 @@ void main() {
     // toString
     //---------------------------------------------------------------------------
 
+    //---------------------------------------------------------------------------
+    // toString
+    //---------------------------------------------------------------------------
+
     test('toString should contain useful information', () {
       final value = MockData.updateRequest.toString();
 
       expect(value, contains('UpdateNoteRequest'));
-      expect(value, contains(TestConstants.updatedNoteTitle));
+
+      // The implementation intentionally reports which fields are updated
+      // instead of exposing the actual title/content.
+      expect(value, contains('hasTitleUpdate'));
+      expect(value, contains('hasContentUpdate'));
+
+      // Sensitive user data should not appear in logs.
+      expect(value, isNot(contains(TestConstants.updatedNoteTitle)));
+      expect(value, isNot(contains(TestConstants.updatedNoteContent)));
     });
   });
 }

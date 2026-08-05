@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/dio_client.dart';
@@ -24,20 +25,6 @@ import '../models/user_model.dart';
 /// • Supports request cancellation.
 /// • Provides consistent request logging.
 /// • Performs lightweight response validation.
-///
-/// Architecture
-/// ----------------------------------------------------------------------------
-/// UI
-///   ↓
-/// Provider / Notifier
-///   ↓
-/// Repository
-///   ↓
-/// AuthRemoteDataSource
-///   ↓
-/// FastAPI
-///
-/// This class intentionally contains no business logic.
 /// ============================================================================
 
 abstract interface class AuthRemoteDataSource {
@@ -80,7 +67,11 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       cancelToken: cancelToken,
     );
 
+    debugPrint('Register JSON: $json');
+
     final model = RegisterResponseModel.fromJson(json);
+
+    debugPrint('Register Model: $model');
 
     return model;
   }
@@ -102,9 +93,9 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       cancelToken: cancelToken,
     );
 
-    final model = LoginResponseModel.fromJson(json);
+    debugPrint('Login JSON: $json');
 
-    return model;
+    return LoginResponseModel.fromJson(json);
   }
 
   // ===========================================================================
@@ -120,9 +111,9 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       cancelToken: cancelToken,
     );
 
-    final model = UserModel.fromJson(json);
+    debugPrint('Current User JSON: $json');
 
-    return model;
+    return UserModel.fromJson(json);
   }
 
   // ===========================================================================
@@ -163,10 +154,31 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           );
       }
 
+      debugPrint('');
+      debugPrint('========== HTTP RESPONSE ==========');
+      debugPrint('Operation : $operation');
+      debugPrint('URL       : ${response.requestOptions.uri}');
+      debugPrint('Status    : ${response.statusCode}');
+      debugPrint('Headers   : ${response.headers.map}');
+      debugPrint('Body      : ${response.data}');
+      debugPrint('===================================');
+      debugPrint('');
+
       _logSuccess(operation: operation, statusCode: response.statusCode);
 
       return _parseResponse(response);
     } on DioException catch (exception, stackTrace) {
+      debugPrint('');
+      debugPrint('========== DIO EXCEPTION ==========');
+      debugPrint('Operation : $operation');
+      debugPrint('Type      : ${exception.type}');
+      debugPrint('Message   : ${exception.message}');
+      debugPrint('Status    : ${exception.response?.statusCode}');
+      debugPrint('Response  : ${exception.response?.data}');
+      debugPrint('Request   : ${exception.requestOptions.uri}');
+      debugPrint('===================================');
+      debugPrint('');
+
       LoggerService.error(
         '$operation request failed.',
         error: exception,
@@ -175,6 +187,14 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
       rethrow;
     } catch (exception, stackTrace) {
+      debugPrint('');
+      debugPrint('======= UNEXPECTED EXCEPTION =======');
+      debugPrint('Operation : $operation');
+      debugPrint('Error     : $exception');
+      debugPrint('Type      : ${exception.runtimeType}');
+      debugPrint('====================================');
+      debugPrint('');
+
       LoggerService.error(
         'Unexpected error during $operation.',
         error: exception,
@@ -199,8 +219,8 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   void _logSuccess({required String operation, required int? statusCode}) {
     LoggerService.info(
-      '$operation completed successfully.'
-      ' Status: ${statusCode ?? 'Unknown'}',
+      '$operation completed successfully. '
+      'Status: ${statusCode ?? "Unknown"}',
     );
   }
 
@@ -208,10 +228,6 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   // Response Parser
   // ===========================================================================
 
-  /// Validates and converts the API response into a JSON map.
-  ///
-  /// This provides an additional safety layer against malformed responses
-  /// returned by the backend, reverse proxies, or unexpected server errors.
   Map<String, dynamic> _parseResponse(Response<dynamic> response) {
     final statusCode = response.statusCode;
 
@@ -243,14 +259,6 @@ final class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 }
 
-/// ============================================================================
-/// Supported HTTP methods.
-///
-/// Using an enum instead of string literals provides:
-/// • Better type safety
-/// • Cleaner switch statements
-/// • Compile-time validation
-/// ============================================================================
 enum _HttpMethod {
   get('GET'),
   post('POST');
