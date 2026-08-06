@@ -30,6 +30,9 @@ import 'app_theme.dart';
 /// ============================================================================
 
 final class NotesApp extends StatelessWidget {
+
+  // Private constructor to prevent instantiation of the class.
+  // {super.key} is a named parameter that is used to pass the key to the superclass constructor.
   const NotesApp({super.key});
 
   @override

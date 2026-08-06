@@ -3,20 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/constants/app_routes.dart';
-
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/register_screen.dart';
 import '../features/auth/presentation/screens/splash_screen.dart';
-
 import '../features/notes/domain/entities/note.dart';
 import '../features/notes/presentation/screens/add_note_screen.dart';
 import '../features/notes/presentation/screens/edit_note_screen.dart';
 import '../features/notes/presentation/screens/note_detail_screen.dart';
 import '../features/notes/presentation/screens/notes_screen.dart';
-
-import '../features/settings/presentation/screens/settings_screen.dart';
-
 import '../features/notifications/presentation/screens/notification_settings_screen.dart';
+import '../features/settings/presentation/screens/settings_screen.dart';
 
 /// ============================================================================
 /// File: app_router.dart
@@ -45,16 +41,24 @@ import '../features/notifications/presentation/screens/notification_settings_scr
 final class AppRouter {
   const AppRouter._();
 
+  // navigatorKey is a property that is used to access the navigator state of the application. It is used to perform navigation between pages.
+  // GlobalKey<NavigatorState> is a class that is used to create a unique key for the navigator state. It is used to access the navigator state from anywhere in the application.
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
 
+  // GoRouter router is a property that is used to define the routes of the application. It is used to navigate between pages/
   static final GoRouter router = GoRouter(
+    // navigatorKey is a property that is used to access the navigator state of the application.
     navigatorKey: navigatorKey,
 
+    // initialLocation is a property that is used to define the initial route of the application. 
     initialLocation: AppRoutes.splash,
 
+    // debugLogDiagnostics is a property that is used to enable or disable debug logging of the router. 
+    // kDebugMode is a constant that is used to determine whether the application is running in debug mode or release mode.
     debugLogDiagnostics: kDebugMode,
 
+    // <RouteBase> is a generic type that is used to define the type of the routes. 
     routes: <RouteBase>[
       // =======================================================================
       // AUTH
