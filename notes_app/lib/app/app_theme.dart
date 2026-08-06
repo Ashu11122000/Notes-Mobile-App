@@ -1,5 +1,8 @@
+// cupertino and material are two different design languages used in Flutter. Cupertino is used for iOS apps, while Material is used for Android apps.
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+
+// google_fonts is a package that allows to use Google Fonts in Flutter applications.
 import 'package:google_fonts/google_fonts.dart';
 
 
@@ -31,6 +34,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 final class AppTheme {
 
+  // Private constructor to prevent instantiation of the class.
   const AppTheme._();
 
 
